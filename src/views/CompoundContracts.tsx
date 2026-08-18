@@ -21,7 +21,7 @@ import {
   Phone, 
   Check, 
   Lock,
-  MessageCircle,
+  MessageCircle, Trash2,
   Clock,
   ChevronRight,
   FileSpreadsheet,
@@ -48,7 +48,10 @@ const getNextPaymentInfo = (c: Contract) => {
   const fallback = (c.installments || [])
     .filter((i: any) => Number(i.paidAmount || 0) < Number(i.amount || 0) && i.status !== 'Cancelled')
     .sort((a: any, b: any) => String(a.dueDate || '').localeCompare(String(b.dueDate || '')))[0];
-  const date = explicitDate || String(fallback?.dueDate || '').slice(0, 10);
+  const rawDate = explicitDate || String(fallback?.dueDate || '');
+  if (!rawDate) return { date: '', days: undefined as number | undefined };
+  const m = rawDate.match(/(\d{4})-(\d{2})-(\d{2})/);
+  const date = m ? `${m[1]}-${m[2]}-${m[3]}` : (() => { const t = Date.parse(rawDate); return Number.isFinite(t) ? new Date(t).toISOString().slice(0,10) : ''; })();
   if (!date) return { date: '', days: undefined as number | undefined };
   const today = new Date();
   const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
@@ -76,6 +79,7 @@ interface CompoundContractsProps {
   onAddContract: (contract: Omit<Contract, 'id'>) => void;
   onUpdateContract: (updated: Contract) => void;
   onToggleArchive: (id: string) => void;
+  onDeleteContract?: (id: string) => Promise<void> | void;
   selectedCompoundId: string;
 }
 
@@ -87,6 +91,7 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
   onAddContract,
   onUpdateContract,
   onToggleArchive,
+  onDeleteContract,
 }) => {
   const { language, t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
@@ -316,6 +321,13 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
     const date = await promptUi({ title: language === 'ar' ? 'إنهاء العقد' : 'Terminate contract', message: language === 'ar' ? 'حدد تاريخ إنهاء العقد لحساب التسوية النهائية.' : 'Select the termination date to calculate the final settlement.', inputLabel: language === 'ar' ? 'تاريخ الإنهاء' : 'Termination date', inputType: 'date', defaultValue: new Date().toISOString().slice(0,10), confirmText: language === 'ar' ? 'حساب التسوية' : 'Calculate', cancelText: language === 'ar' ? 'إلغاء' : 'Cancel', tone: 'warning' }); if(!date) return;
     try { const preview=await apiService.getFinalSettlement(contract.id,date); const msg=language==='ar'?`التسوية النهائية: مستحق ${preview.amountDue||0}، رصيد/استرداد ${preview.refundDue||0}. اكتب سبب الإنهاء للمتابعة.`:`Final settlement: due ${preview.amountDue||0}, refund/credit ${preview.refundDue||0}. Enter termination reason.`; const reason=await promptUi({ title: language === 'ar' ? 'تأكيد التسوية النهائية' : 'Confirm final settlement', message: msg, inputLabel: language === 'ar' ? 'سبب الإنهاء' : 'Termination reason', defaultValue: language==='ar'?'إنهاء العقد':'Termination', confirmText: language === 'ar' ? 'إنهاء العقد' : 'Terminate contract', cancelText: language === 'ar' ? 'رجوع' : 'Back', tone: 'danger' }); if(!reason)return; await apiService.terminateContract(contract.id,date,reason); setActiveModal({type:null,contract:null}); } catch(err){ console.error(err); }
   };
+  const handleDeleteContract = async (contract: Contract) => {
+    if (!onDeleteContract) return;
+    const ok = await confirmUi({ title: language === 'ar' ? 'حذف العقد نهائيًا' : 'Delete contract permanently', message: language === 'ar' ? `سيتم حذف العقد ${contract.contractNo || contract.contractNumber || contract.id} نهائيًا. لا يمكن الحذف إذا كان عليه أي مبلغ مستحق.` : `Contract ${contract.contractNo || contract.contractNumber || contract.id} will be permanently deleted. Deletion is blocked when any balance is outstanding.`, confirmText: language === 'ar' ? 'حذف نهائي' : 'Delete permanently', cancelText: language === 'ar' ? 'إلغاء' : 'Cancel', tone: 'danger' });
+    if (!ok) return;
+    try { await onDeleteContract(contract.id); setOpenDropdownId(null); setDropdownPosition(null); } catch (err) { console.error('Failed to delete contract', err); }
+  };
+
   const handleRenew = async (contract: Contract) => {
     const start=await promptUi({ title: language === 'ar' ? 'تجديد العقد' : 'Renew contract', message: language === 'ar' ? 'حدد تاريخ بداية العقد الجديد.' : 'Select the new contract start date.', inputLabel: language === 'ar' ? 'بداية العقد الجديد' : 'New contract start', inputType: 'date', defaultValue: contract.leaseEndDate || new Date().toISOString().slice(0,10), confirmText: language === 'ar' ? 'التالي' : 'Next', cancelText: language === 'ar' ? 'إلغاء' : 'Cancel' }); if(!start)return;
     const rentRaw=await promptUi({ title: language === 'ar' ? 'قيمة الإيجار الجديد' : 'New annual rent', message: language === 'ar' ? 'أدخل إيجار الوحدة السنوي للعقد الجديد. ستضاف تكلفة المياه تلقائيًا حسب بيانات العقد.' : 'Enter the annual unit rent for the renewed contract. Water cost will be included automatically.', inputLabel: language === 'ar' ? 'إيجار الوحدة السنوي' : 'Annual unit rent', inputType: 'number', defaultValue: String(contract.annualRent||0), confirmText: language === 'ar' ? 'تجديد العقد' : 'Renew contract', cancelText: language === 'ar' ? 'إلغاء' : 'Cancel' }); if(rentRaw===null)return;
@@ -929,6 +941,10 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
                                 <span>{isBlocked ? (language === 'ar' ? 'إلغاء الحظر' : 'Unblock') : (language === 'ar' ? 'حظر العقد' : 'Block')}</span>
                                 <Lock className="w-3.5 h-3.5 text-rose-600" />
                               </button>
+
+                              {onDeleteContract && <button onClick={() => handleDeleteContract(c)} className="w-full text-right px-4 py-2 hover:bg-rose-50 flex items-center justify-between text-rose-700 font-bold">
+                                <span>{language === 'ar' ? 'حذف العقد نهائيًا' : 'Delete permanently'}</span><Trash2 className="w-3.5 h-3.5" />
+                              </button>}
 
                               <div className="border-t border-slate-100 my-1" />
 

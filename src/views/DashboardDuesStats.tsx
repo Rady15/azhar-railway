@@ -18,6 +18,16 @@ interface DashboardDuesStatsProps {
 }
 
 const DONUT_COLORS = ['#10b981', '#f59e0b', '#ef4444', '#64748b'];
+const getNextPayment = (c: Contract) => {
+  const fallback=(c.installments||[]).filter((i:any)=>Number(i.paidAmount||0)<Number(i.amount??i.originalAmount??0)&&i.status!=='Cancelled').sort((a:any,b:any)=>String(a.dueDate||'').localeCompare(String(b.dueDate||'')))[0]?.dueDate;
+  const raw=c.nextPaymentDate||fallback; if(!raw)return {date:'',days:undefined as number|undefined};
+  const str=String(raw),m=str.match(/(\d{4})-(\d{2})-(\d{2})/);
+  const date=m?`${m[1]}-${m[2]}-${m[3]}`:(()=>{const t=Date.parse(str);return Number.isFinite(t)?new Date(t).toISOString().slice(0,10):''})();
+  if(!date)return {date:'',days:undefined as number|undefined};
+  const now=new Date(),today=Date.UTC(now.getFullYear(),now.getMonth(),now.getDate()),[y,mo,d]=date.split('-').map(Number),due=Date.UTC(y,mo-1,d);
+  return {date,days:Math.round((due-today)/86400000)};
+};
+
 
 export const DashboardDuesStats: React.FC<DashboardDuesStatsProps> = ({
   dues = [],
@@ -106,6 +116,9 @@ export const DashboardDuesStats: React.FC<DashboardDuesStatsProps> = ({
         value: c.remainingAmount || 0
       }))
   , [contracts, language]);
+
+  const upcomingPayments = useMemo(() => [...contracts].map(c=>({c,next:getNextPayment(c)})).filter(x=>x.next.date&&x.next.days!==undefined&&Number(x.c.remainingAmount||0)>0).sort((a,b)=>a.next.days!-b.next.days!).slice(0,10).map(x=>({name:language==='ar'?`${x.c.tenantName||'بدون اسم'} / ${x.c.unitNumber} · ${x.next.date}`:`${x.c.unitNumber} · ${x.c.tenantName||''} · ${x.next.date}`,days:x.next.days!,amount:Number(x.c.remainingAmount||0),date:x.next.date})), [contracts,language]);
+  const overduePayments = useMemo(() => upcomingPayments.filter(x=>x.days<0).sort((a,b)=>a.days-b.days).slice(0,8).map(x=>({...x,overdueDays:Math.abs(x.days)})), [upcomingPayments]);
 
   const movements = useMemo(() => {
     const rows: any[] = [];
@@ -352,8 +365,22 @@ export const DashboardDuesStats: React.FC<DashboardDuesStatsProps> = ({
           )}
         </div>
 
-        {/* Recent Payment Movements */}
+        {/* Upcoming Payments by Tenant */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2">
+          <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-1"><CalendarClock className="w-4 h-4 text-cyan-500" />{language === 'ar' ? 'المستأجرون والدفعات القادمة' : 'Tenants & Upcoming Payments'}</h2>
+          <p className="text-[11px] text-slate-500 mb-2">{language === 'ar' ? 'أقرب موعد دفع وعدد الأيام والمبلغ المتبقي' : 'Next due date, remaining days and outstanding amount'}</p>
+          {upcomingPayments.length===0 ? <div className="h-[230px] flex items-center justify-center text-slate-400 text-xs">{language==='ar'?'لا توجد دفعات قادمة مسجلة':'No upcoming payments'}</div> : <ResponsiveContainer width="100%" height={230}><BarChart data={upcomingPayments} layout="vertical" margin={{left:10,right:10}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false}/><XAxis type="number" tick={{fontSize:9}} stroke="#94a3b8"/><YAxis type="category" dataKey="name" tick={{fontSize:9}} stroke="#94a3b8" width={125}/><Tooltip formatter={(v:any)=>[`${v} ${language==='ar'?'يوم':'days'}`,language==='ar'?'الأيام':'Days']}/><Bar dataKey="days" name={language==='ar'?'الأيام':'Days'} fill="#29b4c4" radius={[0,8,8,0]} barSize={12}/></BarChart></ResponsiveContainer>}
+        </div>
+
+        {/* Overdue Tenants */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-1"><AlertTriangle className="w-4 h-4 text-rose-500" />{language === 'ar' ? 'المتأخرون في الدفع' : 'Overdue Payments'}</h2>
+          <p className="text-[11px] text-slate-500 mb-2">{language === 'ar' ? 'أكثر المستأجرين تأخرًا حسب الأيام' : 'Tenants ranked by overdue days'}</p>
+          {overduePayments.length===0 ? <div className="h-[230px] flex items-center justify-center text-emerald-600 text-xs font-semibold">{language==='ar'?'لا توجد دفعات متأخرة 🎉':'No overdue payments 🎉'}</div> : <ResponsiveContainer width="100%" height={230}><BarChart data={overduePayments} layout="vertical" margin={{left:10,right:10}}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false}/><XAxis type="number" tick={{fontSize:9}} stroke="#94a3b8"/><YAxis type="category" dataKey="name" tick={{fontSize:9}} stroke="#94a3b8" width={125}/><Tooltip formatter={(v:any)=>[`${v} ${language==='ar'?'يوم':'days'}`,language==='ar'?'متأخر':'Overdue']}/><Bar dataKey="overdueDays" name={language==='ar'?'أيام التأخير':'Overdue Days'} fill="#ef4444" radius={[0,8,8,0]} barSize={12}/></BarChart></ResponsiveContainer>}
+        </div>
+
+        {/* Recent Payment Movements */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm lg:col-span-3">
           <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-1">
             <Banknote className="w-4 h-4 text-emerald-500" />
             {language === 'ar' ? 'آخر حركات السداد' : 'Recent Payment Movements'}

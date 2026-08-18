@@ -792,15 +792,24 @@ async function contractFinance(contractId:string, client?:any){
   const r=await c.query(`SELECT COALESCE(SUM(original_amount),0)::float8 total,COALESCE(SUM(paid_amount),0)::float8 paid,COALESCE(SUM(original_amount-paid_amount),0)::float8 remaining,COALESCE(SUM(CASE WHEN status='Overdue' THEN original_amount-paid_amount ELSE 0 END),0)::float8 overdue,MIN(due_date) FILTER(WHERE status IN ('Pending','Partially Paid','Overdue')) AS next_due_date,COUNT(*) FILTER(WHERE status='Overdue')::int overdue_count FROM rent_installments WHERE contract_id=$1 AND status<>'Cancelled'`,[contractId]);
   return r.rows[0]||null;
 }
+function normalizeDateOnlyValue(value:any){
+  if(!value) return '';
+  if(value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0,10);
+  const raw=String(value).trim();
+  const iso=raw.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if(iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  const parsed=Date.parse(raw);
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString().slice(0,10) : '';
+}
 function daysUntilDate(dateValue:any){
-  if(!dateValue) return undefined;
-  const due=Date.parse(`${String(dateValue).slice(0,10)}T00:00:00Z`);
+  const date=normalizeDateOnlyValue(dateValue); if(!date) return undefined;
+  const due=Date.parse(`${date}T00:00:00Z`);
   const today=Date.parse(`${new Date().toISOString().slice(0,10)}T00:00:00Z`);
   if(!Number.isFinite(due)||!Number.isFinite(today)) return undefined;
   return Math.round((due-today)/86400000);
 }
 function applyNextPaymentMeta(contract:any, nextDueDate:any){
-  const date=nextDueDate ? String(nextDueDate).slice(0,10) : '';
+  const date=normalizeDateOnlyValue(nextDueDate);
   contract.nextPaymentDate=date || undefined;
   contract.nextPaymentDays=date ? daysUntilDate(date) : undefined;
   return contract;

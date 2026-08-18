@@ -43,6 +43,24 @@ interface DashboardDuesProps {
 type SortField = 'unitNumber' | 'unitType' | 'tenantName' | 'tenantMobile' | 'annualRent' | 'remainingAmount' | 'leaseEndDate' | 'daysLeft' | 'notes';
 type SortOrder = 'asc' | 'desc' | null;
 
+const getNextPaymentInfo = (c: Contract) => {
+  const list = [c.nextPaymentDate, ...(Array.isArray(c.installments) ? c.installments.filter((i:any) => Number(i.paidAmount || 0) < Number(i.amount ?? i.originalAmount ?? 0) && i.status !== 'Cancelled').sort((a:any,b:any) => String(a.dueDate || '').localeCompare(String(b.dueDate || ''))).map((i:any) => i.dueDate) : [])].filter(Boolean);
+  const raw = list[0] ? String(list[0]) : '';
+  if (!raw) return { date: '', days: undefined as number | undefined };
+  const m = raw.match(/(\d{4})-(\d{2})-(\d{2})/);
+  const date = m ? `${m[1]}-${m[2]}-${m[3]}` : (() => { const t = Date.parse(raw); return Number.isFinite(t) ? new Date(t).toISOString().slice(0,10) : ''; })();
+  if (!date) return { date: '', days: undefined as number | undefined };
+  const now = new Date(), today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const [y,mo,d] = date.split('-').map(Number);
+  return { date, days: Math.round((Date.UTC(y,mo-1,d) - today) / 86400000) };
+};
+const formatPaymentDays = (days:number|undefined, language:string) => {
+  if (days === undefined) return language === 'ar' ? 'غير محدد' : 'Not set';
+  if (days < 0) { const n=Math.abs(days); return language === 'ar' ? `متأخر ${n} ${n===1?'يوم':'أيام'}` : `${n} day${n===1?'':'s'} overdue`; }
+  if (days === 0) return language === 'ar' ? 'اليوم' : 'Today';
+  return language === 'ar' ? `متبقي ${days} ${days===1?'يوم':'يومًا'}` : `${days} days left`;
+};
+
 export const DashboardDues: React.FC<DashboardDuesProps> = ({
   dues = [],
   contracts = [],
@@ -88,11 +106,7 @@ export const DashboardDues: React.FC<DashboardDuesProps> = ({
     // Production: show only real contracts returned by the backend.
     if (contracts.length > 0) {
       return contracts.map((c, i) => {
-        // calculate days left
-        const endDate = new Date(c.leaseEndDate.replace(/\//g, '-'));
-        const now = new Date();
-        const diffDays = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 3600 * 24));
-        const daysLeft = isNaN(diffDays) ? -681 + i : diffDays;
+        const next = getNextPaymentInfo(c);
 
         return {
           id: c.id,
@@ -103,7 +117,9 @@ export const DashboardDues: React.FC<DashboardDuesProps> = ({
           annualRent: Number(c.annualRent || 0) + Number(c.waterYearlyBill || 0),
           remainingAmount: c.remainingAmount,
           leaseEndDate: c.leaseEndDate,
-          daysLeft,
+          daysLeft: next.days,
+          nextPaymentDate: next.date,
+          paymentDaysText: formatPaymentDays(next.days, language),
           notesText: c.arabicNotes || c.englishNotes || (c.notes && c.notes[0]?.text) || '',
           rawContract: c
         };
@@ -159,12 +175,18 @@ export const DashboardDues: React.FC<DashboardDuesProps> = ({
     }
   };
 
+  const handleOpenDetails = (row:any) => { setSelectedContract(row.rawContract as Contract); setShowDetailsModal(true); setOpenDropdownId(null); };
+  const handleOpenEdit = (row:any) => { setSelectedContract(row.rawContract as Contract); setSelectedTenant(tenants.find(t => String(t.id) === String(row.rawContract?.tenantId)) || null); setShowEditModal(true); setOpenDropdownId(null); };
+  const handleOpenNotes = (row:any) => { setSelectedContract(row.rawContract as Contract); setShowNotesModal(true); setOpenDropdownId(null); };
+  const handleArchive = async (row:any) => { if (!onUpdateContract) return; const c=row.rawContract as Contract; const archived=c.status==='Archived'; const ok=await confirmUi({title:archived?'إلغاء الأرشفة':'أرشفة العقد',message:archived?'سيتم إعادة العقد إلى العقود السارية.':'سيتم نقل العقد إلى سجل العقود المؤرشفة.',confirmText:archived?'إلغاء الأرشفة':'أرشفة',cancelText:'إلغاء',tone:'warning'}); if(!ok)return; await onUpdateContract({...c,status:archived?'Active':'Archived',isArchived:!archived}); setOpenDropdownId(null); };
+  const handleDeleteContract = async (row:any) => { if (!onDeleteContract) return; const c=row.rawContract as Contract; const ok=await confirmUi({title:'حذف العقد نهائيًا',message:`سيتم حذف العقد ${c.contractNo||c.contractNumber||c.id} نهائيًا. لن يتم الحذف إذا كان هناك أي مبلغ مستحق.`,confirmText:'حذف نهائي',cancelText:'إلغاء',tone:'danger'}); if(!ok)return; try{await onDeleteContract(c.id);setOpenDropdownId(null);}catch(err){console.error(err);} };
+
   // Export Excel
   const handleExportExcel = () => {
     const rows = sortedRows.map((row, idx) => [
       idx + 1, row.unitNumber, row.unitType, row.tenantName, row.tenantMobile,
-      row.annualRent || 0, row.remainingAmount || 0, row.leaseEndDate || '-',
-      row.daysLeft, row.notesText || '-'
+      row.annualRent || 0, row.remainingAmount || 0, row.nextPaymentDate || '-',
+      row.paymentDaysText, row.notesText || '-'
     ]);
     const annual = sortedRows.reduce((s,r)=>s+Number(r.annualRent||0),0);
     const remaining = sortedRows.reduce((s,r)=>s+Number(r.remainingAmount||0),0);
@@ -192,7 +214,7 @@ export const DashboardDues: React.FC<DashboardDuesProps> = ({
       idx + 1, row.unitNumber, row.unitType, row.tenantName, row.tenantMobile,
       `${Number(row.annualRent||0).toLocaleString()} SAR`,
       `${Number(row.remainingAmount||0).toLocaleString()} SAR`,
-      row.leaseEndDate || '-', `${row.daysLeft} days`
+      row.nextPaymentDate || '-', row.paymentDaysText
     ]);
     const annual = sortedRows.reduce((s,r)=>s+Number(r.annualRent||0),0);
     const remaining = sortedRows.reduce((s,r)=>s+Number(r.remainingAmount||0),0);
@@ -251,7 +273,7 @@ export const DashboardDues: React.FC<DashboardDuesProps> = ({
           </button>
 
           <button
-            onClick={() => printTableDocument({ language, title: language === 'ar' ? 'تقرير المستحقات والمتأخرات' : 'Collections & Outstanding Report', subtitle: language === 'ar' ? 'التقرير يعكس البحث والفلاتر الحالية' : 'Report reflects the current search and filters', columns: [ { key:'unit', label: language === 'ar' ? 'الوحدة' : 'Unit' }, { key:'tenant', label: language === 'ar' ? 'المستأجر' : 'Tenant' }, { key:'mobile', label: language === 'ar' ? 'الجوال' : 'Mobile' }, { key:'rent', label: language === 'ar' ? 'إجمالي الإيجار السنوي' : 'Total Annual Rent' }, { key:'remaining', label: language === 'ar' ? 'المتبقي' : 'Remaining' }, { key:'expiry', label: language === 'ar' ? 'نهاية العقد' : 'Contract End' }, { key:'days', label: language === 'ar' ? 'الأيام المتبقية' : 'Days Left' } ], rows: sortedRows.map(row => ({ unit: row.unitNumber, tenant: row.tenantName, mobile: row.tenantMobile, rent: `${Number(row.annualRent||0).toLocaleString()} SAR`, remaining: `${Number(row.remainingAmount||0).toLocaleString()} SAR`, expiry: row.leaseEndDate, days: row.daysLeft })) })}
+            onClick={() => printTableDocument({ language, title: language === 'ar' ? 'تقرير المستحقات والمتأخرات' : 'Collections & Outstanding Report', subtitle: language === 'ar' ? 'التقرير يعكس البحث والفلاتر الحالية' : 'Report reflects the current search and filters', columns: [ { key:'unit', label: language === 'ar' ? 'الوحدة' : 'Unit' }, { key:'tenant', label: language === 'ar' ? 'المستأجر' : 'Tenant' }, { key:'mobile', label: language === 'ar' ? 'الجوال' : 'Mobile' }, { key:'rent', label: language === 'ar' ? 'إجمالي الإيجار السنوي' : 'Total Annual Rent' }, { key:'remaining', label: language === 'ar' ? 'المتبقي' : 'Remaining' }, { key:'expiry', label: language === 'ar' ? 'الدفعة القادمة' : 'Next Payment' }, { key:'days', label: language === 'ar' ? 'الأيام المتبقية' : 'Days Left' } ], rows: sortedRows.map(row => ({ unit: row.unitNumber, tenant: row.tenantName, mobile: row.tenantMobile, rent: `${Number(row.annualRent||0).toLocaleString()} SAR`, remaining: `${Number(row.remainingAmount||0).toLocaleString()} SAR`, expiry: row.nextPaymentDate, days: row.paymentDaysText })) })}
             className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5"
           >
             <Printer className="w-4 h-4" />
@@ -353,7 +375,7 @@ export const DashboardDues: React.FC<DashboardDuesProps> = ({
 
                 <th className="py-3 px-3 text-center border-r border-blue-600/40" onClick={() => handleSort('daysLeft')}>
                   <div className="flex items-center justify-center gap-1 cursor-pointer select-none hover:text-cyan-200">
-                    <span>{language === 'ar' ? 'انتهاء العقد بعد (يوم)' : 'Contract Expire After'}</span>
+                    <span>{language === 'ar' ? 'الدفعة القادمة بعد (يوم)' : 'Next Payment After'}</span>
                     <ArrowUpDown className="w-3 h-3 text-white/70" />
                   </div>
                 </th>
@@ -417,7 +439,7 @@ export const DashboardDues: React.FC<DashboardDuesProps> = ({
 
                     {/* Contract Expir Date Column */}
                     <td className="py-3.5 px-3 font-mono text-slate-700 border-r border-slate-100">
-                      {row.leaseEndDate}
+                      {row.nextPaymentDate || '-'}
                     </td>
 
                     {/* Notes Column */}
@@ -425,10 +447,10 @@ export const DashboardDues: React.FC<DashboardDuesProps> = ({
                       {row.notesText || ''}
                     </td>
 
-                    {/* Contract Expire After Column -> Black badge #000000 matching screenshot Image 2 */}
+                    {/* Next Payment After Column -> Black badge #000000 matching screenshot Image 2 */}
                     <td className="py-3.5 px-3 text-center border-r border-slate-100">
                       <span className="inline-block px-3 py-1 bg-black text-white font-mono font-bold text-xs rounded">
-                        {row.daysLeft}
+                        {formatPaymentDays(row.daysLeft, language)}
                       </span>
                     </td>
 

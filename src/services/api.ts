@@ -140,8 +140,12 @@ const asList = (data: any): any[] => {
 
 const dateOnly = (d: any): string => {
   if (!d) return '';
-  const s = String(d);
-  return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : s;
+  if (d instanceof Date && !Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  const s = String(d).trim();
+  const iso = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  const parsed = Date.parse(s);
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString().slice(0, 10) : '';
 };
 
 export interface FinanceSummary {

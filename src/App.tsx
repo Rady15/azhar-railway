@@ -512,6 +512,7 @@ function MainApp() {
                 onAddContract={handleAddContract}
                 onUpdateContract={handleUpdateContract}
                 onToggleArchive={handleToggleArchiveContract}
+                onDeleteContract={handleDeleteContract}
                 selectedCompoundId="1"
               />
             )}
@@ -525,6 +526,7 @@ function MainApp() {
                 onAddContract={handleAddContract}
                 onUpdateContract={handleUpdateContract}
                 onToggleArchive={handleToggleArchiveContract}
+                onDeleteContract={handleDeleteContract}
                 selectedCompoundId="1"
               />
             )}
