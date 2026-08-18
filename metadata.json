@@ -1,0 +1,6 @@
+{
+  "name": "كمبوند أزهار - Azhar Residence Portal",
+  "description": "نظام كمبوند أزهار الموحد للادارة والعقود والتحرير، متابعة الإيجارات، تحصيل المبالغ والخصومات، المستأجرين، الصيانة، والطباعة الرسمية للعقود.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
