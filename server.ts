@@ -204,12 +204,12 @@ async function seedTestData() {
   // ─── CONTRACTS ───
   const contracts = [
     { id: "contract-001", tenantId: "tenant-aya-ahmed", tenantName: "Aya Ahmed", tenantNameArabic: "آية أحمد", contractNo: "AZ-2025-001", unitNumber: "101", houseNumber: "101", buildingNumber: "1", annualRent: 48000, waterYearlyBill: 2400, discount: 0, paidAmount: 30000, remainingAmount: 20400, leaseStartDate: "2025-01-01", leaseEndDate: "2025-12-31", leaseDurationMonths: 12, paymentMethod: "شياكات", paymentFrequency: "quarterly", status: "Active" },
-    { id: "contract-002", tenantId: "tenant-mohammed-ali", tenantName: "Mohammed Ali", tenantNameArabic: "محمد علي", contractNo: "AZ-2025-002", unitNumber: "205", houseNumber: "205", buildingNumber: "1", annualRent: 52000, waterYearlyBill: 2600, discount: 2000, paidAmount: 52600, remainingAmount: 0, leaseStartDate: "2025-02-01", leaseEndDate: "2026-01-31", leaseDurationMonths: 12, paymentMethod: "تحويل بنكي", paymentFrequency: "monthly", status: "Active" },
+    { id: "contract-002", tenantId: "tenant-mohammed-ali", tenantName: "Mohammed Ali", tenantNameArabic: "محمد علي", contractNo: "AZ-2025-002", unitNumber: "205", houseNumber: "205", buildingNumber: "1", annualRent: 52000, waterYearlyBill: 2600, discount: 2000, paidAmount: 52600, remainingAmount: 0, leaseStartDate: "2025-02-01", leaseEndDate: "2026-01-31", leaseDurationMonths: 12, paymentMethod: "تحويل بنكي", paymentFrequency: "Quarterly", status: "Active" },
     { id: "contract-003", tenantId: "tenant-fatma-hassan", tenantName: "Fatma Hassan", tenantNameArabic: "فاطمة حسن", contractNo: "AZ-2024-003", unitNumber: "312", houseNumber: "312", buildingNumber: "2", annualRent: 44000, waterYearlyBill: 2200, discount: 0, paidAmount: 22000, remainingAmount: 24200, leaseStartDate: "2024-07-01", leaseEndDate: "2025-06-30", leaseDurationMonths: 12, paymentMethod: "شياكات", paymentFrequency: "semi-annual", status: "Active" },
     { id: "contract-004", tenantId: "tenant-omar-khaled", tenantName: "Omar Khaled", tenantNameArabic: "عمر خالد", contractNo: "AZ-2025-004", unitNumber: "103", houseNumber: "103", buildingNumber: "2", annualRent: 46000, waterYearlyBill: 2300, discount: 1000, paidAmount: 15000, remainingAmount: 32300, leaseStartDate: "2025-03-01", leaseEndDate: "2026-02-28", leaseDurationMonths: 12, paymentMethod: "نقداً", paymentFrequency: "quarterly", status: "Active" },
-    { id: "contract-005", tenantId: "tenant-nora-saeed", tenantName: "Nora Saeed", tenantNameArabic: "نورة سعيد", contractNo: "AZ-2024-005", unitNumber: "401", houseNumber: "401", buildingNumber: "3", annualRent: 40000, waterYearlyBill: 2000, discount: 0, paidAmount: 42000, remainingAmount: 0, leaseStartDate: "2024-04-01", leaseEndDate: "2025-03-31", leaseDurationMonths: 12, paymentMethod: "تحويل بنكي", paymentFrequency: "monthly", status: "Archived" },
+    { id: "contract-005", tenantId: "tenant-nora-saeed", tenantName: "Nora Saeed", tenantNameArabic: "نورة سعيد", contractNo: "AZ-2024-005", unitNumber: "401", houseNumber: "401", buildingNumber: "3", annualRent: 40000, waterYearlyBill: 2000, discount: 0, paidAmount: 42000, remainingAmount: 0, leaseStartDate: "2024-04-01", leaseEndDate: "2025-03-31", leaseDurationMonths: 12, paymentMethod: "تحويل بنكي", paymentFrequency: "Quarterly", status: "Archived" },
     { id: "contract-006", tenantId: "tenant-khaled-youssef", tenantName: "Khaled Youssef", tenantNameArabic: "خالد يوسف", contractNo: "AZ-2025-006", unitNumber: "202", houseNumber: "202", buildingNumber: "3", annualRent: 42000, waterYearlyBill: 2100, discount: 500, paidAmount: 21000, remainingAmount: 22600, leaseStartDate: "2025-01-15", leaseEndDate: "2026-01-14", leaseDurationMonths: 12, paymentMethod: "شياكات", paymentFrequency: "quarterly", status: "Active" },
-    { id: "contract-007", tenantId: "tenant-sara-ibrahim", tenantName: "Sara Ibrahim", tenantNameArabic: "سارة إبراهيم", contractNo: "AZ-2025-007", unitNumber: "505", houseNumber: "505", buildingNumber: "1", annualRent: 55000, waterYearlyBill: 2750, discount: 0, paidAmount: 41062, remainingAmount: 16688, leaseStartDate: "2025-06-01", leaseEndDate: "2026-05-31", leaseDurationMonths: 12, paymentMethod: "تحويل بنكي", paymentFrequency: "monthly", status: "Active" },
+    { id: "contract-007", tenantId: "tenant-sara-ibrahim", tenantName: "Sara Ibrahim", tenantNameArabic: "سارة إبراهيم", contractNo: "AZ-2025-007", unitNumber: "505", houseNumber: "505", buildingNumber: "1", annualRent: 55000, waterYearlyBill: 2750, discount: 0, paidAmount: 41062, remainingAmount: 16688, leaseStartDate: "2025-06-01", leaseEndDate: "2026-05-31", leaseDurationMonths: 12, paymentMethod: "تحويل بنكي", paymentFrequency: "Quarterly", status: "Active" },
     { id: "contract-008", tenantId: "tenant-ali-hassan", tenantName: "Ali Hassan", tenantNameArabic: "علي حسن", contractNo: "AZ-2025-008", unitNumber: "301", houseNumber: "301", buildingNumber: "2", annualRent: 45000, waterYearlyBill: 2250, discount: 1500, paidAmount: 22875, remainingAmount: 22875, leaseStartDate: "2025-04-01", leaseEndDate: "2026-03-31", leaseDurationMonths: 12, paymentMethod: "نقداً", paymentFrequency: "semi-annual", status: "Active" },
   ];
   for (const c of contracts) {
@@ -583,7 +583,7 @@ let tenantsStore: any[] = [
     monthlyRent: 2000,
     paidAmount: 2000,
     remainingAmount: 8000,
-    paymentMethod: "Monthly",
+    paymentMethod: "Quarterly",
     paymentDueDay: "1",
     electricityMeter: "2000",
     waterCost: "100",
@@ -708,11 +708,22 @@ let notificationsStore: any[] = [
 
 
 function frequencyParts(value: any) {
-  const v = String(value || '').toLowerCase().replace(/[^a-z]/g, '');
+  const raw = String(value || '').trim().toLowerCase();
+  const v = raw.replace(/[^a-z0-9]/g, '');
+  if (v.includes('fourmonth') || v.includes('4month') || v.includes('every4')) return { count: 3, months: 4, label: 'Every-4-Months' };
   if (v.includes('semi')) return { count: 2, months: 6, label: 'Semi-Annual' };
   if (v.includes('quarter')) return { count: 4, months: 3, label: 'Quarterly' };
   if (v.includes('annual') || v.includes('year')) return { count: 1, months: 12, label: 'Annual' };
-  return { count: 12, months: 1, label: 'Monthly' };
+  // Legacy monthly / bi-monthly values are intentionally normalized to quarterly so no new schedule can be created with them.
+  return { count: 4, months: 3, label: 'Quarterly' };
+}
+function normalizePaymentFrequency(value:any) {
+  const raw=String(value||'').trim().toLowerCase();
+  if(raw.includes('four') || raw.includes('4 month') || raw.includes('every-4')) return 'Every-4-Months';
+  if(raw.includes('semi')) return 'Semi-Annual';
+  if(raw.includes('quarter')) return 'Quarterly';
+  if(raw.includes('annual') || raw.includes('year')) return 'Annual';
+  return 'Quarterly';
 }
 function addMonthsDate(dateValue: string, months: number) {
   const d = new Date(`${String(dateValue).slice(0,10)}T12:00:00Z`);
@@ -781,11 +792,25 @@ async function contractFinance(contractId:string, client?:any){
   const r=await c.query(`SELECT COALESCE(SUM(original_amount),0)::float8 total,COALESCE(SUM(paid_amount),0)::float8 paid,COALESCE(SUM(original_amount-paid_amount),0)::float8 remaining,COALESCE(SUM(CASE WHEN status='Overdue' THEN original_amount-paid_amount ELSE 0 END),0)::float8 overdue,MIN(due_date) FILTER(WHERE status IN ('Pending','Partially Paid','Overdue')) AS next_due_date,COUNT(*) FILTER(WHERE status='Overdue')::int overdue_count FROM rent_installments WHERE contract_id=$1 AND status<>'Cancelled'`,[contractId]);
   return r.rows[0]||null;
 }
+function daysUntilDate(dateValue:any){
+  if(!dateValue) return undefined;
+  const due=Date.parse(`${String(dateValue).slice(0,10)}T00:00:00Z`);
+  const today=Date.parse(`${new Date().toISOString().slice(0,10)}T00:00:00Z`);
+  if(!Number.isFinite(due)||!Number.isFinite(today)) return undefined;
+  return Math.round((due-today)/86400000);
+}
+function applyNextPaymentMeta(contract:any, nextDueDate:any){
+  const date=nextDueDate ? String(nextDueDate).slice(0,10) : '';
+  contract.nextPaymentDate=date || undefined;
+  contract.nextPaymentDays=date ? daysUntilDate(date) : undefined;
+  return contract;
+}
 async function syncContractMoney(contract:any, client?:any){
   const fin=await contractFinance(String(contract.id),client); if(!fin)return contract;
   contract.paidAmount=Number(fin.paid||0); contract.remainingAmount=Number(fin.remaining||0);
-  const idx=contractsStore.findIndex((x:any)=>String(x.id)===String(contract.id)); if(idx>=0) contractsStore[idx]={...contractsStore[idx],paidAmount:contract.paidAmount,remainingAmount:contract.remainingAmount};
-  if(dbPool){ const c=client||dbPool; await c.query(`UPDATE contracts SET data=jsonb_set(jsonb_set(data,'{paidAmount}',to_jsonb($2::numeric),true),'{remainingAmount}',to_jsonb($3::numeric),true),updated_at=NOW() WHERE id=$1`,[String(contract.id),contract.paidAmount,contract.remainingAmount]); }
+  applyNextPaymentMeta(contract, fin.next_due_date);
+  const idx=contractsStore.findIndex((x:any)=>String(x.id)===String(contract.id)); if(idx>=0) contractsStore[idx]={...contractsStore[idx],paidAmount:contract.paidAmount,remainingAmount:contract.remainingAmount,nextPaymentDate:contract.nextPaymentDate,nextPaymentDays:contract.nextPaymentDays};
+  if(dbPool){ const c=client||dbPool; await c.query(`UPDATE contracts SET data=jsonb_set(jsonb_set(jsonb_set(jsonb_set(data,'{paidAmount}',to_jsonb($2::numeric),true),'{remainingAmount}',to_jsonb($3::numeric),true),'{nextPaymentDate}',to_jsonb($4::text),true),'{nextPaymentDays}',to_jsonb($5::int),true),updated_at=NOW() WHERE id=$1`,[String(contract.id),contract.paidAmount,contract.remainingAmount,contract.nextPaymentDate||null,contract.nextPaymentDays ?? null]); }
   return contract;
 }
 
@@ -842,7 +867,7 @@ async function startServer() {
   const seedTenants = tenantsStore.map((x:any)=>({...x}));
   await initDatabase();
   tenantsStore = await loadState("tenants", tenantsStore);
-  contractsStore = (await loadState("contracts", contractsStore)).map((c:any) => { const clean={...c}; delete clean.representativeName; delete clean.RepresentativeName; normalizeContractMoney(clean); return clean; });
+  contractsStore = (await loadState("contracts", contractsStore)).map((c:any) => { const clean={...c}; delete clean.representativeName; delete clean.RepresentativeName; clean.paymentFrequency=normalizePaymentFrequency(clean.paymentFrequency || clean.paymentMethod); clean.paymentMethod=clean.paymentFrequency; normalizeContractMoney(clean); return clean; });
   housesStore = (await loadState("houses", housesStore)).map((h:any)=>{ const living=Math.max(Number(h.livingCount||0),Number(h.living||0),Number(h.LivingCount||0),Number(h.Living||0)); const majlis=Math.max(Number(h.majlisCount||0),Number(h.majlis||0),Number(h.MajlisCount||0),Number(h.Majlis||0)); return {...h,livingCount:living,majlisCount:majlis,living,majlis}; });
   staffStore = await loadState("staff", staffStore);
   paymentsStore = await loadState("payments", paymentsStore);
@@ -1244,7 +1269,7 @@ async function startServer() {
       monthlyRent: Number(body.monthlyRent || body.MonthlyRent || 0),
       paidAmount: 0,
       remainingAmount: 0,
-      paymentMethod: body.paymentMethod || body.PaymentMethod || "Monthly",
+      paymentMethod: normalizePaymentFrequency(body.paymentMethod || body.PaymentMethod || "Quarterly"),
       paymentDueDay: body.paymentDueDay || body.PaymentDueDay || "1",
       electricityMeter: body.electricityMeter || body.ElectricityMeter || "",
       waterCost: body.waterCost || body.WaterCost || "0",
@@ -1252,6 +1277,8 @@ async function startServer() {
       identityDocumentUrl: body.identityDocumentUrl || '', identityDocumentName: body.identityDocumentName || '',
       manualContractDocumentUrl: body.manualContractDocumentUrl || '', manualContractDocumentName: body.manualContractDocumentName || ''
     };
+    const tenantUnit = housesStore.find((h:any) => String(h.id) === String(body.houseId || body.HouseId || '') || String(h.houseNumber || h.unitNumber || '') === String(newTenant.houseNumber || ''));
+    if (tenantUnit) newTenant.houseId = tenantUnit.id;
     tenantsStore.push(newTenant);
     try {
       const credentials = await setEntityPassword('tenant', newTenant.id, portalPassword);
@@ -1260,6 +1287,7 @@ async function startServer() {
       tenantsStore = tenantsStore.filter((x:any) => String(x.id) !== String(newTenant.id));
       return res.status(400).json({message:e?.message || 'تعذر إنشاء حساب دخول المستأجر'});
     }
+    if (dbPool) await dbPool.query(`UPDATE tenants SET house_id=$2 WHERE id=$1`, [newTenant.id, newTenant.houseId || null]);
     res.status(201).json(newTenant);
   });
 
@@ -1284,6 +1312,7 @@ async function startServer() {
       tenantRemarks: body.tenantRemarks ?? body.TenantRemarks ?? existing.tenantRemarks,
       companyName: body.companyName ?? body.CompanyName ?? existing.companyName,
       houseNumber: body.houseNumber ?? body.HouseNumber ?? existing.houseNumber,
+      houseId: body.houseId ?? body.HouseId ?? existing.houseId,
       contractNumber: body.contractNumber ?? body.ContractNumber ?? existing.contractNumber,
       contractStartDate: body.contractStartDate ?? body.ContractStartDate ?? existing.contractStartDate,
       contractEndDate: body.contractEndDate ?? body.ContractEndDate ?? existing.contractEndDate,
@@ -1304,6 +1333,9 @@ async function startServer() {
         if (credentials?.username) updated.username = credentials.username;
       } catch (e:any) { return res.status(400).json({message:e?.message || 'تعذر تحديث بيانات دخول المستأجر'}); }
     }
+    const updatedUnit = housesStore.find((h:any) => String(h.id) === String(updated.houseId || '') || String(h.houseNumber || h.unitNumber || '') === String(updated.houseNumber || ''));
+    if (updatedUnit) updated.houseId = updatedUnit.id;
+    if (dbPool) await dbPool.query(`UPDATE tenants SET house_id=$2 WHERE id=$1`, [updated.id, updated.houseId || null]);
     res.json(updated);
   });
 
@@ -1389,9 +1421,36 @@ async function startServer() {
   });
 
   // 3. Contracts API
-  app.get("/api/Contracts", (req, res) => {
+  app.get("/api/Contracts", async (req, res) => {
     const q = String(req.query.q || req.query.search || "");
-    res.json(paginated(contractsStore.filter(c => matchesQuery(c, q)), req));
+    let rows = contractsStore.filter(c => matchesQuery(c, q));
+    if (dbPool && rows.length) {
+      await refreshInstallmentStatuses(dbPool);
+      const ids = rows.map((c:any) => String(c.id));
+      const r = await dbPool.query(
+        `SELECT contract_id, MIN(due_date) FILTER (WHERE status IN ('Pending','Partially Paid','Overdue')) AS next_due_date
+         FROM rent_installments WHERE contract_id = ANY($1::text[]) AND status <> 'Cancelled' GROUP BY contract_id`,
+        [ids]
+      );
+      const meta = new Map(r.rows.map((x:any) => [String(x.contract_id), x.next_due_date]));
+      rows = rows.map((c:any) => {
+        const clean = { ...c };
+        applyNextPaymentMeta(clean, meta.get(String(c.id)));
+        return clean;
+      });
+    } else {
+      rows = rows.map((c:any) => {
+        const clean = { ...c };
+        const next = Array.isArray(clean.installments)
+          ? clean.installments
+              .filter((i:any) => Number(i.paidAmount || 0) < Number(i.amount || i.originalAmount || 0) && i.status !== 'Cancelled')
+              .sort((a:any,b:any) => String(a.dueDate||'').localeCompare(String(b.dueDate||'')))[0]?.dueDate
+          : clean.nextPaymentDate;
+        applyNextPaymentMeta(clean, next);
+        return clean;
+      });
+    }
+    res.json(paginated(rows, req));
   });
 
   app.post("/api/Contracts", async (req, res) => {
@@ -1400,15 +1459,20 @@ async function startServer() {
     if (!(body.houseId || body.HouseId || body.unitNumber || body.UnitNumber || body.houseNumber || body.HouseNumber)) return res.status(400).json({message:"يجب اختيار الوحدة"});
     if (!(body.leaseStartDate || body.LeaseStartDate)) return res.status(400).json({message:"تاريخ بداية العقد مطلوب"});
     if (Number(body.annualRent || body.AnnualRent || 0) <= 0) return res.status(400).json({message:"قيمة إيجار الوحدة يجب أن تكون أكبر من صفر"});
+    const selectedUnit = housesStore.find((h:any) => String(h.id) === String(body.houseId || body.HouseId || '')) || housesStore.find((h:any) => String(h.houseNumber || h.unitNumber || '') === String(body.unitNumber || body.UnitNumber || body.houseNumber || body.HouseNumber || ''));
+    if (!selectedUnit) return res.status(400).json({message:"الوحدة المحددة غير موجودة"});
+    const selectedMeter = electricityMetersStore.find((m:any) => String(m.unitId || m.houseId || '') === String(selectedUnit.id));
     const newContract = {
       id: body.id || `contract-${Date.now()}`,
       contractNumber: body.contractNumber || body.ContractNumber || `2024${Math.floor(10000 + Math.random() * 90000)}`,
       contractNo: body.contractNo || body.contractNumber || body.ContractNumber || `2024${Math.floor(10000 + Math.random() * 90000)}`,
-      houseNumber: body.houseNumber || body.HouseNumber || "",
-      houseId: body.houseId || body.HouseId || "",
-      buildingNumber: body.buildingNumber || body.BuildingNumber || "",
-      unitType: body.unitType || body.UnitType || "",
-      unitNumber: body.unitNumber || body.UnitNumber || "",
+      houseNumber: selectedUnit.houseNumber || selectedUnit.unitNumber || body.houseNumber || body.HouseNumber || "",
+      houseId: selectedUnit.id,
+      buildingNumber: selectedUnit.buildingNumber || body.buildingNumber || body.BuildingNumber || "",
+      unitType: selectedUnit.type || body.unitType || body.UnitType || "",
+      unitNumber: selectedUnit.houseNumber || selectedUnit.unitNumber || body.unitNumber || body.UnitNumber || "",
+      compoundId: selectedUnit.compoundId || body.compoundId || '1',
+      compoundName: selectedUnit.compoundName || body.compoundName || 'Azhar Residence',
       tenantId: body.tenantId || body.TenantId || "",
       tenantName: body.tenantName || body.TenantName || "",
       tenantMobile: body.tenantMobile || body.TenantMobile || "",
@@ -1425,10 +1489,10 @@ async function startServer() {
       discount: Number(body.discount || body.Discount || 0),
       paidAmount: 0,
       remainingAmount: 0,
-      paymentFrequency: body.paymentFrequency || body.PaymentFrequency || body.paymentMethod || body.PaymentMethod || "",
-      paymentMethod: body.paymentMethod || body.PaymentMethod || body.paymentFrequency || body.PaymentFrequency || "",
+      paymentFrequency: normalizePaymentFrequency(body.paymentFrequency || body.PaymentFrequency || body.paymentMethod || body.PaymentMethod || "Quarterly"),
+      paymentMethod: normalizePaymentFrequency(body.paymentMethod || body.PaymentMethod || body.paymentFrequency || body.PaymentFrequency || "Quarterly"),
       paymentNumber: body.paymentNumber || body.PaymentNumber || "",
-      electricityMeterNumber: body.electricityMeterNumber || body.ElectricityMeterNumber || "",
+      electricityMeterNumber: selectedMeter?.meterNumber || body.electricityMeterNumber || body.ElectricityMeterNumber || "",
       verifiedInEjar: body.verifiedInEjar !== undefined ? Boolean(body.verifiedInEjar) : false,
       transferAccountToTenant: false,
       insurance: Number(body.insurance || body.Insurance || 0),
@@ -1448,6 +1512,7 @@ async function startServer() {
     contractsStore.push(newContract);
     if (dbPool) {
       await saveState("contracts", contractsStore);
+      await dbPool.query(`UPDATE contracts SET house_id=$2 WHERE id=$1`, [newContract.id, newContract.houseId || null]);
       newContract.installments = await rebuildContractSchedule(newContract);
       await syncContractMoney(newContract);
     }
@@ -1494,8 +1559,8 @@ async function startServer() {
       discount: body.discount !== undefined ? Number(body.discount) : existing.discount,
       paidAmount: body.paidAmount !== undefined ? Number(body.paidAmount) : existing.paidAmount,
       remainingAmount: body.remainingAmount !== undefined ? Number(body.remainingAmount) : existing.remainingAmount,
-      paymentFrequency: body.paymentFrequency ?? existing.paymentFrequency ?? body.paymentMethod ?? existing.paymentMethod,
-      paymentMethod: body.paymentMethod ?? existing.paymentMethod ?? body.paymentFrequency ?? existing.paymentFrequency,
+      paymentFrequency: normalizePaymentFrequency(body.paymentFrequency ?? existing.paymentFrequency ?? body.paymentMethod ?? existing.paymentMethod),
+      paymentMethod: normalizePaymentFrequency(body.paymentMethod ?? existing.paymentMethod ?? body.paymentFrequency ?? existing.paymentFrequency),
       paymentNumber: body.paymentNumber ?? existing.paymentNumber,
       electricityMeterNumber: body.electricityMeterNumber ?? existing.electricityMeterNumber,
       verifiedInEjar: body.verifiedInEjar !== undefined ? Boolean(body.verifiedInEjar) : existing.verifiedInEjar,
@@ -1517,6 +1582,7 @@ async function startServer() {
     contractsStore[idx] = updated;
     if (dbPool) {
       await saveState("contracts", contractsStore);
+      await dbPool.query(`UPDATE contracts SET house_id=$2 WHERE id=$1`, [updated.id, updated.houseId || null]);
       if (scheduleFieldsChanged) updated.installments = await rebuildContractSchedule(updated);
       else { const r=await dbPool.query(`SELECT id,installment_no AS "installmentNo",due_date AS "dueDate",original_amount::float8 amount,paid_amount::float8 AS "paidAmount",status FROM rent_installments WHERE contract_id=$1 ORDER BY installment_no`,[updated.id]); updated.installments=r.rows; }
       await syncContractMoney(updated);
@@ -1546,9 +1612,16 @@ async function startServer() {
   });
 
   // 4. House / Units API
-  app.get("/api/house", (req, res) => {
+  app.get("/api/house", async (req, res) => {
     const q = String(req.query.q || req.query.search || "");
-    res.json(paginated(housesStore.filter(h => matchesQuery(h, q)), req));
+    const meters = electricityMetersStore;
+    const enriched = housesStore.map((h:any) => {
+      const compoundId = String(h.compoundId || h.data?.compoundId || '1');
+      const compoundName = compoundId === '2' ? 'Meadow Park Garden' : compoundId === '4' ? 'Daar Residence' : 'Azhar Residence';
+      const meter = meters.find((m:any) => String(m.unitId || m.houseId || '') === String(h.id)) || meters.find((m:any) => String(m.unitNumber || m.houseNumber || '') === String(h.houseNumber || h.unitNumber || '') && String(m.building || m.buildingNumber || '') === String(h.buildingNumber || ''));
+      return { ...h, compoundId, compoundName, type: h.type || h.unitType || 'Apartment', isFurnished: Boolean(h.isFurnished), notes: h.notes || h.notesText || '', annualRent: Number(h.annualRent || 0), electricityMeterNumber: meter?.meterNumber || '' };
+    });
+    res.json(paginated(enriched.filter(h => matchesQuery(h, q)), req));
   });
 
   app.get("/api/house/:id/history", (req, res) => {
@@ -1582,10 +1655,9 @@ async function startServer() {
     res.json(housesStore.filter((h:any) => !occupiedIds.has(String(h.id)) && !occupiedKeys.has(`${String(h.buildingNumber||'')}::${String(h.houseNumber||h.unitNumber||'')}`)));
   });
 
-  app.post("/api/house", (req, res) => {
+  app.post("/api/house", async (req, res) => {
     const body = req.body;
     if (!(body.HouseNumber || body.houseNumber)) return res.status(400).json({message:"رقم الوحدة مطلوب"});
-    if (!(body.BuildingNumber || body.buildingNumber)) return res.status(400).json({message:"رقم المبنى مطلوب"});
     const newHouse:any = {
       id: `house-${Date.now()}`,
       houseNumber: body.HouseNumber || body.houseNumber || "",
@@ -1605,17 +1677,54 @@ async function startServer() {
       hasCentralAirConditioning: body.HasCentralAirConditioning === "true" || body.hasCentralAirConditioning === true,
       isFurnished: body.IsFurnished === "true" || body.isFurnished === true,
       notes: body.notes || "",
+      compoundId: String(body.compoundId || '1'),
+      compoundName: String(body.compoundName || (String(body.compoundId || '1') === '2' ? 'Meadow Park Garden' : String(body.compoundId || '1') === '4' ? 'Daar Residence' : 'Azhar Residence')),
       isAvailable: true
     };
     newHouse.living = newHouse.livingCount;
     newHouse.majlis = newHouse.majlisCount;
     housesStore.push(newHouse);
+    if (dbPool) {
+      await dbPool.query(`UPDATE houses SET compound_id=$2,compound_name=$3,unit_type=$4,is_furnished=$5,notes_text=$6,annual_rent=$7 WHERE id=$1`,
+        [newHouse.id, newHouse.compoundId || '1', newHouse.compoundName || 'Azhar Residence', newHouse.type || 'Apartment', Boolean(newHouse.isFurnished), newHouse.notes || '', Number(newHouse.annualRent || 0)]);
+    }
     res.status(201).json(newHouse);
   });
 
 
-  app.put("/api/house/:id", (req,res)=>{ const i=housesStore.findIndex((x:any)=>x.id===req.params.id); if(i<0) return res.status(404).json({message:"Unit not found"}); const b=req.body||{}; const patch:any={...b}; if(b.unitNumber!==undefined||b.houseNumber!==undefined) patch.houseNumber=b.houseNumber??b.unitNumber; if(b.rooms!==undefined||b.roomsCount!==undefined) patch.roomsCount=Number(b.roomsCount??b.rooms??0); if(b.baths!==undefined||b.bathroomsCount!==undefined) patch.bathroomsCount=Number(b.bathroomsCount??b.baths??0); if(b.living!==undefined||b.livingCount!==undefined) patch.livingCount=Math.max(Number(b.livingCount||0),Number(b.living||0)); if(b.majlis!==undefined||b.majlisCount!==undefined) patch.majlisCount=Math.max(Number(b.majlisCount||0),Number(b.majlis||0)); housesStore[i]={...housesStore[i],...patch}; housesStore[i].living=Number(housesStore[i].livingCount ?? housesStore[i].living ?? 0); housesStore[i].majlis=Number(housesStore[i].majlisCount ?? housesStore[i].majlis ?? 0); res.json(housesStore[i]); });
-  app.delete("/api/house/:id", (req,res)=>{ const n=housesStore.length; housesStore=housesStore.filter((x:any)=>x.id!==req.params.id); if(n===housesStore.length) return res.status(404).json({message:"Unit not found"}); res.json({message:"Unit deleted"}); });
+  app.put("/api/house/:id", async (req,res)=>{
+    const i=housesStore.findIndex((x:any)=>x.id===req.params.id); if(i<0) return res.status(404).json({message:"Unit not found"});
+    const b=req.body||{}; const patch:any={...b};
+    if(b.unitNumber!==undefined||b.houseNumber!==undefined) patch.houseNumber=b.houseNumber??b.unitNumber;
+    if(b.rooms!==undefined||b.roomsCount!==undefined) patch.roomsCount=Number(b.roomsCount??b.rooms??0);
+    if(b.baths!==undefined||b.bathroomsCount!==undefined) patch.bathroomsCount=Number(b.bathroomsCount??b.baths??0);
+    if(b.living!==undefined||b.livingCount!==undefined) patch.livingCount=Math.max(Number(b.livingCount||0),Number(b.living||0));
+    if(b.majlis!==undefined||b.majlisCount!==undefined) patch.majlisCount=Math.max(Number(b.majlisCount||0),Number(b.majlis||0));
+    if(b.compoundId!==undefined) patch.compoundId=String(b.compoundId);
+    if(b.compoundName!==undefined) patch.compoundName=String(b.compoundName);
+    if(b.isFurnished!==undefined) patch.isFurnished=Boolean(b.isFurnished);
+    if(b.notes!==undefined) patch.notes=String(b.notes||'');
+    if(b.annualRent!==undefined) patch.annualRent=Number(b.annualRent||0);
+    housesStore[i]={...housesStore[i],...patch};
+    housesStore[i].living=Number(housesStore[i].livingCount ?? housesStore[i].living ?? 0); housesStore[i].majlis=Number(housesStore[i].majlisCount ?? housesStore[i].majlis ?? 0);
+    if (dbPool) {
+      await dbPool.query(`UPDATE houses SET compound_id=$2,compound_name=$3,unit_type=$4,is_furnished=$5,notes_text=$6,annual_rent=$7 WHERE id=$1`,
+        [housesStore[i].id, housesStore[i].compoundId || '1', housesStore[i].compoundName || 'Azhar Residence', housesStore[i].type || housesStore[i].unitType || 'Apartment', Boolean(housesStore[i].isFurnished), housesStore[i].notes || '', Number(housesStore[i].annualRent || 0)]);
+    }
+    res.json(housesStore[i]);
+  });
+  app.delete("/api/house/:id", async (req,res)=>{
+    const id=String(req.params.id);
+    if(dbPool){
+      const refs=await dbPool.query(`SELECT
+        (SELECT COUNT(*) FROM contracts WHERE house_id=$1) AS contracts_count,
+        (SELECT COUNT(*) FROM electricity_meters WHERE unit_id=$1) AS electricity_count,
+        (SELECT COUNT(*) FROM water_meters WHERE unit_id=$1) AS water_count`,[id]);
+      const r=refs.rows[0];
+      if(Number(r.contracts_count||0)>0 || Number(r.electricity_count||0)>0 || Number(r.water_count||0)>0) return res.status(409).json({message:'لا يمكن حذف الوحدة لأنها مرتبطة بعقود أو عدادات. قم بأرشفتها بدلاً من حذفها.'});
+    }
+    const n=housesStore.length; housesStore=housesStore.filter((x:any)=>String(x.id)!==id); if(n===housesStore.length) return res.status(404).json({message:"Unit not found"}); res.json({message:"Unit deleted"});
+  });
   // 5. Staff API
   app.get("/api/staff", (req, res) => {
     res.json(paginated(staffStore.filter(x => matchesQuery(x, String(req.query.q || req.query.search || ""))), req));
@@ -1700,7 +1809,7 @@ async function startServer() {
 
   // Rent reports are computed from the normalized installment ledger.
   app.get("/api/Reports", async (req, res) => {
-    if(!dbPool){ return res.json(tenantsStore.map((t:any)=>({tenantId:t.id,tenantName:t.fullName,nextDueDate:t.contractStartDate||'',unitNumber:t.houseNumber||'',rentAmount:Number(t.annualRent||0)/12,rentFrequency:t.paymentMethod||'Monthly',contractEndDate:t.contractEndDate||'',remainingDays:t.contractEndDate?Math.ceil((new Date(t.contractEndDate).getTime()-Date.now())/86400000):0,paidAmount:Number(t.paidAmount||0),remainingAmount:Number(t.remainingAmount||0),status:Number(t.remainingAmount||0)<=0?'Paid':'Due Soon'}))); }
+    if(!dbPool){ return res.json(tenantsStore.map((t:any)=>({tenantId:t.id,tenantName:t.fullName,nextDueDate:t.contractStartDate||'',unitNumber:t.houseNumber||'',rentAmount:Number(t.annualRent||0)/12,rentFrequency:t.paymentMethod||'Quarterly',contractEndDate:t.contractEndDate||'',remainingDays:t.contractEndDate?Math.ceil((new Date(t.contractEndDate).getTime()-Date.now())/86400000):0,paidAmount:Number(t.paidAmount||0),remainingAmount:Number(t.remainingAmount||0),status:Number(t.remainingAmount||0)<=0?'Paid':'Due Soon'}))); }
     await refreshInstallmentStatuses(dbPool);
     const r=await dbPool.query(`SELECT c.id AS "contractId",c.tenant_id AS "tenantId",c.data->>'tenantName' AS "tenantName",c.data->>'unitNumber' AS "unitNumber",c.data->>'paymentFrequency' AS "rentFrequency",c.data->>'leaseEndDate' AS "contractEndDate",COALESCE(SUM(ri.original_amount),0)::float8 AS "rentAmount",COALESCE(SUM(ri.paid_amount),0)::float8 AS "paidAmount",COALESCE(SUM(GREATEST(ri.original_amount-ri.paid_amount,0)),0)::float8 AS "remainingAmount",COALESCE(SUM(CASE WHEN ri.status='Overdue' THEN GREATEST(ri.original_amount-ri.paid_amount,0) ELSE 0 END),0)::float8 AS "overdueAmount",MIN(ri.due_date) FILTER(WHERE ri.status IN ('Pending','Partially Paid','Overdue')) AS "nextDueDate",CASE WHEN COALESCE(SUM(GREATEST(ri.original_amount-ri.paid_amount,0)),0)=0 THEN 'Paid' WHEN COUNT(*) FILTER(WHERE ri.status='Overdue')>0 THEN 'Overdue' ELSE 'Due Soon' END status FROM contracts c LEFT JOIN rent_installments ri ON ri.contract_id=c.id AND ri.status<>'Cancelled' GROUP BY c.id,c.tenant_id,c.data HAVING COALESCE(c.data->>'status','Active')<>'Archived' OR COALESCE(SUM(GREATEST(ri.original_amount-ri.paid_amount,0)),0)>0 ORDER BY "nextDueDate" NULLS LAST`);
     res.json(r.rows.map((x:any)=>({...x,remainingDays:x.contractEndDate?Math.ceil((new Date(x.contractEndDate).getTime()-Date.now())/86400000):0})));

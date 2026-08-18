@@ -33,14 +33,17 @@ export interface Unit {
   id: string;
   compoundId: string;
   compoundName: string;
-  buildingNumber: string;
+  buildingNumber: string; // legacy compatibility; not displayed in the unit master data
   unitNumber: string;
   rooms: number;
   baths: number;
-  living: number;
-  majlis: number;
-  area: string;
+  living: number; // legacy compatibility
+  majlis: number; // legacy compatibility
+  area: string; // legacy compatibility
   type: string; // Villa Duplex, Apartment, Warehouse
+  electricityMeterNumber?: string;
+  isFurnished?: boolean;
+  notes?: string;
   status: 'Occupied' | 'Vacant' | 'Maintenance' | 'Blocked';
   annualRent: number;
   currentTenantId?: string;
@@ -143,7 +146,7 @@ export interface Contract {
   discount: number;
   paidAmount: number;
   remainingAmount: number;
-  paymentFrequency: 'Annual' | 'Semi-Annual' | 'Quarterly' | 'Monthly' | string;
+  paymentFrequency: 'Every-4-Months' | 'Annual' | 'Semi-Annual' | 'Quarterly' | string;
   paymentMethod?: string;
   paymentNumber?: string;
   verifiedInEjar?: boolean;
@@ -162,6 +165,10 @@ export interface Contract {
   status: 'Active' | 'Archived' | 'Blocked' | 'Pending';
   notes?: ContractNote[];
   installments?: PaymentInstallment[];
+  /** Calculated from the contract installment schedule. */
+  nextPaymentDate?: string;
+  /** Calendar days from today until the next unpaid installment; negative means overdue. */
+  nextPaymentDays?: number;
 }
 
 export interface DueItem {

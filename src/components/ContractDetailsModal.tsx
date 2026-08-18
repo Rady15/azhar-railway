@@ -9,6 +9,16 @@ interface ContractDetailsModalProps {
   onClose: () => void;
 }
 
+const getNextPaymentInfo = (contract: Contract) => {
+  const date = contract.nextPaymentDate ? String(contract.nextPaymentDate).slice(0, 10) : '';
+  if (!date) return { date: '', days: undefined as number | undefined };
+  const today = new Date();
+  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const p = date.split('-').map(Number);
+  const dueUtc = p.length === 3 && p.every(Number.isFinite) ? Date.UTC(p[0], p[1] - 1, p[2]) : NaN;
+  return { date, days: Number.isFinite(dueUtc) ? Math.round((dueUtc - todayUtc) / 86400000) : undefined };
+};
+
 export const ContractDetailsModal: React.FC<ContractDetailsModalProps> = ({
   contract,
   isOpen,
@@ -97,6 +107,38 @@ export const ContractDetailsModal: React.FC<ContractDetailsModalProps> = ({
               </span>
             </div>
           </div>
+
+          {/* Next Payment Tracking */}
+          {(() => {
+            const next = getNextPaymentInfo(contract);
+            const daysLabel = next.days === undefined
+              ? (language === 'ar' ? 'غير محدد' : 'Not set')
+              : next.days < 0
+                ? (language === 'ar' ? `متأخر ${Math.abs(next.days)} يوم` : `${Math.abs(next.days)} days overdue`)
+                : next.days === 0
+                  ? (language === 'ar' ? 'موعد الدفعة اليوم' : 'Due today')
+                  : (language === 'ar' ? `متبقي ${next.days} يوم` : `${next.days} days left`);
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                  <span className="block text-blue-600 font-semibold text-[10px] uppercase">
+                    {language === 'ar' ? 'موعد الدفعة القادمة' : 'Next Payment Date'}
+                  </span>
+                  <span className="text-lg font-bold text-blue-800 font-mono mt-1 block">
+                    {next.date || (language === 'ar' ? 'مسدد بالكامل' : 'Fully paid')}
+                  </span>
+                </div>
+                <div className={`p-4 rounded-xl border ${next.days !== undefined && next.days < 0 ? 'bg-rose-50 border-rose-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                  <span className={`block font-semibold text-[10px] uppercase ${next.days !== undefined && next.days < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                    {language === 'ar' ? 'الأيام المتبقية للدفع' : 'Days Until Payment'}
+                  </span>
+                  <span className={`text-lg font-bold font-mono mt-1 block ${next.days !== undefined && next.days < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                    {daysLabel}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Section 1: Tenant Info */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">

@@ -84,16 +84,14 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
     }
   };
 
-  // Form states
-  const [bldNumber, setBldNumber] = useState('');
+  // Unit master-data fields. Building/area/living/majlis remain legacy backend fields but are no longer part of the unit UI.
   const [unitNumber, setUnitNumber] = useState('');
   const [rooms, setRooms] = useState(0);
   const [baths, setBaths] = useState(0);
-  const [living, setLiving] = useState(0);
-  const [majlis, setMajlis] = useState(0);
-  const [area, setArea] = useState('');
   const [unitType, setUnitType] = useState('');
+  const [isFurnished, setIsFurnished] = useState(false);
   const [annualRent, setAnnualRent] = useState(0);
+  const [unitNotes, setUnitNotes] = useState('');
 
   // Building form states
   const [newBldNo, setNewBldNo] = useState('');
@@ -101,15 +99,13 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
   const [forFamilies, setForFamilies] = useState(true);
 
   // Edit unit form states
-  const [editBldNumber, setEditBldNumber] = useState('');
   const [editUnitNumber, setEditUnitNumber] = useState('');
-  const [editRooms, setEditRooms] = useState(3);
-  const [editBaths, setEditBaths] = useState(2);
-  const [editLiving, setEditLiving] = useState(1);
-  const [editMajlis, setEditMajlis] = useState(0);
-  const [editArea, setEditArea] = useState('150');
+  const [editRooms, setEditRooms] = useState(0);
+  const [editBaths, setEditBaths] = useState(0);
   const [editUnitType, setEditUnitType] = useState('Apartment');
-  const [editAnnualRent, setEditAnnualRent] = useState(30000);
+  const [editIsFurnished, setEditIsFurnished] = useState(false);
+  const [editAnnualRent, setEditAnnualRent] = useState(0);
+  const [editUnitNotes, setEditUnitNotes] = useState('');
 
   const filteredUnits = units.filter(u => {
     if (mode === 'non_rented' && u.status !== 'Vacant') return false;
@@ -117,9 +113,10 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       return (
-        u.unitNumber.toLowerCase().includes(q) ||
-        u.buildingNumber.toLowerCase().includes(q) ||
-        u.type.toLowerCase().includes(q)
+        String(u.unitNumber || '').toLowerCase().includes(q) ||
+        String(u.compoundName || '').toLowerCase().includes(q) ||
+        String(u.type || '').toLowerCase().includes(q) ||
+        String(u.electricityMeterNumber || '').toLowerCase().includes(q)
       );
     }
     return true;
@@ -169,32 +166,39 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
     });
   }, [filteredBuildings, sortConfig]);
 
+  const selectedCompound = compoundFilter === '2'
+    ? { id: '2', name: 'Meadow Park Garden' }
+    : compoundFilter === '4'
+      ? { id: '4', name: 'Daar Residence' }
+      : { id: selectedCompoundId || '1', name: selectedCompoundId === '2' ? 'Meadow Park Garden' : selectedCompoundId === '4' ? 'Daar Residence' : 'Azhar Residence' };
+
   const resetAddUnitForm = () => {
-    setBldNumber('');
     setUnitNumber('');
     setRooms(0);
     setBaths(0);
-    setLiving(0);
-    setMajlis(0);
-    setArea('');
     setUnitType('');
+    setIsFurnished(false);
     setAnnualRent(0);
+    setUnitNotes('');
   };
 
   const handleCreateUnit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bldNumber.trim() || !unitNumber.trim() || !area.trim() || !unitType || Number(annualRent) <= 0) return;
+    if (!unitNumber.trim() || !unitType || Number(annualRent) <= 0) return;
     onAddUnit({
-      compoundId: compoundFilter === '2' ? '2' : '4',
-      compoundName: compoundFilter === '2' ? 'Meadow Park Garden' : 'Daar Residence',
-      buildingNumber: bldNumber,
-      unitNumber: unitNumber,
+      compoundId: selectedCompound.id,
+      compoundName: selectedCompound.name,
+      buildingNumber: '',
+      unitNumber: unitNumber.trim(),
       rooms: Number(rooms),
       baths: Number(baths),
-      living: Number(living),
-      majlis: Number(majlis),
-      area: area,
+      living: 0,
+      majlis: 0,
+      area: '',
       type: unitType,
+      electricityMeterNumber: '',
+      isFurnished,
+      notes: unitNotes.trim(),
       status: 'Vacant',
       annualRent: Number(annualRent)
     });
@@ -205,8 +209,8 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
   const handleCreateBuilding = (e: React.FormEvent) => {
     e.preventDefault();
     onAddBuilding({
-      compoundId: compoundFilter === '2' ? '2' : '4',
-      compoundName: compoundFilter === '2' ? 'Meadow Park Garden' : 'Daar Residence',
+      compoundId: selectedCompound.id,
+      compoundName: selectedCompound.name,
       buildingNo: newBldNo,
       remarks: remarks,
       forFamilies: forFamilies
@@ -220,29 +224,25 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
 
   const handleEdit = (unit: Unit) => {
     setEditingUnit(unit);
-    setEditBldNumber(unit.buildingNumber);
     setEditUnitNumber(unit.unitNumber);
     setEditRooms(unit.rooms);
     setEditBaths(unit.baths);
-    setEditLiving(unit.living);
-    setEditMajlis(unit.majlis);
-    setEditArea(String(unit.area));
     setEditUnitType(unit.type);
+    setEditIsFurnished(Boolean(unit.isFurnished));
     setEditAnnualRent(unit.annualRent);
+    setEditUnitNotes(unit.notes || '');
   };
 
   const handleUpdateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUnit) return;
     onUpdateUnit?.(editingUnit.id, {
-      buildingNumber: editBldNumber,
-      unitNumber: editUnitNumber,
+      unitNumber: editUnitNumber.trim(),
       rooms: Number(editRooms),
       baths: Number(editBaths),
-      living: Number(editLiving),
-      majlis: Number(editMajlis),
-      area: editArea,
       type: editUnitType,
+      isFurnished: editIsFurnished,
+      notes: editUnitNotes.trim(),
       annualRent: Number(editAnnualRent)
     });
     setEditingUnit(null);
@@ -293,8 +293,9 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
             className="bg-slate-50 border border-slate-300 text-xs rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#29b4c4]"
           >
             <option value="all">{language === 'ar' ? 'جميع المجمعات السكنية' : 'All Compounds'}</option>
-            <option value="4">مجمع أزهار السكني (Daar Residence)</option>
-            <option value="2">مجمع ريدينس حديقة ميدو</option>
+            <option value="1">مجمع أزهار السكني (Azhar Residence)</option>
+            <option value="4">دار ريزيدنس (Daar Residence)</option>
+            <option value="2">ميدو بارك جاردن (Meadow Park Garden)</option>
           </select>
 
           <div className="relative flex-1">
@@ -400,144 +401,43 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
             <table className="w-full text-right text-xs text-slate-700 border-collapse">
               <thead className="bg-[#2b62af] text-white uppercase text-[11px] font-semibold tracking-wider border-b border-blue-900 select-none">
                 <tr>
-                  <th className="py-3 px-3 border-r border-blue-600/40 w-10 text-center">#</th>
-                  <th className="py-3 px-3 border-r border-blue-600/40" onClick={() => handleSort('compoundName')}>
-                    <div className="flex items-center gap-1 cursor-pointer select-none hover:text-cyan-200">
-                      <span>{language === 'ar' ? 'المجمع' : 'Compound'}</span>
-                      <ArrowUpDown className="w-3 h-3 text-white/70" />
-                    </div>
-                  </th>
-                  <th className="py-3 px-3 border-r border-blue-600/40" onClick={() => handleSort('buildingNumber')}>
-                    <div className="flex items-center gap-1 cursor-pointer select-none hover:text-cyan-200">
-                      <span>{language === 'ar' ? 'رقم المبنى' : 'Bld #'}</span>
-                      <ArrowUpDown className="w-3 h-3 text-white/70" />
-                    </div>
-                  </th>
-                  <th className="py-3 px-3 border-r border-blue-600/40" onClick={() => handleSort('unitNumber')}>
-                    <div className="flex items-center gap-1 cursor-pointer select-none hover:text-cyan-200">
-                      <span>{language === 'ar' ? 'رقم الوحدة' : 'Unit #'}</span>
-                      <ArrowUpDown className="w-3 h-3 text-white/70" />
-                    </div>
-                  </th>
-                  <th className="py-3 px-3 border-r border-blue-600/40" onClick={() => handleSort('type')}>
-                    <div className="flex items-center gap-1 cursor-pointer select-none hover:text-cyan-200">
-                      <span>{language === 'ar' ? 'النوع' : 'Type'}</span>
-                      <ArrowUpDown className="w-3 h-3 text-white/70" />
-                    </div>
-                  </th>
-                  <th className="py-3 px-3 border-r border-blue-600/40 text-center" onClick={() => handleSort('rooms')}>
-                    <div className="flex items-center justify-center gap-1 cursor-pointer select-none hover:text-cyan-200">
-                      <span>{language === 'ar' ? 'الغرف' : 'Rooms'}</span>
-                      <ArrowUpDown className="w-3 h-3 text-white/70" />
-                    </div>
-                  </th>
-                  <th className="py-3 px-3 border-r border-blue-600/40 text-center" onClick={() => handleSort('baths')}>
-                    <div className="flex items-center justify-center gap-1 cursor-pointer select-none hover:text-cyan-200">
-                      <span>{language === 'ar' ? 'دورات المياه' : 'Baths'}</span>
-                      <ArrowUpDown className="w-3 h-3 text-white/70" />
-                    </div>
-                  </th>
-                  <th className="py-3 px-3 border-r border-blue-600/40 text-center" onClick={() => handleSort('living')}>
-                    <div className="flex items-center justify-center gap-1 cursor-pointer select-none hover:text-cyan-200">
-                      <span>{language === 'ar' ? 'الصالة' : 'Living'}</span>
-                      <ArrowUpDown className="w-3 h-3 text-white/70" />
-                    </div>
-                  </th>
-                  <th className="py-3 px-3 border-r border-blue-600/40 text-center" onClick={() => handleSort('majlis')}>
-                    <div className="flex items-center justify-center gap-1 cursor-pointer select-none hover:text-cyan-200">
-                      <span>{language === 'ar' ? 'المجلس' : 'Majlis'}</span>
-                      <ArrowUpDown className="w-3 h-3 text-white/70" />
-                    </div>
-                  </th>
-                  <th className="py-3 px-3 border-r border-blue-600/40 text-left" onClick={() => handleSort('area')}>
-                    <div className="flex items-center gap-1 cursor-pointer select-none hover:text-cyan-200">
-                      <span>{language === 'ar' ? 'المساحة (م²)' : 'Area (m²)'}</span>
-                      <ArrowUpDown className="w-3 h-3 text-white/70" />
-                    </div>
-                  </th>
-                  <th className="py-3 px-3 border-r border-blue-600/40 text-left" onClick={() => handleSort('annualRent')}>
-                    <div className="flex items-center gap-1 cursor-pointer select-none hover:text-cyan-200">
-                      <span>{language === 'ar' ? 'الإيجار السنوي' : 'Annual Rent'}</span>
-                      <ArrowUpDown className="w-3 h-3 text-white/70" />
-                    </div>
-                  </th>
-                  <th className="py-3 px-3 border-r border-blue-600/40 text-center" onClick={() => handleSort('status')}>
-                    <div className="flex items-center justify-center gap-1 cursor-pointer select-none hover:text-cyan-200">
-                      <span>{language === 'ar' ? 'الحالة' : 'Status'}</span>
-                      <ArrowUpDown className="w-3 h-3 text-white/70" />
-                    </div>
-                  </th>
-                  <th className="py-3 px-3 text-center">
-                    <span>{language === 'ar' ? 'العمليات' : 'Operations'}</span>
-                  </th>
+                  <th className="py-3 px-3 w-10 text-center">#</th>
+                  <th className="py-3 px-3" onClick={() => handleSort('compoundName')}>{language === 'ar' ? 'اسم المجمع' : 'Compound'}</th>
+                  <th className="py-3 px-3" onClick={() => handleSort('type')}>{language === 'ar' ? 'نوع الوحدة' : 'Unit Type'}</th>
+                  <th className="py-3 px-3" onClick={() => handleSort('unitNumber')}>{language === 'ar' ? 'رقم الوحدة' : 'Unit No.'}</th>
+                  <th className="py-3 px-3 text-center" onClick={() => handleSort('rooms')}>{language === 'ar' ? 'الغرف' : 'Rooms'}</th>
+                  <th className="py-3 px-3 text-center" onClick={() => handleSort('baths')}>{language === 'ar' ? 'الحمامات' : 'Baths'}</th>
+                  <th className="py-3 px-3" onClick={() => handleSort('electricityMeterNumber')}>{language === 'ar' ? 'عداد الكهرباء' : 'Electricity Meter'}</th>
+                  <th className="py-3 px-3 text-center">{language === 'ar' ? 'مفروشة' : 'Furnished'}</th>
+                  <th className="py-3 px-3 text-left" onClick={() => handleSort('annualRent')}>{language === 'ar' ? 'الإيجار' : 'Rent'}</th>
+                  <th className="py-3 px-3 text-center" onClick={() => handleSort('status')}>{language === 'ar' ? 'الحالة' : 'Status'}</th>
+                  <th className="py-3 px-3 text-center">{language === 'ar' ? 'العمليات' : 'Operations'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
                 {sortedUnits.length === 0 ? (
-                  <tr>
-                    <td colSpan={13} className="py-8 text-center text-slate-400">
-                      {language === 'ar' ? 'لا توجد وحدات مطابقة للبحث.' : 'No units found matching criteria.'}
+                  <tr><td colSpan={11} className="py-8 text-center text-slate-400">{language === 'ar' ? 'لا توجد وحدات مطابقة للبحث.' : 'No units found matching criteria.'}</td></tr>
+                ) : sortedUnits.map((u, idx) => (
+                  <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3 px-3 text-center text-slate-400">{idx + 1}</td>
+                    <td className="py-3 px-3 font-semibold text-slate-800">{u.compoundName || 'Azhar Residence'}</td>
+                    <td className="py-3 px-3">{u.type || '-'}</td>
+                    <td className="py-3 px-3"><span className="font-mono font-bold text-[#1a7f8b] bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">{u.unitNumber}</span></td>
+                    <td className="py-3 px-3 text-center font-bold">{u.rooms}</td>
+                    <td className="py-3 px-3 text-center font-bold">{u.baths}</td>
+                    <td className="py-3 px-3 font-mono">{u.electricityMeterNumber || <span className="text-slate-400">{language === 'ar' ? 'غير مربوط' : 'Not linked'}</span>}</td>
+                    <td className="py-3 px-3 text-center">{u.isFurnished ? (language === 'ar' ? 'نعم' : 'Yes') : (language === 'ar' ? 'لا' : 'No')}</td>
+                    <td className="py-3 px-3 text-left font-mono font-bold">{Number(u.annualRent || 0).toLocaleString()} {language === 'ar' ? 'ر.س' : 'SAR'}</td>
+                    <td className="py-3 px-3 text-center">{u.status === 'Occupied' ? <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">{language === 'ar' ? 'مؤجرة' : 'Occupied'}</span> : <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">{language === 'ar' ? 'متاحة' : 'Vacant'}</span>}</td>
+                    <td className="py-3 px-3 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button onClick={() => handleViewDetails(u)} title={language === 'ar' ? 'عرض التفاصيل' : 'View Details'} className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-md"><Eye className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => handleEdit(u)} title={language === 'ar' ? 'تعديل' : 'Edit'} className="p-1.5 bg-[#475569] hover:bg-[#334155] text-white rounded-md"><Pencil className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => setDeletingUnit(u)} title={language === 'ar' ? 'حذف' : 'Delete'} className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-md"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
                     </td>
                   </tr>
-                ) : (
-                  sortedUnits.map((u, idx) => (
-                    <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-3 font-mono text-slate-400 text-center border-l border-slate-100">{idx + 1}</td>
-                      <td className="py-3 px-3 text-slate-600 font-normal border-l border-slate-100">{u.compoundName}</td>
-                      <td className="py-3 px-3 font-semibold text-slate-900 border-l border-slate-100">{u.buildingNumber}</td>
-                      <td className="py-3 px-3 border-l border-slate-100">
-                        <span className="font-mono font-bold text-[#1a7f8b] bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
-                          {u.unitNumber}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 font-semibold text-slate-800 border-l border-slate-100">{u.type}</td>
-                      <td className="py-3 px-3 text-center font-bold text-slate-800 border-l border-slate-100">{u.rooms}</td>
-                      <td className="py-3 px-3 text-center font-bold text-slate-800 border-l border-slate-100">{u.baths}</td>
-                      <td className="py-3 px-3 text-center font-bold text-slate-800 border-l border-slate-100">{u.living}</td>
-                      <td className="py-3 px-3 text-center font-bold text-slate-800 border-l border-slate-100">{u.majlis}</td>
-                      <td className="py-3 px-3 text-left font-mono text-slate-700 border-l border-slate-100">{u.area} {language === 'ar' ? 'م²' : 'm²'}</td>
-                      <td className="py-3 px-3 text-left font-mono font-bold text-slate-900 border-l border-slate-100">
-                        {u.annualRent.toLocaleString()} {language === 'ar' ? 'ر.س' : 'SAR'}
-                      </td>
-                      <td className="py-3 px-3 text-center border-l border-slate-100">
-                        {u.status === 'Occupied' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                            {language === 'ar' ? 'مؤجرة' : 'Occupied'}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
-                            {language === 'ar' ? 'متاحة' : 'Vacant'}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-3 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            onClick={() => handleViewDetails(u)}
-                            title={language === 'ar' ? 'عرض التفاصيل' : 'View Details'}
-                            className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-md transition-all"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleEdit(u)}
-                            title={language === 'ar' ? 'تعديل' : 'Edit'}
-                            className="p-1.5 bg-[#475569] hover:bg-[#334155] text-white rounded-md shadow-sm transition-all"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setDeletingUnit(u)}
-                            title={language === 'ar' ? 'حذف' : 'Delete'}
-                            className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-md transition-all"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
+                ))}
               </tbody>
             </table>
           </div>
@@ -611,122 +511,34 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
               </form>
             ) : (
               <form onSubmit={handleCreateUnit} className="space-y-4 text-xs">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Building Number</label>
-                    <input
-                      type="text"
-                      required
-                      value={bldNumber}
-                      onChange={(e) => setBldNumber(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Unit Number</label>
-                    <input
-                      type="text"
-                      required
-                      value={unitNumber}
-                      onChange={(e) => setUnitNumber(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
-                    />
-                  </div>
+                <div className="rounded-xl bg-cyan-50 border border-cyan-200 p-3">
+                  <p className="text-slate-500">{language === 'ar' ? 'اسم المجمع (تلقائي)' : 'Compound (Automatic)'}</p>
+                  <p className="font-bold text-[#0e7a87] mt-1">{selectedCompound.name}</p>
                 </div>
-
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Property Type</label>
-                    <select
-                      required
-                      value={unitType}
-                      onChange={(e) => setUnitType(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
-                    >
-                      <option value="" disabled>Select property type</option>
-                      <option value="Villa Duplex">Villa Duplex</option>
-                      <option value="Apartment">Apartment</option>
-                      <option value="Warehouse">Warehouse</option>
+                    <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'نوع الوحدة' : 'Unit Type'}</label>
+                    <select required value={unitType} onChange={(e) => setUnitType(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl">
+                      <option value="" disabled>{language === 'ar' ? 'اختر النوع' : 'Select type'}</option>
+                      <option value="Villa Duplex">Villa Duplex</option><option value="Apartment">Apartment</option><option value="Warehouse">Warehouse</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Area (m²)</label>
-                    <input
-                      type="text"
-                      required
-                    value={area}
-                      onChange={(e) => setArea(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono"
-                    />
+                    <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'رقم الوحدة' : 'Unit Number'}</label>
+                    <input required value={unitNumber} onChange={(e) => setUnitNumber(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" />
                   </div>
                 </div>
-
-                <div className="grid grid-cols-4 gap-2">
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Rooms</label>
-                    <input
-                      type="number" step="1" min="0" inputMode="numeric"
-                      value={rooms || ''}
-                      onChange={(e) => setRooms(Number(e.target.value))}
-                      className="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-center font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Baths</label>
-                    <input
-                      type="number" step="1" min="0" inputMode="numeric"
-                      value={baths || ''}
-                      onChange={(e) => setBaths(Number(e.target.value))}
-                      className="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-center font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Living</label>
-                    <input
-                      type="number" step="1" min="0" inputMode="numeric"
-                      value={living || ''}
-                      onChange={(e) => setLiving(Number(e.target.value))}
-                      className="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-center font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Majlis</label>
-                    <input
-                      type="number" step="1" min="0" inputMode="numeric"
-                      value={majlis || ''}
-                      onChange={(e) => setMajlis(Number(e.target.value))}
-                      className="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-center font-bold"
-                    />
-                  </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'عدد الغرف' : 'Rooms'}</label><input type="number" min="0" value={rooms || ''} onChange={(e) => setRooms(Number(e.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" /></div>
+                  <div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'عدد الحمامات' : 'Bathrooms'}</label><input type="number" min="0" value={baths || ''} onChange={(e) => setBaths(Number(e.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" /></div>
                 </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Annual Rent Rate (SAR)</label>
-                  <input
-                    type="number"
-                    required
-                    min="0" step="1" inputMode="numeric"
-                    value={annualRent || ''}
-                    onChange={(e) => setAnnualRent(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold text-slate-900"
-                  />
+                <div className="grid grid-cols-2 gap-3 items-end">
+                  <label className="flex items-center gap-2 font-semibold text-slate-700"><input type="checkbox" checked={isFurnished} onChange={(e) => setIsFurnished(e.target.checked)} className="w-4 h-4" />{language === 'ar' ? 'مفروشة' : 'Furnished'}</label>
+                  <div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'الإيجار' : 'Rent'} (SAR)</label><input type="number" required min="0" value={annualRent || ''} onChange={(e) => setAnnualRent(Number(e.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold" /></div>
                 </div>
-
-                <div className="flex items-center gap-3 pt-3">
-                  <button
-                    type="button"
-                    onClick={() => { setShowAddModal(false); resetAddUnitForm(); }}
-                    className="flex-1 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 py-2.5 bg-[#29b4c4] text-white font-semibold rounded-xl shadow-md"
-                  >
-                    Save Unit
-                  </button>
-                </div>
+                <div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'الملاحظات' : 'Notes'}</label><textarea value={unitNotes} onChange={(e) => setUnitNotes(e.target.value)} rows={3} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl resize-none" /></div>
+                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-slate-500">{language === 'ar' ? 'رقم عداد الكهرباء يُجلب تلقائيًا من قسم عدادات الكهرباء بعد ربط العداد بالوحدة.' : 'Electricity meter number is pulled automatically from the Electricity Meters section after the meter is linked to this unit.'}</div>
+                <div className="flex items-center gap-3 pt-3"><button type="button" onClick={() => { setShowAddModal(false); resetAddUnitForm(); }} className="flex-1 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl">{language === 'ar' ? 'إلغاء' : 'Cancel'}</button><button type="submit" className="flex-1 py-2.5 bg-[#29b4c4] text-white font-semibold rounded-xl shadow-md">{language === 'ar' ? 'حفظ الوحدة' : 'Save Unit'}</button></div>
               </form>
             )}
           </div>
@@ -767,14 +579,22 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
                   <p className="font-bold text-slate-900">{viewingUnit.type}</p>
                 </div>
                 <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                  <p className="text-slate-500 mb-1">{language === 'ar' ? 'عداد الكهرباء' : 'Electricity Meter'}</p>
+                  <p className="font-mono font-bold text-slate-900">{viewingUnit.electricityMeterNumber || (language === 'ar' ? 'غير مربوط' : 'Not linked')}</p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                  <p className="text-slate-500 mb-1">{language === 'ar' ? 'مفروشة' : 'Furnished'}</p>
+                  <p className="font-bold text-slate-900">{viewingUnit.isFurnished ? (language === 'ar' ? 'نعم' : 'Yes') : (language === 'ar' ? 'لا' : 'No')}</p>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
                   <p className="text-slate-500 mb-1">{language === 'ar' ? 'الحالة' : 'Status'}</p>
                   <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${viewingUnit.status === 'Occupied' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-rose-100 text-rose-800 border border-rose-200'}`}>
                     {viewingUnit.status === 'Occupied' ? (language === 'ar' ? 'مؤجرة' : 'Occupied') : (language === 'ar' ? 'متاحة' : 'Vacant')}
                   </span>
                 </div>
                 <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
-                  <p className="text-slate-500 mb-1">{language === 'ar' ? 'المساحة' : 'Area'}</p>
-                  <p className="font-bold text-slate-900">{viewingUnit.area} {language === 'ar' ? 'م²' : 'm²'}</p>
+                  <p className="text-slate-500 mb-1">{language === 'ar' ? 'الملاحظات' : 'Notes'}</p>
+                  <p className="font-medium text-slate-900 whitespace-pre-wrap">{viewingUnit.notes || (language === 'ar' ? 'لا توجد ملاحظات' : 'No notes')}</p>
                 </div>
                 <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
                   <p className="text-slate-500 mb-1">{language === 'ar' ? 'الإيجار السنوي' : 'Annual Rent'}</p>
@@ -785,22 +605,14 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
                   <p className="font-bold text-slate-900">{contractsForUnit(viewingUnit).find(c => c.status === 'Active')?.tenantName || viewingUnit.currentTenantName || (language === 'ar' ? 'لا يوجد' : 'None')}</p>
                 </div>
               </div>
-              <div className="grid grid-cols-4 gap-2 pt-2">
+              <div className="grid grid-cols-2 gap-2 pt-2">
                 <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-center">
-                  <p className="text-slate-500 mb-1">{language === 'ar' ? 'غرف' : 'Rooms'}</p>
+                  <p className="text-slate-500 mb-1">{language === 'ar' ? 'الغرف' : 'Rooms'}</p>
                   <p className="font-bold text-slate-900 text-lg">{viewingUnit.rooms}</p>
                 </div>
                 <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-center">
-                  <p className="text-slate-500 mb-1">{language === 'ar' ? 'حمامات' : 'Baths'}</p>
+                  <p className="text-slate-500 mb-1">{language === 'ar' ? 'الحمامات' : 'Bathrooms'}</p>
                   <p className="font-bold text-slate-900 text-lg">{viewingUnit.baths}</p>
-                </div>
-                <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-center">
-                  <p className="text-slate-500 mb-1">{language === 'ar' ? 'صالة' : 'Living'}</p>
-                  <p className="font-bold text-slate-900 text-lg">{viewingUnit.living}</p>
-                </div>
-                <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-center">
-                  <p className="text-slate-500 mb-1">{language === 'ar' ? 'مجلس' : 'Majlis'}</p>
-                  <p className="font-bold text-slate-900 text-lg">{viewingUnit.majlis}</p>
                 </div>
               </div>
 
@@ -868,116 +680,14 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
             </div>
             <form onSubmit={handleUpdateSubmit} className="space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'رقم المبنى' : 'Building Number'}</label>
-                  <input
-                    type="text"
-                    required
-                    value={editBldNumber}
-                    onChange={(e) => setEditBldNumber(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'رقم الوحدة' : 'Unit Number'}</label>
-                  <input
-                    type="text"
-                    required
-                    value={editUnitNumber}
-                    onChange={(e) => setEditUnitNumber(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
-                  />
-                </div>
+                <div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'نوع الوحدة' : 'Unit Type'}</label><select required value={editUnitType} onChange={(e) => setEditUnitType(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"><option value="Villa Duplex">Villa Duplex</option><option value="Apartment">Apartment</option><option value="Warehouse">Warehouse</option></select></div>
+                <div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'رقم الوحدة' : 'Unit Number'}</label><input required value={editUnitNumber} onChange={(e) => setEditUnitNumber(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" /></div>
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'النوع' : 'Type'}</label>
-                  <select
-                    value={editUnitType}
-                    onChange={(e) => setEditUnitType(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
-                  >
-                    <option value="Villa Duplex">Villa Duplex</option>
-                    <option value="Apartment">Apartment</option>
-                    <option value="Warehouse">Warehouse</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'المساحة (م²)' : 'Area (m²)'}</label>
-                  <input
-                    type="text"
-                    value={editArea}
-                    onChange={(e) => setEditArea(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-4 gap-2">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'غرف' : 'Rooms'}</label>
-                  <input
-                    type="number" step="1" min="0" inputMode="numeric"
-                    value={editRooms}
-                    onChange={(e) => setEditRooms(Number(e.target.value))}
-                    className="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-center font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'حمامات' : 'Baths'}</label>
-                  <input
-                    type="number" step="1" min="0" inputMode="numeric"
-                    value={editBaths}
-                    onChange={(e) => setEditBaths(Number(e.target.value))}
-                    className="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-center font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'صالة' : 'Living'}</label>
-                  <input
-                    type="number" step="1" min="0" inputMode="numeric"
-                    value={editLiving}
-                    onChange={(e) => setEditLiving(Number(e.target.value))}
-                    className="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-center font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'مجلس' : 'Majlis'}</label>
-                  <input
-                    type="number" step="1" min="0" inputMode="numeric"
-                    value={editMajlis}
-                    onChange={(e) => setEditMajlis(Number(e.target.value))}
-                    className="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-center font-bold"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'الإيجار السنوي (ر.س)' : 'Annual Rent (SAR)'}</label>
-                <input
-                  type="number" step="1" min="0" inputMode="numeric"
-                  value={editAnnualRent}
-                  onChange={(e) => setEditAnnualRent(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold text-slate-900"
-                />
-              </div>
-
-              <div className="flex items-center gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setEditingUnit(null)}
-                  className="flex-1 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl"
-                >
-                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 bg-[#29b4c4] text-white font-semibold rounded-xl shadow-md"
-                >
-                  {language === 'ar' ? 'حفظ التغييرات' : 'Save Changes'}
-                </button>
-              </div>
+              <div className="grid grid-cols-2 gap-3"><div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'عدد الغرف' : 'Rooms'}</label><input type="number" min="0" value={editRooms} onChange={(e) => setEditRooms(Number(e.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" /></div><div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'عدد الحمامات' : 'Bathrooms'}</label><input type="number" min="0" value={editBaths} onChange={(e) => setEditBaths(Number(e.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" /></div></div>
+              <div className="grid grid-cols-2 gap-3 items-end"><label className="flex items-center gap-2 font-semibold text-slate-700"><input type="checkbox" checked={editIsFurnished} onChange={(e) => setEditIsFurnished(e.target.checked)} className="w-4 h-4" />{language === 'ar' ? 'مفروشة' : 'Furnished'}</label><div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'الإيجار' : 'Rent'} (SAR)</label><input type="number" min="0" value={editAnnualRent} onChange={(e) => setEditAnnualRent(Number(e.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold" /></div></div>
+              <div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'الملاحظات' : 'Notes'}</label><textarea value={editUnitNotes} onChange={(e) => setEditUnitNotes(e.target.value)} rows={3} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl resize-none" /></div>
+              <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-slate-500">{language === 'ar' ? `عداد الكهرباء المرتبط: ${editingUnit?.electricityMeterNumber || 'غير مربوط'}` : `Linked electricity meter: ${editingUnit?.electricityMeterNumber || 'Not linked'}`}</div>
+              <div className="flex items-center gap-3 pt-3"><button type="button" onClick={() => setEditingUnit(null)} className="flex-1 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl">{language === 'ar' ? 'إلغاء' : 'Cancel'}</button><button type="submit" className="flex-1 py-2.5 bg-[#29b4c4] text-white font-semibold rounded-xl shadow-md">{language === 'ar' ? 'حفظ التغييرات' : 'Save Changes'}</button></div>
             </form>
           </div>
         </div>

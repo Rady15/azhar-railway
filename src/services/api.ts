@@ -364,21 +364,24 @@ export const apiService = {
       leaseStartDate: dateOnly(c.leaseStartDate || c.contractStartDate), leaseDurationMonths: Number(c.leaseDurationMonths || 12), leaseEndDate: dateOnly(c.leaseEndDate || c.contractEndDate),
       annualRent: Number(c.annualRent || 0), monthlyRent: Number(c.monthlyRent || 0), waterYearlyBill: Number(c.waterYearlyBill || 0), totalYearlyRent: Number(c.annualRent || 0) + Number(c.waterYearlyBill || 0),
       discount: Number(c.discount || 0), paidAmount: Number(c.paidAmount || 0), remainingAmount: Number(c.remainingAmount || 0),
-      paymentFrequency: (c.paymentFrequency || c.paymentMethod || 'Monthly') as Contract['paymentFrequency'], paymentMethod: c.paymentMethod || '', paymentNumber: c.paymentNumber || '',
+      paymentFrequency: (c.paymentFrequency || c.paymentMethod || 'Quarterly') as Contract['paymentFrequency'], paymentMethod: c.paymentMethod || '', paymentNumber: c.paymentNumber || '',
       electricityMeterNumber: c.electricityMeterNumber || '', verifiedInEjar: Boolean(c.verifiedInEjar), transferAccountToTenant: Boolean(c.transferAccountToTenant),
       insurance: Number(c.insurance || 0), commission: Number(c.commission || 0), englishNotes: c.englishNotes || '', arabicNotes: c.arabicNotes || '',
-      status: (c.status || (c.isArchived ? 'Archived' : 'Active')) as Contract['status'], contractDocumentUrl: c.contractDocumentUrl || '', contractDocumentName: c.contractDocumentName || '', notes: c.notes || [], installments: c.installments || []
+      status: (c.status || (c.isArchived ? 'Archived' : 'Active')) as Contract['status'], contractDocumentUrl: c.contractDocumentUrl || '', contractDocumentName: c.contractDocumentName || '', notes: c.notes || [], installments: c.installments || [], nextPaymentDate: c.nextPaymentDate ? dateOnly(c.nextPaymentDate) : undefined, nextPaymentDays: Number.isFinite(Number(c.nextPaymentDays)) ? Number(c.nextPaymentDays) : undefined
     }));
   },
 
   async getUnits(): Promise<Unit[]> {
-    const [unitRes, contractRes] = await Promise.all([
+    const [unitRes, contractRes, meterRes] = await Promise.all([
       authedFetch('/house'),
-      authedFetch('/Contracts')
+      authedFetch('/Contracts'),
+      authedFetch('/ElectricityMeter')
     ]);
     if (!unitRes.ok) throw new Error('Failed to fetch units');
     const houses = asList(await unitRes.json());
     const contracts = contractRes.ok ? asList(await contractRes.json()) : [];
+    const meters = meterRes.ok ? asList(await meterRes.json()) : [];
+    const meterByUnit = new Map(meters.map((m:any) => [String(m.unitId || m.houseId || ''), m.meterNumber || '']));
     const today = new Date().toISOString().slice(0,10);
     const activeContracts = contracts.filter((c:any) => {
       const statusActive = String(c.status || 'Active').toLowerCase() === 'active' && !c.isArchived;
@@ -395,16 +398,19 @@ export const apiService = {
       );
       return {
         id: h.id,
-        compoundId: '1',
-        compoundName: 'Azhar Residence',
+        compoundId: h.compoundId || '1',
+        compoundName: h.compoundName || (h.compoundId === '2' ? 'Meadow Park Garden' : h.compoundId === '4' ? 'Daar Residence' : 'Azhar Residence'),
         buildingNumber: h.buildingNumber || (h.houseNumber || '').split('-')[0] || '',
-        unitNumber: h.houseNumber || '',
+        unitNumber: h.houseNumber || h.unitNumber || '',
         rooms: Number(h.roomsCount || 0),
         baths: Number(h.bathroomsCount || 0),
         living: Math.max(Number(h.livingCount || 0), Number(h.living || 0), Number(h.LivingCount || 0)),
         majlis: Math.max(Number(h.majlisCount || 0), Number(h.majlis || 0), Number(h.MajlisCount || 0)),
         area: String(h.area || ''),
-        type: h.type || 'Apartment',
+        type: h.type || h.unitType || 'Apartment',
+        electricityMeterNumber: h.electricityMeterNumber || meterByUnit.get(String(h.id)) || '',
+        isFurnished: Boolean(h.isFurnished),
+        notes: h.notes || '',
         status: current ? 'Occupied' : 'Vacant',
         annualRent: Number(h.annualRent || 0),
         currentTenantId: current?.tenantId || '',
@@ -428,13 +434,14 @@ export const apiService = {
   async addUnit(unitData: Partial<Unit>): Promise<Unit> {
     const payload = {
       houseNumber: unitData.unitNumber,
-      buildingNumber: unitData.buildingNumber,
+      buildingNumber: unitData.buildingNumber || '',
+      compoundId: unitData.compoundId,
+      compoundName: unitData.compoundName,
       roomsCount: unitData.rooms,
       bathroomsCount: unitData.baths,
-      livingCount: unitData.living,
-      majlisCount: unitData.majlis,
-      area: unitData.area,
       type: unitData.type,
+      isFurnished: Boolean(unitData.isFurnished),
+      notes: unitData.notes || '',
       status: unitData.status,
       annualRent: unitData.annualRent
     };

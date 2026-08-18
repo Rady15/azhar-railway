@@ -311,6 +311,113 @@ CREATE TABLE IF NOT EXISTS buildings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+
+-- Core relationship layer for compounds, units and utility meters.
+CREATE TABLE IF NOT EXISTS compounds (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  code TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+INSERT INTO compounds(id,name,code) VALUES
+  ('1','Azhar Residence','AZHAR'),
+  ('2','Meadow Park Garden','MEADOW'),
+  ('4','Daar Residence','DAAR')
+ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name, code=EXCLUDED.code, updated_at=NOW();
+
+ALTER TABLE houses ADD COLUMN IF NOT EXISTS compound_id TEXT;
+ALTER TABLE houses ADD COLUMN IF NOT EXISTS compound_name TEXT;
+ALTER TABLE houses ADD COLUMN IF NOT EXISTS unit_type TEXT;
+ALTER TABLE houses ADD COLUMN IF NOT EXISTS is_furnished BOOLEAN;
+ALTER TABLE houses ADD COLUMN IF NOT EXISTS notes_text TEXT;
+ALTER TABLE houses ADD COLUMN IF NOT EXISTS annual_rent NUMERIC(14,2);
+
+UPDATE houses
+SET compound_id = COALESCE(NULLIF(data->>'compoundId',''), '1'),
+    compound_name = COALESCE(NULLIF(data->>'compoundName',''), CASE COALESCE(NULLIF(data->>'compoundId',''),'1') WHEN '2' THEN 'Meadow Park Garden' WHEN '4' THEN 'Daar Residence' ELSE 'Azhar Residence' END),
+    unit_type = COALESCE(NULLIF(data->>'type',''), 'Apartment'),
+    is_furnished = COALESCE((data->>'isFurnished')::boolean, false),
+    notes_text = COALESCE(data->>'notes',''),
+    annual_rent = COALESCE(NULLIF(data->>'annualRent','')::numeric, 0)
+WHERE compound_id IS NULL OR compound_name IS NULL OR unit_type IS NULL OR is_furnished IS NULL OR notes_text IS NULL OR annual_rent IS NULL;
+
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS house_id TEXT;
+ALTER TABLE buildings ADD COLUMN IF NOT EXISTS compound_id TEXT;
+UPDATE tenants t
+SET house_id = h.id
+FROM houses h
+WHERE t.house_id IS NULL
+  AND (
+    (t.data->>'houseId') = h.id
+    OR COALESCE(t.data->>'houseNumber','') = COALESCE(h.data->>'houseNumber',h.data->>'unitNumber','')
+  );
+UPDATE buildings b
+SET compound_id = '1'
+WHERE b.compound_id IS NULL;
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS house_id TEXT;
+UPDATE contracts c
+SET house_id = COALESCE(NULLIF(c.data->>'houseId',''), h.id)
+FROM houses h
+WHERE c.house_id IS NULL
+  AND ((c.data->>'houseId') = h.id
+    OR (COALESCE(c.data->>'unitNumber',c.data->>'houseNumber','') = COALESCE(h.data->>'unitNumber',h.data->>'houseNumber','')
+        AND (COALESCE(c.data->>'buildingNumber','') = '' OR COALESCE(c.data->>'buildingNumber','') = COALESCE(h.data->>'buildingNumber',''))));
+
+UPDATE electricity_meters em
+SET unit_id = COALESCE(NULLIF(em.data->>'unitId',''), h.id)
+FROM houses h
+WHERE (em.data->>'unitId') = h.id
+   OR (COALESCE(em.data->>'unitNumber','') = COALESCE(h.data->>'unitNumber',h.data->>'houseNumber','')
+       AND COALESCE(em.data->>'building','') = COALESCE(h.data->>'buildingNumber',''));
+UPDATE water_meters wm SET unit_id=NULL WHERE unit_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM houses h WHERE h.id=wm.unit_id);
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_houses_compound') THEN
+    ALTER TABLE houses ADD CONSTRAINT fk_houses_compound FOREIGN KEY (compound_id) REFERENCES compounds(id) ON DELETE SET NULL;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_tenants_house') THEN
+    ALTER TABLE tenants ADD CONSTRAINT fk_tenants_house FOREIGN KEY (house_id) REFERENCES houses(id) ON DELETE SET NULL;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_buildings_compound') THEN
+    ALTER TABLE buildings ADD CONSTRAINT fk_buildings_compound FOREIGN KEY (compound_id) REFERENCES compounds(id) ON DELETE SET NULL;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_contracts_house') THEN
+    ALTER TABLE contracts ADD CONSTRAINT fk_contracts_house FOREIGN KEY (house_id) REFERENCES houses(id) ON DELETE SET NULL;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_electricity_meters_unit') THEN
+    ALTER TABLE electricity_meters ADD CONSTRAINT fk_electricity_meters_unit FOREIGN KEY (unit_id) REFERENCES houses(id) ON DELETE SET NULL;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_water_meters_unit') THEN
+    ALTER TABLE water_meters ADD CONSTRAINT fk_water_meters_unit FOREIGN KEY (unit_id) REFERENCES houses(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS idx_houses_compound ON houses(compound_id);
+CREATE INDEX IF NOT EXISTS idx_contracts_house ON contracts(house_id);
+CREATE INDEX IF NOT EXISTS idx_tenants_house ON tenants(house_id);
+CREATE INDEX IF NOT EXISTS idx_buildings_compound ON buildings(compound_id);
+
+-- Normalize the allowed accounting frequencies. Legacy monthly/bi-monthly contracts are retained safely as quarterly schedules.
+UPDATE contracts
+SET data = jsonb_set(
+  data,
+  '{paymentFrequency}',
+  to_jsonb(CASE
+    WHEN lower(COALESCE(data->>'paymentFrequency','')) LIKE '%semi%' THEN 'Semi-Annual'
+    WHEN lower(COALESCE(data->>'paymentFrequency','')) LIKE '%quarter%' THEN 'Quarterly'
+    WHEN lower(COALESCE(data->>'paymentFrequency','')) LIKE '%annual%' OR lower(COALESCE(data->>'paymentFrequency','')) LIKE '%year%' THEN 'Annual'
+    WHEN lower(COALESCE(data->>'paymentFrequency','')) LIKE '%four%' OR lower(COALESCE(data->>'paymentFrequency','')) LIKE '%4 month%' THEN 'Every-4-Months'
+    ELSE 'Quarterly'
+  END::text)
+)
+WHERE lower(COALESCE(data->>'paymentFrequency','')) IN ('monthly','bi-monthly','bimonthly','');
+ALTER TABLE contracts DROP CONSTRAINT IF EXISTS contracts_payment_frequency_check;
+DO $$ BEGIN
+  ALTER TABLE contracts ADD CONSTRAINT contracts_payment_frequency_check CHECK (
+    lower(COALESCE(data->>'paymentFrequency','')) IN ('four-monthly','every-4-months','quarterly','semi-annual','annual','')
+  );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
 -- Media / document storage (profile images, tenant IDs, manual contracts, facility images, attachments)
 CREATE TABLE IF NOT EXISTS media_assets (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

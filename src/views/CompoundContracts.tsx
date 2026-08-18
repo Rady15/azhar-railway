@@ -43,6 +43,31 @@ const contractGrossRent = (c: Pick<Contract, 'annualRent' | 'waterYearlyBill'>) 
 const contractNetDue = (c: Pick<Contract, 'annualRent' | 'waterYearlyBill' | 'discount'>) =>
   Math.max(0, contractGrossRent(c) - Math.max(0, Number(c.discount || 0)));
 
+const getNextPaymentInfo = (c: Contract) => {
+  const explicitDate = c.nextPaymentDate ? String(c.nextPaymentDate).slice(0, 10) : '';
+  const fallback = (c.installments || [])
+    .filter((i: any) => Number(i.paidAmount || 0) < Number(i.amount || 0) && i.status !== 'Cancelled')
+    .sort((a: any, b: any) => String(a.dueDate || '').localeCompare(String(b.dueDate || '')))[0];
+  const date = explicitDate || String(fallback?.dueDate || '').slice(0, 10);
+  if (!date) return { date: '', days: undefined as number | undefined };
+  const today = new Date();
+  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const parts = date.split('-').map(Number);
+  const dueUtc = parts.length === 3 && parts.every(Number.isFinite) ? Date.UTC(parts[0], parts[1] - 1, parts[2]) : NaN;
+  const days = Number.isFinite(dueUtc) ? Math.round((dueUtc - todayUtc) / 86400000) : undefined;
+  return { date, days };
+};
+
+const formatNextPaymentDays = (days: number | undefined, language: string) => {
+  if (days === undefined) return language === 'ar' ? 'غير محدد' : 'Not set';
+  if (days < 0) {
+    const n = Math.abs(days);
+    return language === 'ar' ? `متأخر ${n} ${n === 1 ? 'يوم' : 'أيام'}` : `${n} day${n === 1 ? '' : 's'} overdue`;
+  }
+  if (days === 0) return language === 'ar' ? 'اليوم' : 'Today';
+  return language === 'ar' ? `متبقي ${days} ${days === 1 ? 'يوم' : 'يومًا'}` : `${days} day${days === 1 ? '' : 's'} left`;
+};
+
 interface CompoundContractsProps {
   contracts: Contract[];
   tenants: Tenant[];
@@ -100,7 +125,7 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
   const [tenantMobile, setTenantMobile] = useState('');
   const [emergencyPhone, setEmergencyPhone] = useState('');
   const [waterMeterCost, setWaterMeterCost] = useState(0);
-  const [paymentFrequency, setPaymentFrequency] = useState<'Monthly' | 'Bi-Monthly' | 'Quarterly' | 'Semi-Annual' | 'Annual' | ''>('');
+  const [paymentFrequency, setPaymentFrequency] = useState<'Every-4-Months' | 'Quarterly' | 'Semi-Annual' | 'Annual' | ''>('');
   const [contractDocumentUrl, setContractDocumentUrl] = useState('');
   const [contractDocumentName, setContractDocumentName] = useState('');
 
@@ -214,9 +239,10 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
 
     onAddContract({
       contractNo: newContractNo,
-      compoundId: '1',
-      compoundName: 'Azhar Residence',
-      buildingNumber: selUnit.buildingNumber,
+      compoundId: selUnit.compoundId || '1',
+      compoundName: selUnit.compoundName || 'Azhar Residence',
+      houseId: selUnit.id,
+      buildingNumber: selUnit.buildingNumber || '',
       unitNumber: selUnit.unitNumber,
       unitType: unitType || selUnit.type || '',
       tenantId: selTenant.id,
@@ -236,6 +262,7 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
       paymentFrequency: paymentFrequency as Exclude<typeof paymentFrequency, ''>,
       status: 'Active',
       contractDocumentUrl: contractDocumentUrl || undefined,
+      electricityMeterNumber: selUnit.electricityMeterNumber || '',
       contractDocumentName: contractDocumentName || undefined,
       notes: [],
       installments: []
@@ -321,7 +348,17 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
       setPaymentAmount(0); setPaymentReference(''); setPaymentNotes('');
       const freshLedger = await apiService.getRentLedger(activeModal.contract.id);
       setLedgerData(freshLedger);
-      setActiveModal(prev => prev.contract ? { ...prev, contract: { ...prev.contract, paidAmount: Number(freshLedger.finance?.paid||0), remainingAmount: Number(freshLedger.finance?.remaining||0) } } : prev);
+      const nextDueDate = freshLedger.finance?.next_due_date ? String(freshLedger.finance.next_due_date).slice(0, 10) : '';
+      const nextDays = nextDueDate ? getNextPaymentInfo({ ...activeModal.contract, nextPaymentDate: nextDueDate }).days : undefined;
+      const refreshedContract = {
+        ...activeModal.contract,
+        paidAmount: Number(freshLedger.finance?.paid || 0),
+        remainingAmount: Number(freshLedger.finance?.remaining || 0),
+        nextPaymentDate: nextDueDate || undefined,
+        nextPaymentDays: nextDays
+      };
+      onUpdateContract(refreshedContract);
+      setActiveModal(prev => prev.contract ? { ...prev, contract: refreshedContract } : prev);
     } catch (err) {
       console.error('Failed to record payment', err);
     }
@@ -411,7 +448,7 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
       fileName: `Azhar_Residence_Contracts_${new Date().toISOString().split('T')[0]}.xlsx`,
       title: 'AZHAR RESIDENCE — Contracts Register',
       subtitle: `Contracts & financial summary • Generated ${new Date().toLocaleString('en-GB')}`,
-      columns: ['#','Contract No','Unit #','Type','Tenant Name','Mobile','Unit Rent','Water','Gross Rent','Discount','Net Due','Paid','Remaining','Start Date','End Date','Duration (Months)','Status'],
+      columns: ['#','Contract No','Unit #','Type','Tenant Name','Mobile','Unit Rent','Water','Gross Rent','Discount','Net Due','Paid','Remaining','Next Payment Date','Days Left','Start Date','End Date','Duration (Months)','Status'],
       rows,
       kpis: [
         { label: 'Contracts', value: filteredContracts.length },
@@ -419,7 +456,7 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
         { label: 'Paid', value: paid },
         { label: 'Remaining', value: remaining }
       ],
-      totalRow: ['', '', '', '', 'TOTAL', '', '', '', gross, '', '', paid, remaining, '', '', '', '']
+      totalRow: ['', '', '', '', 'TOTAL', '', '', '', gross, '', '', paid, remaining, '', '', '', '', '', '']
     });
   };
 
@@ -430,7 +467,10 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
       `${Number(c.waterYearlyBill||0).toLocaleString()} SAR`,
       `${contractGrossRent(c).toLocaleString()} SAR`,
       `${Number(c.paidAmount||0).toLocaleString()} SAR`,
-      `${Number(c.remainingAmount||0).toLocaleString()} SAR`, c.leaseEndDate || '-'
+      `${Number(c.remainingAmount||0).toLocaleString()} SAR`,
+      getNextPaymentInfo(c).date || '-',
+      formatNextPaymentDays(getNextPaymentInfo(c).days, 'en'),
+      c.leaseEndDate || '-'
     ]);
     const gross = filteredContracts.reduce((s,c)=>s+contractGrossRent(c),0);
     const paid = filteredContracts.reduce((s,c)=>s+Number(c.paidAmount||0),0);
@@ -438,7 +478,7 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
     exportStyledPdf({
       title: 'Contracts & Financial Register',
       subtitle: `Generated ${new Date().toLocaleString('en-GB')}`,
-      headers: ['#','Contract No','Unit #','Type','Tenant Name','Mobile','Unit Rent','Water','Gross Rent','Paid','Remaining','End Date'],
+      headers: ['#','Contract No','Unit #','Type','Tenant Name','Mobile','Unit Rent','Water','Gross Rent','Paid','Remaining','Next Payment Date','Days Left','End Date'],
       body,
       kpis: [
         { label: 'Contracts', value: String(filteredContracts.length) },
@@ -446,7 +486,7 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
         { label: 'Paid', value: `${paid.toLocaleString()} SAR` },
         { label: 'Remaining', value: `${remaining.toLocaleString()} SAR` }
       ],
-      totals: ['', '', '', '', 'TOTAL', '', '', '', `${gross.toLocaleString()} SAR`, `${paid.toLocaleString()} SAR`, `${remaining.toLocaleString()} SAR`, ''],
+      totals: ['', '', '', '', 'TOTAL', '', '', '', `${gross.toLocaleString()} SAR`, `${paid.toLocaleString()} SAR`, `${remaining.toLocaleString()} SAR`, '', '', ''],
       fileName: `Azhar_Residence_Contracts_${new Date().toISOString().split('T')[0]}.pdf`
     });
   };
@@ -587,6 +627,19 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
                   </div>
                 </th>
 
+                <th className="py-3 px-3 border-r border-blue-600/40 text-center" onClick={() => handleSort('nextPaymentDate')}>
+                  <div className="flex items-center justify-center gap-1 cursor-pointer select-none hover:text-cyan-200">
+                    <span>{language === 'ar' ? 'موعد الدفعة القادمة' : 'Next Payment Date'}</span>
+                    <ArrowUpDown className="w-3 h-3 text-white/70" />
+                  </div>
+                </th>
+                <th className="py-3 px-3 border-r border-blue-600/40 text-center" onClick={() => handleSort('nextPaymentDays')}>
+                  <div className="flex items-center justify-center gap-1 cursor-pointer select-none hover:text-cyan-200">
+                    <span>{language === 'ar' ? 'الأيام المتبقية' : 'Days Left'}</span>
+                    <ArrowUpDown className="w-3 h-3 text-white/70" />
+                  </div>
+                </th>
+
                 <th className="py-3 px-3 border-r border-blue-600/40" onClick={() => handleSort('tenantName')}>
                   <div className="flex items-center gap-1 cursor-pointer select-none hover:text-cyan-200">
                     <span>{language === 'ar' ? 'اسم المستأجر' : 'Tenant Name'}</span>
@@ -632,7 +685,7 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
             <tbody className="divide-y divide-slate-200 font-medium bg-white">
               {sortedContracts.length === 0 ? (
                 <tr>
-                  <td colSpan={16} className="py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={18} className="py-12 text-center text-slate-400 font-medium">
                     {language === 'ar' ? 'لا توجد عقود مطابقة للبحث حالياً في مجمع أزهار السكني.' : 'No contracts match search criteria.'}
                   </td>
                 </tr>
@@ -703,6 +756,24 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
                         <td className="py-2.5 px-3 text-left font-mono font-semibold text-amber-700 border-l border-slate-100">
                           {c.remainingAmount.toLocaleString()}
                         </td>
+
+                        {/* Next Payment Date + Days Remaining */}
+                        {(() => {
+                          const next = getNextPaymentInfo(c);
+                          return (
+                            <>
+                              <td className="py-2.5 px-3 text-center font-mono font-semibold text-blue-700 border-l border-slate-100 whitespace-nowrap">
+                                {next.date || (language === 'ar' ? 'مسدد بالكامل' : 'Fully paid')}
+                              </td>
+                              <td className={`py-2.5 px-3 text-center font-bold border-l border-slate-100 whitespace-nowrap ${
+                                next.days !== undefined && next.days < 0 ? 'text-rose-700' :
+                                next.days !== undefined && next.days <= 7 ? 'text-amber-700' : 'text-emerald-700'
+                              }`}>
+                                {next.date ? formatNextPaymentDays(next.days, language) : (language === 'ar' ? 'مسدد' : 'Paid')}
+                              </td>
+                            </>
+                          );
+                        })()}
 
                         {/* Tenant Name */}
                         <td className="py-2.5 px-3 font-semibold text-slate-900 border-l border-slate-100 whitespace-nowrap">
@@ -877,7 +948,7 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
                       </tr>
                       {isExpanded && (
                         <tr className="bg-slate-50/90 border-b border-slate-200">
-                          <td colSpan={16} className="p-4">
+                          <td colSpan={18} className="p-4">
                             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
                               <div><span className="text-slate-500 block">Contract</span><b>{c.contractNo}</b></div>
                               <div><span className="text-slate-500 block">Frequency</span><b>{c.paymentFrequency}</b></div>
@@ -1072,11 +1143,10 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
                    >
                      <option value="" disabled>اختر دورية السداد</option>
-                     <option value="Monthly">Monthly (شهري)</option>
-                     <option value="Bi-Monthly">Bi-Monthly (كل شهرين)</option>
-                     <option value="Quarterly">Quarterly (ربع سنوي)</option>
-                     <option value="Semi-Annual">Semi-Annual (نصف سنوي)</option>
-                     <option value="Annual">Annual (سنوي)</option>
+                     <option value="Every-4-Months">Every 4 Months - 3 Payments (كل 4 أشهر - 3 دفعات)</option>
+                     <option value="Quarterly">Quarterly (ربع سنوي - 4 دفعات)</option>
+                     <option value="Semi-Annual">Semi-Annual (نصف سنوي - دفعتان)</option>
+                     <option value="Annual">Annual (سنوي - دفعة واحدة)</option>
                    </select>
                  </div>
 
@@ -1307,17 +1377,16 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Payment Method</label>
+                    <label className="block font-semibold text-slate-700 mb-1">Payment Frequency</label>
                     <select
-                      value={editForm.paymentMethod || 'Quarterly'}
-                      onChange={(e) => setEditForm({ ...editForm, paymentMethod: e.target.value })}
+                      value={editForm.paymentFrequency || 'Quarterly'}
+                      onChange={(e) => setEditForm({ ...editForm, paymentFrequency: e.target.value, paymentMethod: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
                     >
-                      <option value="Monthly">Monthly</option>
-                      <option value="Bi-Monthly">Bi-Monthly</option>
-                      <option value="Quarterly">Quarterly</option>
-                      <option value="Semi-Annual">Semi-Annual</option>
-                      <option value="Annual">Annual</option>
+                      <option value="Every-4-Months">Every 4 Months - 3 Payments</option>
+                      <option value="Quarterly">Quarterly - 4 Payments</option>
+                      <option value="Semi-Annual">Semi-Annual - 2 Payments</option>
+                      <option value="Annual">Annual - 1 Payment</option>
                     </select>
                   </div>
                 </div>
