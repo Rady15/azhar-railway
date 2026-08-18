@@ -97,6 +97,8 @@ CREATE TABLE IF NOT EXISTS electricity_meters (
 );
 CREATE INDEX IF NOT EXISTS idx_electricity_meters_search ON electricity_meters USING gin(to_tsvector('simple', search_text));
 CREATE INDEX IF NOT EXISTS idx_electricity_meters_updated ON electricity_meters(updated_at DESC);
+ALTER TABLE electricity_meters ADD COLUMN IF NOT EXISTS unit_id TEXT;
+CREATE INDEX IF NOT EXISTS idx_electricity_meters_unit_id ON electricity_meters(unit_id);
 CREATE TABLE IF NOT EXISTS maintenance (
   id TEXT PRIMARY KEY,
   data JSONB NOT NULL,
