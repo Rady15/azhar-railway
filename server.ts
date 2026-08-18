@@ -810,7 +810,11 @@ async function syncContractMoney(contract:any, client?:any){
   contract.paidAmount=Number(fin.paid||0); contract.remainingAmount=Number(fin.remaining||0);
   applyNextPaymentMeta(contract, fin.next_due_date);
   const idx=contractsStore.findIndex((x:any)=>String(x.id)===String(contract.id)); if(idx>=0) contractsStore[idx]={...contractsStore[idx],paidAmount:contract.paidAmount,remainingAmount:contract.remainingAmount,nextPaymentDate:contract.nextPaymentDate,nextPaymentDays:contract.nextPaymentDays};
-  if(dbPool){ const c=client||dbPool; await c.query(`UPDATE contracts SET data=jsonb_set(jsonb_set(jsonb_set(jsonb_set(data,'{paidAmount}',to_jsonb($2::numeric),true),'{remainingAmount}',to_jsonb($3::numeric),true),'{nextPaymentDate}',to_jsonb($4::text),true),'{nextPaymentDays}',to_jsonb($5::int),true),updated_at=NOW() WHERE id=$1`,[String(contract.id),contract.paidAmount,contract.remainingAmount,contract.nextPaymentDate||null,contract.nextPaymentDays ?? null]); }
+  if(dbPool){
+    const c=client||dbPool;
+    // Never let optional NULL payment metadata turn contracts.data into SQL NULL.
+    await c.query(`UPDATE contracts SET data=jsonb_set(jsonb_set(jsonb_set(jsonb_set(COALESCE(data,'{}'::jsonb),'{paidAmount}',COALESCE(to_jsonb($2::numeric),'null'::jsonb),true),'{remainingAmount}',COALESCE(to_jsonb($3::numeric),'null'::jsonb),true),'{nextPaymentDate}',COALESCE(to_jsonb($4::text),'null'::jsonb),true),'{nextPaymentDays}',COALESCE(to_jsonb($5::int),'null'::jsonb),true),updated_at=NOW() WHERE id=$1`,[String(contract.id),contract.paidAmount,contract.remainingAmount,contract.nextPaymentDate||null,contract.nextPaymentDays ?? null]);
+  }
   return contract;
 }
 

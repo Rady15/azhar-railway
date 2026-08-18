@@ -63,7 +63,7 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_exp ON refresh_tokens(expires_at);
 -- Business entities use dedicated tables so each module can be indexed, paged and backed up independently.
 CREATE TABLE IF NOT EXISTS tenants (
   id TEXT PRIMARY KEY,
-  data JSONB NOT NULL,
+  data JSONB NOT NULL DEFAULT '{}'::jsonb,
   search_text TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -183,11 +183,12 @@ CREATE INDEX IF NOT EXISTS idx_notifications_updated ON notifications(updated_at
 CREATE TABLE IF NOT EXISTS contracts (
   id TEXT PRIMARY KEY,
   tenant_id TEXT REFERENCES tenants(id) ON DELETE SET NULL,
-  data JSONB NOT NULL,
+  data JSONB NOT NULL DEFAULT '{}'::jsonb,
   search_text TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE contracts ALTER COLUMN data SET DEFAULT '{}'::jsonb;
 CREATE INDEX IF NOT EXISTS idx_contracts_tenant ON contracts(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_contracts_search ON contracts USING gin(to_tsvector('simple', search_text));
 CREATE TABLE IF NOT EXISTS payments (
