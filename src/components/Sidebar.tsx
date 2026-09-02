@@ -19,7 +19,8 @@ import {
   Receipt,
   Mail,
   PartyPopper,
-  Calendar
+  Calendar,
+  StickyNote
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -48,6 +49,7 @@ export type ActiveTab =
   | 'archived_tenants'
   | 'azhar_companies'
   | 'azhar_announcements'
+  | 'azhar_compound_notes'
   | 'patch_notes';
 
 interface SidebarProps {
@@ -450,6 +452,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="pt-2 border-t border-slate-800/80 space-y-1">
             <button onClick={() => handleSelect('azhar_companies')} className={`w-full text-start px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-2 ${activeTab==='azhar_companies'?'bg-[#29b4c4] text-white':'hover:bg-slate-800/80 text-slate-400 hover:text-white'}`}><Building2 className="w-4 h-4"/><span>{language==='ar'?'الشركات':'Companies'}</span></button>
             <button onClick={() => handleSelect('azhar_announcements')} className={`w-full text-start px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-2 ${activeTab==='azhar_announcements'?'bg-[#29b4c4] text-white':'hover:bg-slate-800/80 text-slate-400 hover:text-white'}`}><Mail className="w-4 h-4"/><span>{language==='ar'?'الإعلانات':'Announcements'}</span></button>
+            <button onClick={() => handleSelect('azhar_compound_notes')} className={`w-full text-start px-3 py-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-2 ${activeTab==='azhar_compound_notes'?'bg-[#29b4c4] text-white':'hover:bg-slate-800/80 text-slate-400 hover:text-white'}`}><StickyNote className="w-4 h-4"/><span>{language==='ar'?'ملاحظات الكمبوند':'Compound Notes'}</span></button>
           </div>
 
           {/* SYSTEM INFO */}

@@ -641,6 +641,29 @@ export const apiService = {
     return res.ok ? res.json() : null;
   },
 
+  // Compound admin notes
+  async getCompoundNotes(compoundId?: string): Promise<any[]> {
+    const qs = compoundId ? `?compoundId=${encodeURIComponent(compoundId)}` : '';
+    const res = await authedFetch(`/compound-notes${qs}`);
+    if (!res.ok) throw new Error('Failed to fetch compound notes');
+    return asList(await res.json());
+  },
+  async addCompoundNote(note: {compoundId:string; compoundName:string; title?:string; content:string}): Promise<any> {
+    const res = await authedFetch('/compound-notes', {method:'POST', body:JSON.stringify(note)});
+    if (!res.ok) throw new Error((await res.json().catch(()=>({}))).message || 'Failed to add compound note');
+    return res.json();
+  },
+  async updateCompoundNote(id:string, note:{title?:string; content?:string}): Promise<any> {
+    const res = await authedFetch(`/compound-notes/${id}`, {method:'PUT', body:JSON.stringify(note)});
+    if (!res.ok) throw new Error((await res.json().catch(()=>({}))).message || 'Failed to update compound note');
+    return res.json();
+  },
+  async deleteCompoundNote(id:string): Promise<any> {
+    const res = await authedFetch(`/compound-notes/${id}`, {method:'DELETE'});
+    if (!res.ok) throw new Error((await res.json().catch(()=>({}))).message || 'Failed to delete compound note');
+    return res.json();
+  },
+
   // Staff
   async getStaffMembers(): Promise<StaffMember[]> {
     const res = await authedFetch('/staff');

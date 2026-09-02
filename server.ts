@@ -11,12 +11,13 @@ const JWT_SECRET = process.env.JWT_SECRET || "azhar-development-secret-change-me
 const ACCESS_TTL_SECONDS = 60 * 60;
 const REFRESH_TTL_SECONDS = 7 * 24 * 60 * 60;
 let dbPool: any = null;
+let compoundAdminNotesStore: any[] = [];
 
 const TABLES: Record<string, string> = {
   tenants: "tenants", contracts: "contracts", houses: "houses", staff: "staff",
   payments: "payments", electricityMeters: "electricity_meters", maintenance: "maintenance",
   letters: "letters", announcements: "announcements", complaints: "complaints", expenses: "expenses",
-  companies: "companies", facilities: "facilities", facilityBookings: "facility_bookings", notifications: "notifications"
+  companies: "companies", facilities: "facilities", facilityBookings: "facility_bookings", notifications: "notifications", compoundAdminNotes: "compound_admin_notes"
 };
 
 function normalizeSearch(value: unknown) { return String(value ?? "").trim().toLocaleLowerCase("en"); }
@@ -875,7 +876,7 @@ async function startServer() {
   if (isProduction) {
     tenantsStore=[]; contractsStore=[]; housesStore=[]; staffStore=[]; paymentsStore=[]; electricityMetersStore=[];
     maintenanceStore=[]; lettersStore=[]; announcementsStore=[]; complaintsStore=[]; expensesStore=[]; companiesStore=[];
-    facilitiesStore=[]; facilityBookingsStore=[]; notificationsStore=[];
+    facilitiesStore=[]; facilityBookingsStore=[]; notificationsStore=[]; compoundAdminNotesStore=[];
   }
   const seedTenants = tenantsStore.map((x:any)=>({...x}));
   await initDatabase();
@@ -904,6 +905,7 @@ async function startServer() {
   facilitiesStore = await loadState("facilities", facilitiesStore);
   facilityBookingsStore = await loadState("facilityBookings", facilityBookingsStore);
   notificationsStore = await loadState("notifications", notificationsStore);
+  compoundAdminNotesStore = await loadState("compoundAdminNotes", compoundAdminNotesStore);
   // Repair legacy/partial database states before contracts or installments touch tenant foreign keys.
   await ensureTenantReferences(seedTenants);
   // Persist canonicalized legacy repairs (gross rent, removed representative field, unit living/majlis aliases).
@@ -1738,6 +1740,58 @@ async function startServer() {
     }
     const n=housesStore.length; housesStore=housesStore.filter((x:any)=>String(x.id)!==id); if(n===housesStore.length) return res.status(404).json({message:"Unit not found"}); res.json({message:"Unit deleted"});
   });
+  // Compound admin notes API (Admin only via the /api auth middleware + admin permission).
+  app.get("/api/compound-notes", async (req:any, res:any) => {
+    if (req.user?.role !== 'Admin' && !req.user?.permissions?.includes('admin.manage')) return res.status(403).json({message:'غير مصرح'});
+    const compoundId = String(req.query.compoundId || '');
+    let items = compoundAdminNotesStore.filter((x:any) => !compoundId || String(x.compoundId) === compoundId);
+    if (dbPool) {
+      const r = await dbPool.query(
+        `SELECT data FROM compound_admin_notes ${compoundId ? "WHERE data->>'compoundId'=$1" : ''} ORDER BY updated_at DESC`,
+        compoundId ? [compoundId] : []
+      );
+      items = r.rows.map((x:any)=>x.data);
+      compoundAdminNotesStore = compoundAdminNotesStore.filter((x:any)=>!compoundId || String(x.compoundId)!==compoundId).concat(items);
+    }
+    res.json(items);
+  });
+  app.post("/api/compound-notes", async (req:any, res:any) => {
+    if (req.user?.role !== 'Admin' && !req.user?.permissions?.includes('admin.manage')) return res.status(403).json({message:'غير مصرح'});
+    const compoundId = String(req.body?.compoundId || '');
+    const compoundName = String(req.body?.compoundName || '');
+    const title = String(req.body?.title || '').trim();
+    const content = String(req.body?.content || '').trim();
+    if (!compoundId || !content) return res.status(400).json({message:'المجمع والملاحظة مطلوبان'});
+    const now = new Date().toISOString();
+    const item = {id:crypto.randomUUID(), compoundId, compoundName, title, content, createdAt:now, updatedAt:now, createdBy:String(req.user?.sub || '')};
+    compoundAdminNotesStore = [item, ...compoundAdminNotesStore];
+    if (dbPool) await saveState("compoundAdminNotes", compoundAdminNotesStore);
+    res.status(201).json(item);
+  });
+  app.put("/api/compound-notes/:id", async (req:any, res:any) => {
+    if (req.user?.role !== 'Admin' && !req.user?.permissions?.includes('admin.manage')) return res.status(403).json({message:'غير مصرح'});
+    const i = compoundAdminNotesStore.findIndex((x:any)=>String(x.id)===String(req.params.id));
+    if (i < 0) return res.status(404).json({message:'الملاحظة غير موجودة'});
+    const current = compoundAdminNotesStore[i];
+    const updated = {...current,
+      title: req.body?.title !== undefined ? String(req.body.title).trim() : current.title,
+      content: req.body?.content !== undefined ? String(req.body.content).trim() : current.content,
+      updatedAt:new Date().toISOString()
+    };
+    if (!updated.content) return res.status(400).json({message:'الملاحظة لا يمكن أن تكون فارغة'});
+    compoundAdminNotesStore[i]=updated;
+    if (dbPool) await saveState("compoundAdminNotes", compoundAdminNotesStore);
+    res.json(updated);
+  });
+  app.delete("/api/compound-notes/:id", async (req:any, res:any) => {
+    if (req.user?.role !== 'Admin' && !req.user?.permissions?.includes('admin.manage')) return res.status(403).json({message:'غير مصرح'});
+    const before=compoundAdminNotesStore.length;
+    compoundAdminNotesStore=compoundAdminNotesStore.filter((x:any)=>String(x.id)!==String(req.params.id));
+    if (before===compoundAdminNotesStore.length) return res.status(404).json({message:'الملاحظة غير موجودة'});
+    if (dbPool) await saveState("compoundAdminNotes", compoundAdminNotesStore);
+    res.json({message:'تم حذف الملاحظة'});
+  });
+
   // 5. Staff API
   app.get("/api/staff", (req, res) => {
     res.json(paginated(staffStore.filter(x => matchesQuery(x, String(req.query.q || req.query.search || ""))), req));

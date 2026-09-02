@@ -264,6 +264,38 @@ export const StaffPortalView: React.FC<StaffPortalViewProps> = ({
                   </div>
                 </div>
 
+                {/* Full employee data: rendered from the authenticated staff record returned by /staff-portal/me */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <User className="w-4 h-4 text-cyan-600" />
+                    <h2 className="font-bold text-slate-800">{t('بيانات الموظف كاملة', 'Complete Employee Information')}</h2>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {[
+                      [t('كود الموظف','Employee Code'), currentStaff.empCode],
+                      [t('اسم المستخدم','Username'), currentStaff.username],
+                      [t('المسمى الوظيفي','Job Title'), currentStaff.role],
+                      [t('رقم الهاتف','Mobile'), currentStaff.mobile],
+                      [t('واتساب','WhatsApp'), currentStaff.whatsapp],
+                      [t('البريد الإلكتروني','Email'), currentStaff.email],
+                      [t('الرقم القومي','National ID'), currentStaff.nationalId],
+                      [t('تاريخ الانضمام','Joining Date'), currentStaff.joiningDate],
+                      [t('الراتب','Salary'), currentStaff.salary ? Number(currentStaff.salary).toLocaleString() : '0'],
+                    ].map(([label,value]) => (
+                      <div key={String(label)} className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                        <p className="text-[11px] text-slate-400 mb-1">{label}</p>
+                        <p className="text-sm font-semibold text-slate-700 break-words">{value || t('غير مسجل','Not provided')}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {currentStaff.notes && (
+                    <div className="mt-3 rounded-xl bg-amber-50 border border-amber-100 p-3">
+                      <p className="text-[11px] text-amber-600 mb-1">{t('ملاحظات الموظف','Employee Notes')}</p>
+                      <p className="text-sm text-slate-700 whitespace-pre-wrap break-words">{currentStaff.notes}</p>
+                    </div>
+                  )}
+                </div>
+
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">

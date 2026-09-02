@@ -22,6 +22,7 @@ import { LettersView } from './views/LettersView';
 import { FacilitiesView } from './views/FacilitiesView';
 import { FacilityBookingsView } from './views/FacilityBookingsView';
 import { PatchNotesView } from './views/PatchNotesView';
+import { CompoundNotesView } from './views/CompoundNotesView';
 import { LanguageProvider } from './context/LanguageContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { ProfileSettingsModal } from './components/ProfileSettingsModal';
@@ -124,7 +125,7 @@ function MainApp() {
         try {
           const d = await apiService.getStaffPortalData(); const st:any=d.me?.staff||{};
           setCurrentUser(prev => prev ? { ...prev, staffId: st.id || prev.staffId } : prev);
-          setStaffMembers([{id:st.id,empCode:st.empCode||st.employeeCode||'',name:st.fullName||st.name||currentUser.name,role:st.role||st.jobTitle||'Staff',mobile:st.phoneNumber||st.mobile||'',whatsapp:st.whatsapp||st.whatsappNumber||'',nationalId:st.nationalId||'',status:(st.status||'Active') as StaffStatus,joiningDate:st.joiningDate||'',salary:Number(st.salary||0)}]);
+          setStaffMembers([{id:st.id,empCode:st.empCode||st.employeeCode||'',username:st.username||st.empCode||'',name:st.fullName||st.name||currentUser.name,role:st.role||st.position||st.jobTitle||'Staff',mobile:st.phoneNumber||st.mobile||'',email:st.email||'',whatsapp:st.whatsappNumber||st.whatsapp||'',nationalId:st.nationalId||'',status:(st.status|| (st.isActive===false?'Suspended':'Active')) as StaffStatus,joiningDate:st.joiningDate||st.hireDate||st.createdAt?.slice?.(0,10)||'',salary:Number(st.salary||0),notes:st.notes||''}]);
           setMaintenanceRequests((d.maintenance||[]) as MaintenanceRequest[]); setComplaints((d.complaints||[]) as Complaint[]); setUnits((d.units||[]) as Unit[]); setTenants((d.tenants||[]) as Tenant[]); setAnnouncements((d.announcements||[]) as Announcement[]);
         } catch (err) { console.error('Failed to load staff portal data', err); }
         return;
@@ -738,6 +739,7 @@ function MainApp() {
             {activeTab === 'azhar_companies' && <AdminContentView mode="companies" companies={companies} announcements={announcements} onAddCompany={handleAddCompany} onUpdateCompany={handleUpdateCompany} onDeleteCompany={handleDeleteCompany} onAddAnnouncement={handleAddAnnouncement} onUpdateAnnouncement={handleUpdateAnnouncement} onDeleteAnnouncement={handleDeleteAnnouncement} />}
             {activeTab === 'azhar_announcements' && <AdminContentView mode="announcements" companies={companies} announcements={announcements} onAddCompany={handleAddCompany} onUpdateCompany={handleUpdateCompany} onDeleteCompany={handleDeleteCompany} onAddAnnouncement={handleAddAnnouncement} onUpdateAnnouncement={handleUpdateAnnouncement} onDeleteAnnouncement={handleDeleteAnnouncement} />}
 
+            {activeTab === 'azhar_compound_notes' && <CompoundNotesView />}
             {activeTab === 'patch_notes' && (
               <PatchNotesView />
             )}
