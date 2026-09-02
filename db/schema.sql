@@ -329,6 +329,17 @@ INSERT INTO compounds(id,name,code) VALUES
   ('4','Daar Residence','DAAR')
 ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name, code=EXCLUDED.code, updated_at=NOW();
 
+-- Private admin notes for each compound.
+CREATE TABLE IF NOT EXISTS compound_admin_notes (
+  id TEXT PRIMARY KEY,
+  data JSONB NOT NULL,
+  search_text TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_compound_admin_notes_search ON compound_admin_notes USING gin(to_tsvector('simple', search_text));
+CREATE INDEX IF NOT EXISTS idx_compound_admin_notes_updated ON compound_admin_notes(updated_at DESC);
+
 ALTER TABLE houses ADD COLUMN IF NOT EXISTS compound_id TEXT;
 ALTER TABLE houses ADD COLUMN IF NOT EXISTS compound_name TEXT;
 ALTER TABLE houses ADD COLUMN IF NOT EXISTS unit_type TEXT;
