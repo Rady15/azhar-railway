@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Wrench, CheckCircle2, Clock, AlertTriangle, User, Phone, MessageSquare,
   Building2, Key, Send, FileText, Calendar, ShieldAlert, ChevronDown,
@@ -9,6 +9,7 @@ import { StaffMember, MaintenanceRequest, User as UserType } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { AzharLogo } from '../components/AzharLogo';
 import { useNotifications } from '../context/NotificationContext';
+import { apiService } from '../services/api';
 
 type StaffTab = 'dashboard' | 'tasks' | 'password';
 
@@ -35,9 +36,77 @@ export const StaffPortalView: React.FC<StaffPortalViewProps> = ({
   const { notifications, unreadCount, isDropdownOpen, toggleDropdown, closeDropdown, markAsRead, markAllAsRead } = useNotifications();
   const isRtl = language === 'ar';
 
-  const currentStaff = (staffList || []).find(s => s.id === currentUser.staffId || s.name === currentUser.name) || {
-    id: currentUser.staffId || '', empCode: '', name: currentUser.name || '', role: currentUser.role || 'Staff', mobile: '', whatsapp: '', nationalId: '', status: 'Active' as const, joiningDate: '', salary: 0
+  const fallbackStaff: StaffMember = (staffList || []).find(s => s.id === currentUser.staffId || s.name === currentUser.name) || {
+    id: currentUser.staffId || '', empCode: '', name: currentUser.name || '', role: currentUser.role || 'Staff', mobile: '', whatsapp: '', nationalId: '', status: 'Active', joiningDate: '', salary: 0
   };
+  const [portalStaff, setPortalStaff] = useState<StaffMember>(fallbackStaff);
+  const [portalMaintenance, setPortalMaintenance] = useState<MaintenanceRequest[]>(maintenanceRequests || []);
+
+  const currentStaff = portalStaff;
+
+  useEffect(() => {
+    let alive = true;
+    const loadStaffPortal = async () => {
+      try {
+        const data = await apiService.getStaffPortalData();
+        if (!alive) return;
+        const raw = data?.me?.staff || {};
+        setPortalStaff({
+          ...fallbackStaff,
+          id: String(raw.id || fallbackStaff.id || ''),
+          empCode: raw.empCode || fallbackStaff.empCode || '',
+          username: raw.username || raw.userName || fallbackStaff.username || '',
+          name: raw.fullName || raw.name || fallbackStaff.name || '',
+          role: raw.position || raw.specialization || raw.role || fallbackStaff.role || 'Staff',
+          mobile: raw.phoneNumber || raw.phone || raw.mobile || fallbackStaff.mobile || '',
+          whatsapp: raw.whatsappNumber || raw.whatsapp || raw.phoneNumber || fallbackStaff.whatsapp || '',
+          email: raw.email || fallbackStaff.email || '',
+          nationalId: raw.nationalId || raw.iqamaNumber || fallbackStaff.nationalId || '',
+          status: raw.isActive === false ? 'Suspended' : (raw.status || fallbackStaff.status || 'Active'),
+          joiningDate: raw.joiningDate || raw.createdAt || fallbackStaff.joiningDate || '',
+          salary: Number(raw.salary ?? fallbackStaff.salary ?? 0),
+          notes: raw.notes || raw.employeeNotes || fallbackStaff.notes || ''
+        });
+        const incoming = Array.isArray(data?.maintenance) ? data.maintenance : [];
+        setPortalMaintenance(incoming.map((m:any) => ({
+          ...m,
+          id: String(m.id || ''),
+          rvNo: m.rvNo || m.requestNumber || m.ticketNo || m.ticketNumber || String(m.id || ''),
+          ticketNo: m.ticketNo || m.requestNumber || m.ticketNumber || m.rvNo || '',
+          requestNumber: m.requestNumber || m.rvNo || m.ticketNo || '',
+          compoundId: String(m.compoundId || ''),
+          compoundName: m.compoundName || m.compound || '',
+          buildingNumber: m.buildingNumber || m.buildingNo || (m.houseNumber ? String(m.houseNumber).split('-')[0] : ''),
+          unitNumber: m.unitNumber || m.houseNumber || '',
+          houseNumber: m.houseNumber || m.unitNumber || '',
+          responsibleName: m.responsibleName || m.tenantName || m.assignedStaffName || m.assignedToName || '',
+          tenantName: m.tenantName || m.userName || m.tenant?.name || '',
+          tenantPhone: m.tenantPhone || m.phone || m.tenant?.phone || '',
+          requestDate: m.requestDate || (m.createdAt ? String(m.createdAt).slice(0,10) : ''),
+          startDate: m.startDate || m.requestDate || (m.createdAt ? String(m.createdAt).slice(0,10) : ''),
+          workActivity: m.workActivity || m.title || m.category || 'Maintenance',
+          title: m.title || m.workActivity || m.category || '',
+          category: m.category || m.workActivity || '',
+          description: m.description || m.issueDescription || '',
+          issueDescription: m.issueDescription || m.description || '',
+          priority: m.priority || 'Normal',
+          totalAmount: Number(m.totalAmount || m.amount || 0),
+          assignedStaffId: m.assignedStaffId || m.assignedToId || '',
+          assignedStaffName: m.assignedStaffName || m.assignedToName || '',
+          notes: m.notes || m.workNotes || m.adminNotes || '',
+          workNotes: m.workNotes || m.notes || '',
+          adminNotes: m.adminNotes || '',
+          attachmentUrl: m.attachmentUrl || m.attachment?.url || '',
+          attachmentName: m.attachmentName || m.attachment?.name || ''
+        })));
+      } catch (error) {
+        console.error('Failed to load complete staff portal data', error);
+        if (alive) setPortalMaintenance(maintenanceRequests || []);
+      }
+    };
+    loadStaffPortal();
+    return () => { alive = false; };
+  }, [currentUser.id, currentUser.staffId]);
 
   const [activeTab, setActiveTab] = useState<StaffTab>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -51,7 +120,7 @@ export const StaffPortalView: React.FC<StaffPortalViewProps> = ({
 
   const bellRef = useRef<HTMLDivElement>(null);
 
-  const myTasks = maintenanceRequests.filter(req => {
+  const myTasks = portalMaintenance.filter(req => {
     const isAssignedToMe = req.assignedStaffId === currentStaff.id || req.assignedStaffName?.trim() === currentStaff.name.trim() || (req as any).assignedToName?.trim() === currentStaff.name.trim() || (currentStaff.role.includes('مشرف') || currentStaff.role.includes('General Manager'));
     if (!isAssignedToMe && currentUser.role !== 'Admin') return false;
     if (filterStatus === 'ALL') return true;
@@ -63,7 +132,18 @@ export const StaffPortalView: React.FC<StaffPortalViewProps> = ({
   const completedCount = myTasks.filter(t => t.status === 'Done').length;
   const newCount = myTasks.filter(t => t.status === 'New' || t.status === 'Awaiting Approval').length;
 
-  const handleSaveNotes = (taskId: string) => { if (onUpdateMaintenanceNotes) onUpdateMaintenanceNotes(taskId, techNotesInput); setEditingNotesId(null); setTechNotesInput(''); };
+  const handleSaveNotes = async (taskId: string) => {
+    if (!onUpdateMaintenanceNotes) return;
+    await onUpdateMaintenanceNotes(taskId, techNotesInput);
+    setPortalMaintenance(prev => prev.map(item => item.id === taskId ? { ...item, notes: techNotesInput, workNotes: techNotesInput } : item));
+    setEditingNotesId(null); setTechNotesInput('');
+  };
+
+  const handleStatusUpdate = async (taskId: string, status: MaintenanceRequest['status']) => {
+    if (!onUpdateMaintenanceStatus) return;
+    await onUpdateMaintenanceStatus(taskId, status);
+    setPortalMaintenance(prev => prev.map(item => item.id === taskId ? { ...item, status } : item));
+  };
 
   const handleChangePassword = (e: React.FormEvent) => {
     e.preventDefault();
@@ -351,7 +431,7 @@ export const StaffPortalView: React.FC<StaffPortalViewProps> = ({
                           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                             <div className="space-y-2 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-mono text-xs font-bold text-cyan-600 bg-cyan-50 px-2.5 py-1 rounded-md border border-cyan-200">#{task.id}</span>
+                                <span className="font-mono text-xs font-bold text-cyan-600 bg-cyan-50 px-2.5 py-1 rounded-md border border-cyan-200">#{task.requestNumber || task.ticketNo || task.rvNo || task.id}</span>
                                 <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold border ${
                                   task.status === 'Done' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : task.status === 'In Progress' ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-purple-50 text-purple-600 border-purple-200'
                                 }`}>
@@ -366,26 +446,38 @@ export const StaffPortalView: React.FC<StaffPortalViewProps> = ({
                                   <Calendar className="w-3.5 h-3.5" /><span>{task.requestDate}</span>
                                 </div>
                               </div>
-                              <h3 className="text-sm font-bold text-slate-800 tracking-wide">{task.issueDescription}</h3>
-                              <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600 bg-white p-2.5 rounded-lg border border-slate-200">
-                                <div className="flex items-center gap-1.5"><Building2 className="w-4 h-4 text-cyan-500" /><span>{t('الوحدة', 'Unit')}: <strong className="text-slate-800">{task.unitNumber}</strong> ({t('مبنى', 'Bldg')}: {task.buildingNumber})</span></div>
-                                <div className="flex items-center gap-1.5"><User className="w-4 h-4 text-slate-400" /><span>{t('المستأجر', 'Tenant')}: <strong className="text-slate-800">{task.tenantName}</strong></span></div>
-                                <div className="flex items-center gap-1.5"><Phone className="w-4 h-4 text-emerald-500" /><a href={`tel:${task.tenantPhone}`} className="text-emerald-600 hover:underline">{task.tenantPhone}</a></div>
-                                <a href={`https://wa.me/966${task.tenantPhone?.replace(/^0/, '')}`} target="_blank" rel="noopener noreferrer" className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 rounded text-[11px] font-semibold flex items-center gap-1 transition-colors">
-                                  <MessageSquare className="w-3.5 h-3.5" /><span>واتساب</span>
-                                </a>
+                              <h3 className="text-sm font-bold text-slate-800 tracking-wide">{task.title || task.issueDescription || task.workActivity || task.category || t('طلب صيانة', 'Maintenance Request')}</h3>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-slate-600 bg-white p-3 rounded-lg border border-slate-200">
+                                <div><span className="text-slate-400">{t('رقم الطلب','Request No.')}: </span><strong>{task.requestNumber || task.ticketNo || task.rvNo || task.id}</strong></div>
+                                <div><span className="text-slate-400">{t('التصنيف','Category')}: </span><strong>{task.category || '—'}</strong></div>
+                                <div><span className="text-slate-400">{t('الكمبوند','Compound')}: </span><strong>{task.compoundName || '—'}</strong></div>
+                                <div><span className="text-slate-400">{t('المبنى','Building')}: </span><strong>{task.buildingNumber || '—'}</strong></div>
+                                <div><span className="text-slate-400">{t('الوحدة','Unit')}: </span><strong>{task.unitNumber || task.houseNumber || '—'}</strong></div>
+                                <div><span className="text-slate-400">{t('الأولوية','Priority')}: </span><strong>{task.priority || '—'}</strong></div>
+                                <div><span className="text-slate-400">{t('تاريخ الطلب','Request Date')}: </span><strong>{task.requestDate || task.startDate || '—'}</strong></div>
+                                <div><span className="text-slate-400">{t('موعد الإنجاز','Target Date')}: </span><strong>{task.targetEndDate || '—'}</strong></div>
+                                <div><span className="text-slate-400">{t('المستأجر','Tenant')}: </span><strong>{task.tenantName || '—'}</strong></div>
+                                <div><span className="text-slate-400">{t('هاتف المستأجر','Tenant Phone')}: </span><strong>{task.tenantPhone || '—'}</strong></div>
+                                <div><span className="text-slate-400">{t('المسند إليه','Assigned To')}: </span><strong>{task.assignedStaffName || task.assignedToName || '—'}</strong></div>
+                                <div><span className="text-slate-400">{t('قيمة الأعمال','Work Amount')}: </span><strong>{Number(task.totalAmount || 0).toLocaleString()} {t('ر.س','SAR')}</strong></div>
                               </div>
-                              {task.notes && <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700"><strong className="text-amber-600 block mb-0.5">{t('ملاحظات الصيانة:', 'Tech Notes:')}</strong><p>{task.notes}</p></div>}
+                              <div className="mt-2 p-3 bg-white rounded-lg border border-slate-200 text-xs text-slate-700">
+                                <strong className="block text-slate-500 mb-1">{t('وصف الطلب والتفاصيل','Request Description & Details')}</strong>
+                                <p className="whitespace-pre-wrap break-words leading-6">{task.description || task.issueDescription || '—'}</p>
+                              </div>
+                              {task.tenantPhone && <div className="flex items-center gap-2 mt-2"><Phone className="w-4 h-4 text-emerald-500" /><a href={`tel:${task.tenantPhone}`} className="text-emerald-600 hover:underline text-xs">{task.tenantPhone}</a><a href={`https://wa.me/${String(task.tenantPhone).replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 rounded text-[11px] font-semibold flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" />{t('واتساب','WhatsApp')}</a></div>}
+                              {task.notes && <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700"><strong className="text-amber-600 block mb-0.5">{t('ملاحظات الصيانة:', 'Tech Notes:')}</strong><p className="whitespace-pre-wrap">{task.notes}</p></div>}
+                              {(task.attachmentUrl || task.attachmentName) && <div className="mt-2 p-2.5 bg-cyan-50 border border-cyan-200 rounded-lg text-xs"><strong className="text-cyan-700 block mb-1">{t('المرفق','Attachment')}</strong>{task.attachmentUrl ? <a href={task.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-cyan-700 hover:underline break-all">{task.attachmentName || task.attachmentUrl}</a> : <span>{task.attachmentName}</span>}</div>}
                             </div>
 
                             <div className="flex flex-col sm:flex-row lg:flex-col items-stretch justify-center gap-2 shrink-0 min-w-[180px] border-t lg:border-t-0 lg:border-r border-slate-200 pt-3 lg:pt-0 pr-0 lg:pr-4">
                               <p className="text-[11px] font-semibold text-slate-500 text-center lg:text-start">{t('تحديث الحالة:', 'Change Status:')}</p>
                               <div className="grid grid-cols-2 lg:grid-cols-1 gap-2">
-                                <button onClick={() => onUpdateMaintenanceStatus && onUpdateMaintenanceStatus(task.id, 'In Progress')} disabled={task.status !== 'New' && task.status !== 'Assigned' && task.status !== 'Open'}
+                                <button onClick={() => handleStatusUpdate(task.id, 'In Progress')} disabled={task.status !== 'New' && task.status !== 'Assigned' && task.status !== 'Open'}
                                   className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border ${task.status === 'In Progress' ? 'bg-amber-100 text-amber-700 border-amber-300' : 'bg-white hover:bg-amber-50 text-amber-600 border-amber-200'}`}>
                                   <Clock className="w-3.5 h-3.5" /><span>{t('جاري العمل', 'In Progress')}</span>
                                 </button>
-                                <button onClick={() => onUpdateMaintenanceStatus && onUpdateMaintenanceStatus(task.id, 'Done')} disabled={task.status !== 'In Progress'}
+                                <button onClick={() => handleStatusUpdate(task.id, 'Done')} disabled={task.status !== 'In Progress'}
                                   className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border ${task.status === 'Done' ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-white hover:bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
                                   <CheckCircle2 className="w-3.5 h-3.5" /><span>{t('تم الإنجاز', 'Mark Done')}</span>
                                 </button>

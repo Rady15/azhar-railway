@@ -201,22 +201,43 @@ export type MaintenanceStatus =
 export interface MaintenanceRequest {
   id: string;
   rvNo: string;
+  ticketNo?: string;
+  requestNumber?: string;
+  ticketNumber?: string;
   compoundId: string;
   compoundName: string;
   buildingNumber: string;
   unitNumber: string;
+  houseNumber?: string;
   responsibleName: string;
+  tenantId?: string;
+  tenantName?: string;
+  tenantPhone?: string;
   startDate: string;
+  requestDate?: string;
+  createdAt?: string;
+  updatedAt?: string;
   targetEndDate: string;
   workActivity: string;
+  title?: string;
+  category?: string;
+  description?: string;
+  issueDescription?: string;
+  priority?: 'High' | 'Medium' | 'Low' | 'Normal' | string;
   totalAmount: number;
   status: MaintenanceStatus;
   daysToEnd: number;
   assignedStaffId?: string;
   assignedStaffName?: string;
+  assignedToId?: string;
+  assignedToName?: string;
   notes?: string;
+  adminNotes?: string;
+  workNotes?: string;
   attachmentUrl?: string;
   attachmentName?: string;
+  attachments?: any[];
+  [key: string]: any;
 }
 
 export interface WaterMeter {

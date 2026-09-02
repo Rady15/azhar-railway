@@ -24,6 +24,7 @@ export const CompoundNotesView: React.FC = () => {
   const [content, setContent] = useState('');
 
   const compound = COMPOUNDS.find(c => c.id === compoundId) || COMPOUNDS[0];
+  const compoundLabel = (c: Compound) => isRtl ? (c.id==='1' ? 'أزهار ريزيدنس' : c.id==='2' ? 'ميدو بارك جاردن' : 'دار ريزيدنس') : c.name;
 
   const loadNotes = async () => {
     setLoading(true);
@@ -67,10 +68,10 @@ export const CompoundNotesView: React.FC = () => {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-cyan-600 text-xs font-bold mb-1">
-            <StickyNote className="w-4 h-4" /> {t('مساحة الإدارة الخاصة', 'Private Admin Workspace')}
+            <StickyNote className="w-4 h-4" /> {t('ملاحظات الإدارة الخاصة', 'Private Admin Notes')}
           </div>
           <h1 className="text-2xl font-bold text-slate-800">{t('ملاحظات الكمبوند', 'Compound Notes')}</h1>
-          <p className="text-sm text-slate-500 mt-1">{t('سجل أي معلومات أو تعليمات أو ملاحظات خاصة بكل كمبوند.', 'Keep any private information, instructions, or notes for each compound.')}</p>
+          <p className="text-sm text-slate-500 mt-1">{t('سجّل أي معلومات أو تعليمات أو ملاحظات تخص كل كمبوند، وتظل هذه الملاحظات متاحة للإدارة فقط.', 'Record any information, instructions, or notes for each compound. These notes are private to management.')}</p>
         </div>
         <button onClick={startNew} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#29b4c4] text-white font-semibold shadow-sm hover:opacity-90">
           <Plus className="w-4 h-4" /> {t('إضافة ملاحظة', 'Add Note')}
@@ -83,7 +84,7 @@ export const CompoundNotesView: React.FC = () => {
             {COMPOUNDS.map(c => (
               <button key={c.id} onClick={() => setCompoundId(c.id)}
                 className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-colors ${compoundId===c.id ? 'bg-[#29b4c4] text-white border-[#29b4c4]' : 'bg-white text-slate-600 border-slate-200 hover:border-cyan-300'}`}>
-                {isRtl ? (c.id==='1' ? 'أزهار ريزيدنس' : c.id==='2' ? 'ميدو بارك جاردن' : 'دار ريزيدنس') : c.name}
+                {c.name}
               </button>
             ))}
           </div>
@@ -100,7 +101,7 @@ export const CompoundNotesView: React.FC = () => {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="font-bold text-slate-800">{editing.id ? t('تعديل الملاحظة', 'Edit Note') : t('ملاحظة جديدة', 'New Note')}</h2>
-              <p className="text-xs text-slate-500 mt-1">{compound.name}</p>
+              <p className="text-xs text-slate-500 mt-1">{t('الكمبوند: ', 'Compound: ')}{compoundLabel(compound)}</p>
             </div>
             <button onClick={cancel} className="p-2 rounded-lg hover:bg-slate-100"><X className="w-4 h-4" /></button>
           </div>
