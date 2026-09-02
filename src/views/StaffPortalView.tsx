@@ -93,11 +93,19 @@ export const StaffPortalView: React.FC<StaffPortalViewProps> = ({
           totalAmount: Number(m.totalAmount || m.amount || 0),
           assignedStaffId: m.assignedStaffId || m.assignedToId || '',
           assignedStaffName: m.assignedStaffName || m.assignedToName || '',
+          assignedToId: m.assignedToId || m.assignedStaffId || '',
+          assignedToName: m.assignedToName || m.assignedStaffName || '',
+          tenantId: m.tenantId || m.tenant?.id || '',
+          createdAt: m.createdAt || m.requestDate || '',
+          updatedAt: m.updatedAt || '',
+          targetEndDate: m.targetEndDate || m.endDate || m.dueDate || '',
+          daysToEnd: Number(m.daysToEnd ?? 0),
           notes: m.notes || m.workNotes || m.adminNotes || '',
           workNotes: m.workNotes || m.notes || '',
           adminNotes: m.adminNotes || '',
-          attachmentUrl: m.attachmentUrl || m.attachment?.url || '',
-          attachmentName: m.attachmentName || m.attachment?.name || ''
+          attachments: Array.isArray(m.attachments) ? m.attachments : [],
+          attachmentUrl: m.attachmentUrl || m.attachment?.url || (Array.isArray(m.attachments) && m.attachments[0]?.url) || '',
+          attachmentName: m.attachmentName || m.attachment?.name || (Array.isArray(m.attachments) && m.attachments[0]?.name) || ''
         })));
       } catch (error) {
         console.error('Failed to load complete staff portal data', error);
@@ -467,7 +475,7 @@ export const StaffPortalView: React.FC<StaffPortalViewProps> = ({
                               </div>
                               {task.tenantPhone && <div className="flex items-center gap-2 mt-2"><Phone className="w-4 h-4 text-emerald-500" /><a href={`tel:${task.tenantPhone}`} className="text-emerald-600 hover:underline text-xs">{task.tenantPhone}</a><a href={`https://wa.me/${String(task.tenantPhone).replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer" className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 rounded text-[11px] font-semibold flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" />{t('واتساب','WhatsApp')}</a></div>}
                               {task.notes && <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700"><strong className="text-amber-600 block mb-0.5">{t('ملاحظات الصيانة:', 'Tech Notes:')}</strong><p className="whitespace-pre-wrap">{task.notes}</p></div>}
-                              {(task.attachmentUrl || task.attachmentName) && <div className="mt-2 p-2.5 bg-cyan-50 border border-cyan-200 rounded-lg text-xs"><strong className="text-cyan-700 block mb-1">{t('المرفق','Attachment')}</strong>{task.attachmentUrl ? <a href={task.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-cyan-700 hover:underline break-all">{task.attachmentName || task.attachmentUrl}</a> : <span>{task.attachmentName}</span>}</div>}
+                              {(task.attachmentUrl || task.attachmentName || (task.attachments && task.attachments.length > 0)) && <div className="mt-2 p-2.5 bg-cyan-50 border border-cyan-200 rounded-lg text-xs"><strong className="text-cyan-700 block mb-1">{t('المرفقات','Attachments')}</strong>{task.attachmentUrl && <a href={task.attachmentUrl} target="_blank" rel="noopener noreferrer" className="block text-cyan-700 hover:underline break-all">{task.attachmentName || task.attachmentUrl}</a>}{task.attachments?.map((a:any, i:number) => a?.url ? <a key={i} href={a.url} target="_blank" rel="noopener noreferrer" className="block text-cyan-700 hover:underline break-all mt-1">{a.name || a.fileName || `المرفق ${i+1}`}</a> : null)}</div>}
                             </div>
 
                             <div className="flex flex-col sm:flex-row lg:flex-col items-stretch justify-center gap-2 shrink-0 min-w-[180px] border-t lg:border-t-0 lg:border-r border-slate-200 pt-3 lg:pt-0 pr-0 lg:pr-4">

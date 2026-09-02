@@ -24,7 +24,7 @@ export const CompoundNotesView: React.FC = () => {
   const [content, setContent] = useState('');
 
   const compound = COMPOUNDS.find(c => c.id === compoundId) || COMPOUNDS[0];
-  const compoundLabel = (c: Compound) => isRtl ? (c.id==='1' ? 'أزهار ريزيدنس' : c.id==='2' ? 'ميدو بارك جاردن' : 'دار ريزيدنس') : c.name;
+  const compoundLabel = (c: Compound) => c.id==='1' ? 'كمبوند أزهار ريزيدنس' : c.id==='2' ? 'كمبوند ميدو بارك جاردن' : 'كمبوند دار ريزيدنس';
 
   const loadNotes = async () => {
     setLoading(true);
@@ -68,13 +68,13 @@ export const CompoundNotesView: React.FC = () => {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-cyan-600 text-xs font-bold mb-1">
-            <StickyNote className="w-4 h-4" /> {t('ملاحظات الإدارة الخاصة', 'Private Admin Notes')}
+            <StickyNote className="w-4 h-4" /> ملاحظات الإدارة الخاصة
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">{t('ملاحظات الكمبوند', 'Compound Notes')}</h1>
-          <p className="text-sm text-slate-500 mt-1">{t('سجّل أي معلومات أو تعليمات أو ملاحظات تخص كل كمبوند، وتظل هذه الملاحظات متاحة للإدارة فقط.', 'Record any information, instructions, or notes for each compound. These notes are private to management.')}</p>
+          <h1 className="text-2xl font-bold text-slate-800">ملاحظات الكمبوند</h1>
+          <p className="text-sm text-slate-500 mt-1">سجّل أي معلومات أو تعليمات أو ملاحظات تخص كل كمبوند، وتظل هذه الملاحظات متاحة للإدارة فقط.</p>
         </div>
         <button onClick={startNew} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#29b4c4] text-white font-semibold shadow-sm hover:opacity-90">
-          <Plus className="w-4 h-4" /> {t('إضافة ملاحظة', 'Add Note')}
+          <Plus className="w-4 h-4" /> إضافة ملاحظة
         </button>
       </div>
 
@@ -84,13 +84,13 @@ export const CompoundNotesView: React.FC = () => {
             {COMPOUNDS.map(c => (
               <button key={c.id} onClick={() => setCompoundId(c.id)}
                 className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-colors ${compoundId===c.id ? 'bg-[#29b4c4] text-white border-[#29b4c4]' : 'bg-white text-slate-600 border-slate-200 hover:border-cyan-300'}`}>
-                {c.name}
+                {compoundLabel(c)}
               </button>
             ))}
           </div>
           <div className="relative md:ms-auto md:w-72">
             <Search className={`absolute top-2.5 w-4 h-4 text-slate-400 ${isRtl ? 'right-3' : 'left-3'}`} />
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t('بحث في الملاحظات...', 'Search notes...')}
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="بحث في الملاحظات..."
               className={`w-full border border-slate-200 rounded-xl py-2 text-sm outline-none focus:border-cyan-400 ${isRtl ? 'pr-9 pl-3' : 'pl-9 pr-3'}`} />
           </div>
         </div>
@@ -100,21 +100,21 @@ export const CompoundNotesView: React.FC = () => {
         <div className="bg-white border border-cyan-200 rounded-2xl p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="font-bold text-slate-800">{editing.id ? t('تعديل الملاحظة', 'Edit Note') : t('ملاحظة جديدة', 'New Note')}</h2>
-              <p className="text-xs text-slate-500 mt-1">{t('الكمبوند: ', 'Compound: ')}{compoundLabel(compound)}</p>
+              <h2 className="font-bold text-slate-800">{editing.id ? 'تعديل الملاحظة' : 'ملاحظة جديدة'}</h2>
+              <p className="text-xs text-slate-500 mt-1">الكمبوند: {compoundLabel(compound)}</p>
             </div>
             <button onClick={cancel} className="p-2 rounded-lg hover:bg-slate-100"><X className="w-4 h-4" /></button>
           </div>
           <div className="grid gap-3">
-            <input value={title} onChange={e=>setTitle(e.target.value)} placeholder={t('عنوان اختياري', 'Optional title')}
+            <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="عنوان الملاحظة (اختياري)"
               className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-cyan-400" />
             <textarea value={content} onChange={e=>setContent(e.target.value)} rows={7} autoFocus
-              placeholder={t('اكتب أي شيء يخص الكمبوند هنا...', 'Write anything related to this compound...')}
+              placeholder="اكتب أي شيء يخص الكمبوند هنا..."
               className="w-full border border-slate-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-cyan-400 resize-y" />
             <div className="flex justify-end gap-2">
-              <button onClick={cancel} className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600">{t('إلغاء', 'Cancel')}</button>
+              <button onClick={cancel} className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600">إلغاء</button>
               <button disabled={saving || !content.trim()} onClick={save} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white disabled:opacity-50">
-                <Save className="w-4 h-4" /> {saving ? t('جاري الحفظ...', 'Saving...') : t('حفظ', 'Save')}
+                <Save className="w-4 h-4" /> {saving ? 'جاري الحفظ...' : 'حفظ'}
               </button>
             </div>
           </div>
@@ -122,8 +122,8 @@ export const CompoundNotesView: React.FC = () => {
       )}
 
       <div className="space-y-3">
-        {loading ? <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center text-slate-400">{t('جاري تحميل الملاحظات...', 'Loading notes...')}</div> :
-         visible.length === 0 ? <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center text-slate-400"><BookOpen className="w-10 h-10 mx-auto mb-2 opacity-50" /><p>{t('لا توجد ملاحظات لهذا الكمبوند.', 'No notes for this compound yet.')}</p></div> :
+        {loading ? <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center text-slate-400">جاري تحميل الملاحظات...</div> :
+         visible.length === 0 ? <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center text-slate-400"><BookOpen className="w-10 h-10 mx-auto mb-2 opacity-50" /><p>لا توجد ملاحظات لهذا الكمبوند حتى الآن.</p></div> :
          visible.map(n => (
           <article key={n.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
             <div className="flex items-start justify-between gap-4">
