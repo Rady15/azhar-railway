@@ -315,7 +315,7 @@ async function seedTestData() {
 
   // ─── EXPENSES ───
   const expenses = [
-    { id: "exp-001", description: "رواتب فريق الصيانة", descriptionArabic: "رواتب فريق الصيانة", amount: 25000, category: "رواتب", date: "2025-07-01", paidTo: "فريق الصيانة", status: "Paid", createdBy: "admin" },
+    { id: "exp-001", description: "رواتب فريق الصيانة", descriptionArabic: "رواتب فريق الصيانة", amount: 25000, subtotal: 25000, isTaxable: false, taxRate: 0, taxAmount: 0, category: "رواتب", date: "2025-07-01", paidTo: "فريق الصيانة", status: "Paid", createdBy: "admin" },
     { id: "exp-002", description: "فاتورة كهرباء الممرات العامة", descriptionArabic: "فاتورة كهرباء الممرات العامة", amount: 8500, category: "مرافق", date: "2025-07-15", paidTo: "شركة الكهرباء", status: "Paid", createdBy: "admin" },
     { id: "exp-003", description: "مواد تنظيف شهرية", descriptionArabic: "مواد تنظيف شهرية", amount: 3200, category: "نظافة", date: "2025-07-20", paidTo: "شركة النظافة المتحدة", status: "Paid", createdBy: "admin" },
     { id: "exp-004", description: "صيانة مكيفات الممرات", descriptionArabic: "صيانة مكيفات الممرات", amount: 6000, category: "صيانة", date: "2025-08-01", paidTo: "مؤسسة الأمل للصيانة", status: "Pending", createdBy: "admin" },

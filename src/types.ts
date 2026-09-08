@@ -307,6 +307,14 @@ export interface Expense {
   category: string;
   title: string;
   amount: number;
+  /** Amount before VAT/tax. Legacy records use amount as the final amount. */
+  subtotal?: number;
+  /** Whether VAT/tax is applied to this expense. */
+  isTaxable?: boolean;
+  /** Tax rate as a percentage, e.g. 15 for 15%. */
+  taxRate?: number;
+  /** Calculated tax amount. */
+  taxAmount?: number;
   recipient: string;
   paymentMethod: string;
   expenseDate: string;

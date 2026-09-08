@@ -42,6 +42,8 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
   const [newTitle, setNewTitle] = useState('');
   const [newCategory, setNewCategory] = useState('صيانة وتشغيل');
   const [newAmount, setNewAmount] = useState(0);
+  const [newIsTaxable, setNewIsTaxable] = useState(false);
+  const [newTaxRate, setNewTaxRate] = useState(15);
   const [newRecipient, setNewRecipient] = useState('');
   const [newPaymentMethod, setNewPaymentMethod] = useState('Bank Transfer');
   const [newNotes, setNewNotes] = useState('');
@@ -88,6 +90,9 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
   }, [filteredExpenses, sortConfig]);
 
   const totalAmount = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+  const totalTax = expenses.reduce((sum, e) => sum + Number(e.taxAmount || 0), 0);
+  const calculatedTax = newIsTaxable ? Math.round((Number(newAmount || 0) * Number(newTaxRate || 0) / 100) * 100) / 100 : 0;
+  const calculatedTotal = Math.round((Number(newAmount || 0) + calculatedTax) * 100) / 100;
   const maintenanceAmount = expenses.filter(e => e.category === 'صيانة وتشغيل').reduce((sum, e) => sum + e.amount, 0);
   const salaryAmount = expenses.filter(e => e.category === 'رواتب الموظفين').reduce((sum, e) => sum + e.amount, 0);
   const utilityAmount = expenses.filter(e => e.category === 'كهرباء ومياه' || e.category === 'نظافة وأمن').reduce((sum, e) => sum + e.amount, 0);
@@ -95,12 +100,16 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSaving) return;
+    const subtotal = Number(newAmount);
+    const taxRate = newIsTaxable ? Number(newTaxRate) : 0;
+    const taxAmount = newIsTaxable ? Math.round((subtotal * taxRate / 100) * 100) / 100 : 0;
+    const total = Math.round((subtotal + taxAmount) * 100) / 100;
     const payload={
       voucherNo: editingExpense?.voucherNo || '',
-      category: newCategory, title: newTitle.trim(), amount: Number(newAmount), recipient: newRecipient.trim(), paymentMethod: newPaymentMethod,
+      category: newCategory, title: newTitle.trim(), amount: total, subtotal, isTaxable: newIsTaxable, taxRate, taxAmount, recipient: newRecipient.trim(), paymentMethod: newPaymentMethod,
       expenseDate: newExpenseDate, compoundId: '1', notes: newNotes.trim()
     };
-    if (!payload.title || !payload.recipient || !Number.isFinite(payload.amount) || payload.amount <= 0) {
+    if (!payload.title || !payload.recipient || !Number.isFinite(payload.amount) || payload.amount <= 0 || !Number.isFinite(taxRate) || taxRate < 0 || taxRate > 100) {
       notifyUser({ kind: 'warning', ar: 'راجع بيان المصروف والمستفيد والمبلغ قبل الحفظ.', en: 'Review the expense description, recipient and amount before saving.' });
       return;
     }
@@ -108,7 +117,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
     try {
       if(editingExpense && onUpdateExpense) await onUpdateExpense({...editingExpense,...payload});
       else await onAddExpense(payload);
-      setNewTitle(''); setNewRecipient(''); setNewNotes(''); setNewExpenseDate(new Date().toISOString().split('T')[0]);
+      setNewTitle(''); setNewRecipient(''); setNewNotes(''); setNewAmount(0); setNewIsTaxable(false); setNewTaxRate(15); setNewExpenseDate(new Date().toISOString().split('T')[0]);
       setEditingExpense(null); setShowAddModal(false);
     } finally { setIsSaving(false); }
   };
@@ -123,7 +132,9 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
       { label: language === 'ar' ? 'التاريخ' : 'Date', value: e.expenseDate },
       { label: language === 'ar' ? 'بيان المصروف' : 'Description', value: e.title, wide: true },
       { label: language === 'ar' ? 'الفئة' : 'Category', value: e.category },
-      { label: language === 'ar' ? 'المبلغ' : 'Amount', value: `${Number(e.amount || 0).toLocaleString()} ${language === 'ar' ? 'ر.س' : 'SAR'}` },
+      { label: language === 'ar' ? 'المبلغ قبل الضريبة' : 'Subtotal', value: `${Number(e.subtotal ?? e.amount ?? 0).toLocaleString()} ${language === 'ar' ? 'ر.س' : 'SAR'}` },
+      { label: language === 'ar' ? 'الضريبة' : 'Tax', value: e.isTaxable ? `${Number(e.taxAmount || 0).toLocaleString()} ${language === 'ar' ? 'ر.س' : 'SAR'} (${Number(e.taxRate || 0)}%)` : (language === 'ar' ? 'بدون ضريبة' : 'No tax') },
+      { label: language === 'ar' ? 'الإجمالي شامل الضريبة' : 'Total incl. tax', value: `${Number(e.amount || 0).toLocaleString()} ${language === 'ar' ? 'ر.س' : 'SAR'}` },
       { label: language === 'ar' ? 'المستفيد / المورد' : 'Recipient / Vendor', value: e.recipient },
       { label: language === 'ar' ? 'طريقة الدفع' : 'Payment Method', value: e.paymentMethod },
       { label: language === 'ar' ? 'ملاحظات / رقم الفاتورة' : 'Notes / Invoice No.', value: e.notes || '—', wide: true }
@@ -143,11 +154,15 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
   };
 
   const handleExportCSV = () => {
-    const headers = ['رقم السند', 'البيان', 'الفئة', 'المبلغ (ر.س)', 'المستفيد', 'طريقة الدفع', 'التاريخ', 'ملاحظات'];
+    const headers = ['رقم السند', 'البيان', 'الفئة', 'المبلغ قبل الضريبة (ر.س)', 'خاضع للضريبة', 'الضريبة %', 'قيمة الضريبة (ر.س)', 'الإجمالي (ر.س)', 'المستفيد', 'طريقة الدفع', 'التاريخ', 'ملاحظات'];
     const rows = sortedExpenses.map(e => [
       e.voucherNo,
       e.title,
       e.category,
+      Number(e.subtotal ?? e.amount ?? 0),
+      e.isTaxable ? 'نعم' : 'لا',
+      Number(e.taxRate || 0),
+      Number(e.taxAmount || 0),
       e.amount,
       e.recipient,
       e.paymentMethod,
@@ -192,7 +207,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
             {language === 'ar' ? 'تصدير CSV' : 'Export CSV'}
           </button>
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => { setEditingExpense(null); setNewTitle(''); setNewCategory('صيانة وتشغيل'); setNewAmount(0); setNewIsTaxable(false); setNewTaxRate(15); setNewRecipient(''); setNewPaymentMethod('Bank Transfer'); setNewNotes(''); setNewExpenseDate(new Date().toISOString().split('T')[0]); setShowAddModal(true); }}
             className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-xl shadow-md transition-all flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
@@ -209,6 +224,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
             <DollarSign className="w-4 h-4 text-amber-600" />
           </div>
           <div className="text-xl font-extrabold text-amber-900 mt-1 font-mono">{totalAmount.toLocaleString()} {language === 'ar' ? 'ر.س' : 'SAR'}</div>
+          <div className="text-[9px] text-amber-700 mt-1">{language === 'ar' ? `منها ضريبة: ${totalTax.toLocaleString()} ر.س` : `Tax included: ${totalTax.toLocaleString()} SAR`}</div>
         </div>
 
         <div className="p-3.5 rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -292,7 +308,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                 </th>
                 <th className="py-3 px-3 border-r border-blue-600/40 text-left font-mono" onClick={() => handleSort('amount')}>
                   <div className="flex items-center gap-1 cursor-pointer hover:text-cyan-200">
-                    <span>{language === 'ar' ? 'المبلغ (ر.س)' : 'Amount (SAR)'}</span>
+                    <span>{language === 'ar' ? 'الإجمالي (ر.س)' : 'Total (SAR)'}</span>
                     <ArrowUpDown className="w-3 h-3 text-white/70" />
                   </div>
                 </th>
@@ -339,6 +355,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                     </td>
                     <td className="py-3 px-3 text-left font-mono font-bold text-rose-600 border-l border-slate-100">
                       {e.amount.toLocaleString()} {language === 'ar' ? 'ر.س' : 'SAR'}
+                      {e.isTaxable ? <div className="text-[9px] text-amber-600 mt-0.5">+ VAT {Number(e.taxRate || 0)}% ({Number(e.taxAmount || 0).toLocaleString()})</div> : <div className="text-[9px] text-slate-400 mt-0.5">{language === 'ar' ? 'بدون ضريبة' : 'No tax'}</div>}
                     </td>
                     <td className="py-3 px-3 text-slate-800 border-l border-slate-100">{e.recipient}</td>
                     <td className="py-3 px-3 border-l border-slate-100">
@@ -356,7 +373,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                         <Printer className="w-3.5 h-3.5" />
                         <span>{language === 'ar' ? 'السند' : 'Voucher'}</span>
                       </button>
-                      <button onClick={()=>{setEditingExpense(e);setNewTitle(e.title);setNewCategory(e.category);setNewAmount(e.amount);setNewRecipient(e.recipient);setNewPaymentMethod(e.paymentMethod);setNewNotes(e.notes||'');setNewExpenseDate(e.expenseDate);setShowAddModal(true);}} className="ms-1 px-2 py-1.5 bg-blue-600 text-white rounded-md text-[10px] font-bold">{language==='ar'?'تعديل':'Edit'}</button>
+                      <button onClick={()=>{setEditingExpense(e);setNewTitle(e.title);setNewCategory(e.category);setNewAmount(Number(e.subtotal ?? e.amount ?? 0));setNewIsTaxable(Boolean(e.isTaxable));setNewTaxRate(Number(e.taxRate ?? 15));setNewRecipient(e.recipient);setNewPaymentMethod(e.paymentMethod);setNewNotes(e.notes||'');setNewExpenseDate(e.expenseDate);setShowAddModal(true);}} className="ms-1 px-2 py-1.5 bg-blue-600 text-white rounded-md text-[10px] font-bold">{language==='ar'?'تعديل':'Edit'}</button>
                       <button onClick={()=>handleDeleteExpense(e)} className="ms-1 px-2 py-1.5 bg-rose-600 text-white rounded-md text-[10px] font-bold">{language==='ar'?'حذف':'Delete'}</button>
                     </td>
                   </tr>
@@ -422,6 +439,31 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
                   />
                 </div>
+              </div>
+
+              <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input type="checkbox" checked={newIsTaxable} onChange={(e) => setNewIsTaxable(e.target.checked)} className="w-4 h-4 accent-amber-600" />
+                  <span className="font-bold text-slate-800">{language === 'ar' ? 'المصروف خاضع للضريبة' : 'Apply Tax / VAT'}</span>
+                  <span className="text-[10px] text-slate-500">{language === 'ar' ? '(اختياري)' : '(optional)'}</span>
+                </label>
+                {newIsTaxable && (
+                  <div className="grid grid-cols-2 gap-2 items-end">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'نسبة الضريبة (%)' : 'Tax Rate (%)'}</label>
+                      <input type="number" min="0" max="100" step="0.01" required value={newTaxRate} onChange={(e) => setNewTaxRate(Number(e.target.value))} className="w-full px-3 py-2 bg-white border border-amber-300 rounded-xl" />
+                    </div>
+                    <div className="rounded-xl bg-white border border-amber-200 px-3 py-2">
+                      <div className="text-[10px] text-slate-500">{language === 'ar' ? 'قيمة الضريبة / الإجمالي' : 'Tax / Total'}</div>
+                      <div className="font-bold text-amber-700">{calculatedTax.toLocaleString()} + {calculatedTotal.toLocaleString()} {language === 'ar' ? 'ر.س' : 'SAR'}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 flex items-center justify-between">
+                <span className="font-semibold text-slate-600">{language === 'ar' ? 'الإجمالي المستحق' : 'Amount Payable'}</span>
+                <span className="text-lg font-extrabold text-slate-900 font-mono">{calculatedTotal.toLocaleString()} {language === 'ar' ? 'ر.س' : 'SAR'}</span>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
