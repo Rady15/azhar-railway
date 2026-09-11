@@ -25,6 +25,7 @@ import {
 import { Building, Contract, Unit } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { confirmUi, promptUi } from '../utils/uiDialog';
+import { MediaUploadField } from '../components/MediaUploadField';
 
 interface CompoundUnitsProps {
   units: Unit[];
@@ -59,6 +60,7 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
   const [showAddModal, setShowAddModal] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ field: string; direction: 'asc' | 'desc' } | null>(null);
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
+  const [editUnitImage, setEditUnitImage] = useState('');
   const [viewingUnit, setViewingUnit] = useState<Unit | null>(null);
   const [deletingUnit, setDeletingUnit] = useState<Unit | null>(null);
 
@@ -224,6 +226,7 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
 
   const handleEdit = (unit: Unit) => {
     setEditingUnit(unit);
+    setEditUnitImage((unit as any).imageUrl || '');
     setEditUnitNumber(unit.unitNumber);
     setEditRooms(unit.rooms);
     setEditBaths(unit.baths);
@@ -243,7 +246,8 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
       type: editUnitType,
       isFurnished: editIsFurnished,
       notes: editUnitNotes.trim(),
-      annualRent: Number(editAnnualRent)
+      annualRent: Number(editAnnualRent),
+      imageUrl: editUnitImage
     });
     setEditingUnit(null);
   };
@@ -561,6 +565,9 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
               </button>
             </div>
             <div className="p-6 space-y-5 text-xs overflow-y-auto">
+              {(viewingUnit as any).imageUrl && (
+                <img src={(viewingUnit as any).imageUrl} alt={viewingUnit.unitNumber} className="w-full h-56 md:h-72 object-cover rounded-2xl border border-slate-200" />
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
                   <p className="text-slate-500 mb-1">{language === 'ar' ? 'المجمع' : 'Compound'}</p>
@@ -679,6 +686,13 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
               </button>
             </div>
             <form onSubmit={handleUpdateSubmit} className="space-y-4 text-xs">
+              <MediaUploadField
+                label={language === 'ar' ? 'صورة الوحدة' : 'Unit Image'}
+                category="unit-image" entityType="house" entityId={editingUnit?.id}
+                value={editUnitImage} imageOnly accept="image/jpeg,image/png,image/webp"
+                onUploaded={({url}) => setEditUnitImage(url)}
+                onClear={() => setEditUnitImage('')}
+              />
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'نوع الوحدة' : 'Unit Type'}</label><select required value={editUnitType} onChange={(e) => setEditUnitType(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"><option value="Villa Duplex">Villa Duplex</option><option value="Apartment">Apartment</option><option value="Warehouse">Warehouse</option></select></div>
                 <div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'رقم الوحدة' : 'Unit Number'}</label><input required value={editUnitNumber} onChange={(e) => setEditUnitNumber(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" /></div>

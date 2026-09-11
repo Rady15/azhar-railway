@@ -50,6 +50,7 @@ export interface Unit {
   currentTenantName?: string;
   owner?: string;
   districtCityCountry?: string;
+  imageUrl?: string;
 }
 
 export interface Tenant {

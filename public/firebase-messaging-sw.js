@@ -1,33 +1,34 @@
+/* Firebase Messaging service worker.
+ * Public Firebase config is fetched from the backend so no project values are hard-coded here.
+ */
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
 
-firebase.initializeApp({
-  apiKey: 'YOUR_API_KEY',
-  authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
-  projectId: 'YOUR_PROJECT_ID',
-  storageBucket: 'YOUR_PROJECT_ID.appspot.com',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId: 'YOUR_APP_ID'
-});
+(async () => {
+  try {
+    const response = await fetch('/api/firebase-public-config', { cache: 'no-store' });
+    const config = await response.json();
+    if (!config?.apiKey || !config?.projectId) return;
+    firebase.initializeApp(config);
+    const messaging = firebase.messaging();
+    messaging.onBackgroundMessage((payload) => {
+      const title = payload.notification?.title || 'إشعار جديد';
+      self.registration.showNotification(title, {
+        body: payload.notification?.body || '',
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
+        dir: 'rtl',
+        lang: 'ar',
+        data: payload.data || {}
+      });
+    });
+  } catch (error) {
+    console.warn('[firebase-messaging-sw] initialization failed', error);
+  }
+})();
 
-const messaging = firebase.messaging();
-
-messaging.onBackgroundMessage(function(payload) {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
-  const notificationTitle = payload.notification?.title || 'إشعار جديد';
-  const notificationOptions = {
-    body: payload.notification?.body || '',
-    icon: '/favicon.ico',
-    badge: '/favicon.ico',
-    dir: 'rtl',
-    lang: 'ar'
-  };
-  self.registration.showNotification(notificationTitle, notificationOptions);
-});
-
-self.addEventListener('notificationclick', function(event) {
+self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  event.waitUntil(
-    clients.openWindow(event.notification.data?.url || '/')
-  );
+  const url = event.notification.data?.url || '/';
+  event.waitUntil(clients.openWindow(url));
 });

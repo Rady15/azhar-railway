@@ -1177,8 +1177,21 @@ export const apiService = {
 
   async uploadProfileImage(file: File): Promise<string> {
     const uploaded = await this.uploadMedia(file, 'profile', 'profile');
-    const res = await authedFetch('/Profile', { method: 'PUT', body: JSON.stringify({ profileImageUrl: uploaded.url }) });
-    if (!res.ok) { const raw = await res.text(); throw new Error(friendlyApiError(res.status, raw, '/Profile').ar); }
+    const res = await authedFetch('/Account/profile-image', {
+      method: 'PUT',
+      body: JSON.stringify({ mediaId: uploaded.id, profileImageUrl: uploaded.url })
+    });
+    if (!res.ok) { const raw = await res.text(); throw new Error(friendlyApiError(res.status, raw, '/Account/profile-image').ar); }
+    return uploaded.url;
+  },
+
+  async uploadAnnouncementImage(file: File, announcementId: string): Promise<string> {
+    const uploaded = await this.uploadMedia(file, 'announcement-image', 'announcement', announcementId);
+    return uploaded.url;
+  },
+
+  async uploadUnitImage(file: File, unitId: string): Promise<string> {
+    const uploaded = await this.uploadMedia(file, 'unit-image', 'house', unitId);
     return uploaded.url;
   },
 

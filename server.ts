@@ -62,6 +62,55 @@ function verifyPassword(password: string, encoded: string) {
 }
 const tokenHash = (token: string) => crypto.createHash("sha256").update(token).digest("hex");
 const b64url = (buf: Buffer) => buf.toString("base64url");
+type FirebaseServiceAccount = { project_id: string; client_email: string; private_key: string };
+
+function getFirebaseServiceAccount(): FirebaseServiceAccount | null {
+  try {
+    const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.project_id && parsed.client_email && parsed.private_key) return parsed;
+    }
+    if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+      return { project_id: process.env.FIREBASE_PROJECT_ID, client_email: process.env.FIREBASE_CLIENT_EMAIL,
+        private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') };
+    }
+  } catch { console.warn('[firebase] Invalid service-account configuration'); }
+  return null;
+}
+function createFirebaseClientAssertion(sa: FirebaseServiceAccount): string {
+  const now = Math.floor(Date.now()/1000);
+  const h=b64url(Buffer.from(JSON.stringify({alg:'RS256',typ:'JWT'})));
+  const b=b64url(Buffer.from(JSON.stringify({iss:sa.client_email,scope:'https://www.googleapis.com/auth/firebase.messaging',aud:'https://oauth2.googleapis.com/token',iat:now,exp:now+3600})));
+  const signer=crypto.createSign('RSA-SHA256'); signer.update(`${h}.${b}`);
+  return `${h}.${b}.${signer.sign(sa.private_key).toString('base64url')}`;
+}
+let firebaseAccessTokenCache:{token:string;expiresAt:number}|null=null;
+async function getFirebaseAccessToken(sa:FirebaseServiceAccount):Promise<string|null>{
+  if(firebaseAccessTokenCache && firebaseAccessTokenCache.expiresAt>Date.now()+60000)return firebaseAccessTokenCache.token;
+  const r=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion:createFirebaseClientAssertion(sa)}).toString()});
+  if(!r.ok)return null; const d:any=await r.json(); if(!d.access_token)return null;
+  firebaseAccessTokenCache={token:d.access_token,expiresAt:Date.now()+Number(d.expires_in||3600)*1000}; return d.access_token;
+}
+async function sendFcmToUsers(userIds:string[],notification:{title:string;body:string},data:Record<string,string>={}){
+  const sa=getFirebaseServiceAccount(); if(!sa||!userIds.length||!dbPool)return {sent:0,skipped:true};
+  const access=await getFirebaseAccessToken(sa); if(!access)return {sent:0,skipped:true};
+  const q=await dbPool.query(`SELECT fcm_token FROM user_devices WHERE user_id=ANY($1::uuid[])`,[userIds]); let sent=0;
+  for(const row of q.rows){try{
+    const r=await fetch(`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(sa.project_id)}/messages:send`,{method:'POST',
+      headers:{Authorization:`Bearer ${access}`,'Content-Type':'application/json'},
+      body:JSON.stringify({message:{token:row.fcm_token,notification,data,android:{priority:'high',notification:{sound:'default'}}}})});
+    if(r.ok)sent++; else if([400,404].includes(r.status))await dbPool.query('DELETE FROM user_devices WHERE fcm_token=$1',[row.fcm_token]);
+  }catch{}}
+  return {sent,skipped:false};
+}
+async function sendFcmToRole(roleName:string,notification:{title:string;body:string},data:Record<string,string>={}){
+  if(!dbPool)return {sent:0,skipped:true};
+  const r=await dbPool.query(`SELECT ur.user_id FROM user_roles ur JOIN roles ro ON ro.id=ur.role_id WHERE ro.name=$1`,[roleName]);
+  return sendFcmToUsers(r.rows.map((x:any)=>String(x.user_id)),notification,data);
+}
+
 function signJwt(payload: Record<string, any>): string {
   const header = b64url(Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })));
   const body = b64url(Buffer.from(JSON.stringify(payload)));
@@ -1022,13 +1071,25 @@ async function startServer() {
     const c=await dbPool.connect(); try{ await c.query('BEGIN'); await c.query(`UPDATE app_users SET password_hash=$2,updated_at=NOW() WHERE id=$1`,[r.rows[0].user_id,hashPassword(password)]); await c.query(`UPDATE password_reset_tokens SET used_at=NOW() WHERE id=$1`,[r.rows[0].id]); await c.query(`UPDATE refresh_tokens SET revoked_at=NOW() WHERE user_id=$1 AND revoked_at IS NULL`,[r.rows[0].user_id]); await c.query('COMMIT'); res.json({isSuccess:true,message:'تم تحديث كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن'}); }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
   });
 
+  app.get("/api/firebase-public-config", (_req,res)=>{
+    res.json({
+      apiKey: process.env.VITE_FIREBASE_API_KEY || '',
+      authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || '',
+      projectId: process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID || '',
+      storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || '',
+      messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
+      appId: process.env.VITE_FIREBASE_APP_ID || '',
+      measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID || ''
+    });
+  });
+
   // Public display route only for non-sensitive profile/facility images.
   app.get("/media/:id", async (req,res) => {
     if(!dbPool) return res.status(404).end();
     const r=await dbPool.query(`SELECT category,file_name,mime_type,content FROM media_assets WHERE id=$1`,[req.params.id]);
     if(!r.rowCount) return res.status(404).end();
     const row=r.rows[0];
-    if(!['profile','facility-image'].includes(String(row.category))) return res.status(403).end();
+    if(!['profile','facility-image','announcement-image','unit-image'].includes(String(row.category))) return res.status(403).end();
     res.setHeader('Content-Type',row.mime_type); res.setHeader('Cache-Control','public, max-age=3600'); res.setHeader('Content-Disposition', safeContentDisposition(row.file_name, 'inline')); res.send(row.content);
   });
 
@@ -1147,11 +1208,38 @@ async function startServer() {
   app.put('/api/tenant-portal/notifications/:id/read', async (req:any,res)=>{const link=await linkedEntity(req,'tenant');const item=selfNotifications(req,link).find((x:any)=>String(x.id)===req.params.id);if(!item)return res.status(404).json({message:'الإشعار غير موجود'});item.isRead=true;res.json(item);});
   app.get('/api/tenant-portal/documents', async (req:any,res)=>{const link=await linkedEntity(req,'tenant');if(!link||!dbPool)return res.status(404).json({message:'ملف المستأجر غير موجود'});const contracts=tenantContracts(link.entity);const ids=[link.entityId,...contracts.map((x:any)=>String(x.id))];const r=await dbPool.query(`SELECT id,entity_type AS "entityType",entity_id AS "entityId",category,file_name AS "fileName",mime_type AS "mimeType",file_size AS "fileSize",created_at AS "createdAt" FROM media_assets WHERE entity_id=ANY($1::text[]) ORDER BY created_at DESC`,[ids]);res.json(r.rows);});
   app.get('/api/tenant-portal/letters', async (req:any,res)=>{const link=await linkedEntity(req,'tenant');if(!link)return res.status(404).json({message:'ملف المستأجر غير موجود'});const eid=link.entityId;const name=(link.entity.fullName||link.entity.name||'').toLowerCase();res.json(lettersStore.filter((x:any)=>String(x.recipientId||'')===eid||String(x.tenantId||'')===eid||(name&&(String(x.recipientName||'').toLowerCase()===name))));});
-  app.put('/api/tenant-portal/profile', async (req:any,res)=>{const link=await linkedEntity(req,'tenant');if(!link)return res.status(404).json({message:'ملف المستأجر غير موجود'});for(const k of ['fullName','fullNameArabic','email','phoneNumber','mobile','whatsappNumber','whatsapp','emergencyPhoneNumber','familyCount'])if(req.body?.[k]!==undefined)link.entity[k]=req.body[k];res.json(cleanEntity(link.entity));});
+  app.put('/api/tenant-portal/profile', async (req:any,res)=>{
+    const link=await linkedEntity(req,'tenant'); if(!link)return res.status(404).json({message:'ملف المستأجر غير موجود'});
+    const allowed=['fullName','fullNameArabic','email','phoneNumber','mobile','whatsappNumber','whatsapp','emergencyPhoneNumber','familyCount','profileImageUrl'];
+    for(const k of allowed) if(req.body?.[k]!==undefined) link.entity[k]=req.body[k];
+    if(dbPool){
+      await saveState("tenants",tenantsStore);
+      const email=String(req.body?.email||'').trim();
+      const fullName=String(req.body?.fullName||req.body?.fullNameArabic||'').trim();
+      if(email || fullName){
+        try { await dbPool.query("UPDATE app_users SET email=COALESCE(NULLIF($2,''),email),full_name=COALESCE(NULLIF($3,''),full_name),updated_at=NOW() WHERE id=$1",[req.user.sub,email,fullName]); }
+        catch(e:any){ return res.status(409).json({message:'تعذر تحديث البريد الإلكتروني؛ قد يكون مستخدماً بالفعل'}); }
+      }
+    }
+    res.json(cleanEntity(link.entity));
+  });
 
   // Staff self-service API. Staff can only update work assigned to their linked staff record.
   app.get('/api/staff-portal/me', async (req:any,res)=>{const link=await linkedEntity(req,'staff');if(!link)return res.status(404).json({message:'لم يتم ربط حسابك بملف موظف'});res.json({staff:cleanEntity(link.entity),user:{id:req.user.sub,role:req.user.role,permissions:req.user.permissions||[]}});});
-  app.put('/api/staff-portal/profile', async (req:any,res)=>{const link=await linkedEntity(req,'staff');if(!link)return res.status(404).json({message:'ملف الموظف غير موجود'});for(const k of ['phoneNumber','phone','profileImageUrl'])if(req.body?.[k]!==undefined)link.entity[k]=req.body[k];res.json(cleanEntity(link.entity));});
+  app.put('/api/staff-portal/profile', async (req:any,res)=>{
+    const link=await linkedEntity(req,'staff');if(!link)return res.status(404).json({message:'ملف الموظف غير موجود'});
+    for(const k of ['name','nameArabic','phoneNumber','phone','mobile','whatsapp','whatsappNumber','profileImageUrl']) if(req.body?.[k]!==undefined) link.entity[k]=req.body[k];
+    if(dbPool){
+      await saveState("staff",staffStore);
+      const email=String(req.body?.email||'').trim();
+      const fullName=String(req.body?.name||req.body?.nameArabic||'').trim();
+      if(email || fullName){
+        try { await dbPool.query("UPDATE app_users SET email=COALESCE(NULLIF($2,''),email),full_name=COALESCE(NULLIF($3,''),full_name),updated_at=NOW() WHERE id=$1",[req.user.sub,email,fullName]); }
+        catch(e:any){ return res.status(409).json({message:'تعذر تحديث البريد الإلكتروني؛ قد يكون مستخدماً بالفعل'}); }
+      }
+    }
+    res.json(cleanEntity(link.entity));
+  });
   app.get('/api/staff-portal/dashboard', async (req:any,res)=>{const link=await linkedEntity(req,'staff');if(!link)return res.status(404).json({message:'ملف الموظف غير موجود'});const assigned=maintenanceStore.filter((x:any)=>String(x.assignedStaffId||x.assignedToId||'')===link.entityId);res.json({maintenance:{total:assigned.length,new:assigned.filter((x:any)=>['New','Open','Assigned'].includes(x.status)).length,inProgress:assigned.filter((x:any)=>['In Progress','InProgress'].includes(x.status)).length,done:assigned.filter((x:any)=>['Done','Closed','Completed'].includes(x.status)).length},notifications:selfNotifications(req,link).filter((x:any)=>!x.isRead).length});});
   app.get('/api/staff-portal/maintenance', async (req:any,res)=>{const link=await linkedEntity(req,'staff');if(!link)return res.status(404).json({message:'ملف الموظف غير موجود'});res.json(maintenanceStore.filter((x:any)=>String(x.assignedStaffId||x.assignedToId||'')===link.entityId).map((x:any)=>({...x,assignedStaffId:x.assignedStaffId||x.assignedToId||undefined,assignedStaffName:x.assignedStaffName||x.assignedToName||undefined})));});
   app.put('/api/staff-portal/maintenance/:id/status', async (req:any,res)=>{const link=await linkedEntity(req,'staff');if(!link)return res.status(404).json({message:'ملف الموظف غير موجود'});const item=maintenanceStore.find((x:any)=>String(x.id)===req.params.id&&String(x.assignedStaffId||x.assignedToId||'')===link.entityId);if(!item)return res.status(404).json({message:'طلب الصيانة غير موجود أو غير مسند إليك'});const requested=String(req.body?.status||''); const current=String(item.status||'New'); const terminal=['Done','Completed','Closed']; if(terminal.includes(current)) return res.status(409).json({message:'طلب الصيانة مكتمل بالفعل ولا يمكن تغييره من حساب الموظف'}); const allowedByCurrent:Record<string,string[]>={New:['In Progress'],Assigned:['In Progress'],Open:['In Progress'],'In Progress':['Done','Completed'],'InProgress':['Done','Completed']}; const allowed=allowedByCurrent[current]||[]; if(!allowed.includes(requested)) return res.status(400).json({message:'لا يمكن الانتقال من الحالة الحالية إلى الحالة المحددة'}); item.status=requested==='Completed'?'Done':requested;item.updatedAt=new Date().toISOString();res.json(item);});
@@ -1199,7 +1287,7 @@ async function startServer() {
     if(!(await canAccessMedia(req,targetId))) return res.status(403).json({message:'لا يمكنك رفع ملفات لهذا السجل'});
     if(req.user?.role==='Tenant' && String(category)==='facility-image') return res.status(403).json({message:'ليس لديك صلاحية لتعديل صور المرافق'});
     const r=await dbPool.query(`INSERT INTO media_assets(entity_type,entity_id,category,file_name,mime_type,file_size,content,uploaded_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,file_name,mime_type,file_size,created_at`,[entityType||null,targetId||null,String(category),String(fileName).slice(0,255),String(mimeType),content.length,content,req.user?.sub||null]);
-    const row=r.rows[0]; const publicDisplay=['profile','facility-image'].includes(String(category)); res.status(201).json({...row,url:publicDisplay?`/media/${row.id}`:`/api/Media/${row.id}/content`});
+    const row=r.rows[0]; const publicDisplay=['profile','facility-image','announcement-image','unit-image'].includes(String(category)); res.status(201).json({...row,url:publicDisplay?`/media/${row.id}`:`/api/Media/${row.id}/content`});
   });
   app.get("/api/Media/:id/content", async (req:any,res) => {
     if(!dbPool) return res.status(404).end();
@@ -1240,6 +1328,25 @@ async function startServer() {
     const token=String(req.body?.fcmToken||'').trim(); if(!token)return res.status(400).json({message:'رمز جهاز الإشعارات مطلوب'});
     if(dbPool) await dbPool.query(`INSERT INTO user_devices(user_id,fcm_token,device_type,last_seen_at) VALUES($1,$2,$3,NOW()) ON CONFLICT(fcm_token) DO UPDATE SET user_id=EXCLUDED.user_id,device_type=EXCLUDED.device_type,last_seen_at=NOW()`,[req.user.sub,token,String(req.body?.deviceType||'web')]);
     res.json({ message: "تم تسجيل الجهاز لاستقبال الإشعارات" });
+  });
+
+  app.put("/api/Account/profile-image", async (req:any,res)=>{
+    const url=String(req.body?.profileImageUrl||'').trim();
+    if(!url || !dbPool) return res.status(400).json({message:'صورة الملف الشخصي مطلوبة'});
+    const role=String(req.user?.role||'');
+    if(role==='Tenant' || role==='Staff'){
+      const entityType=role.toLowerCase();
+      const link=await linkedEntity(req,entityType);
+      if(!link) return res.status(404).json({message:'ملف المستخدم غير مرتبط'});
+      link.entity.profileImageUrl=url;
+      if(dbPool) await saveState(entityType==='tenant'?'tenants':'staff', entityType==='tenant'?tenantsStore:staffStore);
+    }
+    if(dbPool){
+      await dbPool.query("INSERT INTO azhar_profiles(user_id,data,updated_at) VALUES($1,$2::jsonb,NOW()) ON CONFLICT(user_id) DO UPDATE SET data=azhar_profiles.data || EXCLUDED.data,updated_at=NOW()",
+        [req.user.sub,JSON.stringify({profileImageUrl:url})]);
+      await dbPool.query("UPDATE app_users SET updated_at=NOW() WHERE id=$1",[req.user.sub]);
+    }
+    res.json({profileImageUrl:url});
   });
 
   // 2. Tenants API
@@ -1694,7 +1801,8 @@ async function startServer() {
       notes: body.notes || "",
       compoundId: String(body.compoundId || '1'),
       compoundName: String(body.compoundName || (String(body.compoundId || '1') === '2' ? 'Meadow Park Garden' : String(body.compoundId || '1') === '4' ? 'Daar Residence' : 'Azhar Residence')),
-      isAvailable: true
+      isAvailable: true,
+      imageUrl: String(body.imageUrl || body.image || '')
     };
     newHouse.living = newHouse.livingCount;
     newHouse.majlis = newHouse.majlisCount;
@@ -1703,6 +1811,7 @@ async function startServer() {
       await dbPool.query(`UPDATE houses SET compound_id=$2,compound_name=$3,unit_type=$4,is_furnished=$5,notes_text=$6,annual_rent=$7 WHERE id=$1`,
         [newHouse.id, newHouse.compoundId || '1', newHouse.compoundName || 'Azhar Residence', newHouse.type || 'Apartment', Boolean(newHouse.isFurnished), newHouse.notes || '', Number(newHouse.annualRent || 0)]);
     }
+    if (dbPool) await saveState("houses", housesStore);
     res.status(201).json(newHouse);
   });
 
@@ -1726,6 +1835,7 @@ async function startServer() {
       await dbPool.query(`UPDATE houses SET compound_id=$2,compound_name=$3,unit_type=$4,is_furnished=$5,notes_text=$6,annual_rent=$7 WHERE id=$1`,
         [housesStore[i].id, housesStore[i].compoundId || '1', housesStore[i].compoundName || 'Azhar Residence', housesStore[i].type || housesStore[i].unitType || 'Apartment', Boolean(housesStore[i].isFurnished), housesStore[i].notes || '', Number(housesStore[i].annualRent || 0)]);
     }
+    if (dbPool) await saveState("houses", housesStore);
     res.json(housesStore[i]);
   });
   app.delete("/api/house/:id", async (req,res)=>{
@@ -1968,8 +2078,23 @@ async function startServer() {
   app.put("/api/Company/:id",(req,res)=>{const i=companiesStore.findIndex((x:any)=>String(x.id)===req.params.id);if(i<0)return res.status(404).json({message:"Company not found"});companiesStore[i]={...companiesStore[i],...req.body};res.json(companiesStore[i]);});
   app.delete("/api/Company/:id",(req,res)=>{companiesStore=companiesStore.filter((x:any)=>String(x.id)!==req.params.id);res.json({message:"Company deleted"});});
   app.get("/api/Announcements", (req,res)=>res.json(paginated(announcementsStore.filter(x=>matchesQuery(x,String(req.query.q||req.query.search||""))),req)));
-  app.post("/api/Announcements",(req,res)=>{const item={id:`announcement-${Date.now()}`,createdAt:new Date().toISOString(),isActive:true,...req.body};announcementsStore.unshift(item);res.status(201).json(item);});
-  app.put("/api/Announcements/:id",(req,res)=>{const i=announcementsStore.findIndex((x:any)=>String(x.id)===req.params.id);if(i<0)return res.status(404).json({message:"Announcement not found"});announcementsStore[i]={...announcementsStore[i],...req.body};res.json(announcementsStore[i]);});
+  app.post("/api/Announcements",async(req:any,res)=>{
+    const body=req.body||{};
+    const item={id:`announcement-${Date.now()}`,createdAt:new Date().toISOString(),isActive:true,
+      imageUrls:Array.isArray(body.imageUrls)?body.imageUrls.filter((x:any)=>typeof x==='string').slice(0,10):[],
+      ...body};
+    announcementsStore.unshift(item);
+    if(dbPool) await saveState("announcements", announcementsStore);
+    try { await sendFcmToRole('Tenant',{title:String(item.title||'إعلان جديد'),body:String(item.description||item.body||'تم نشر إعلان جديد').slice(0,180)},{type:'announcement',announcementId:String(item.id)}); } catch(e) { console.warn('[firebase] announcement push failed'); }
+    res.status(201).json(item);
+  });
+  app.put("/api/Announcements/:id",async(req:any,res:any)=>{
+    const i=announcementsStore.findIndex((x:any)=>String(x.id)===req.params.id);
+    if(i<0)return res.status(404).json({message:"Announcement not found"});
+    announcementsStore[i]={...announcementsStore[i],...req.body};
+    if(dbPool) await saveState("announcements", announcementsStore);
+    res.json(announcementsStore[i]);
+  });
   app.delete("/api/Announcements/:id",(req,res)=>{announcementsStore=announcementsStore.filter((x:any)=>String(x.id)!==req.params.id);res.json({message:"Announcement deleted"});});
 
   app.get("/api/letters", (req,res)=>res.json(paginated(lettersStore.filter(x=>matchesQuery(x,String(req.query.q||req.query.search||""))), req)));
@@ -1988,7 +2113,29 @@ async function startServer() {
   app.delete("/api/FacilityBookings/:id", (req,res)=>{ facilityBookingsStore=facilityBookingsStore.filter((x:any)=>x.id!==req.params.id); res.json({message:"Booking deleted"}); });
 
   app.get("/api/Profile", async (req:any,res)=>{ if(!dbPool)return res.json(profileStore); const r=await dbPool.query("SELECT data FROM azhar_profiles WHERE user_id=$1",[req.user.sub]); res.json(r.rows[0]?.data || profileStore); });
-  app.put("/api/Profile", async (req:any,res)=>{ profileStore={...profileStore,...req.body}; if(dbPool)await dbPool.query("INSERT INTO azhar_profiles(user_id,data,updated_at) VALUES($1,$2::jsonb,NOW()) ON CONFLICT(user_id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()",[req.user.sub,JSON.stringify(profileStore)]); res.json(profileStore); });
+  app.put("/api/Profile", async (req:any,res)=>{
+    profileStore={...profileStore,...req.body};
+    const role=String(req.user?.role||'');
+    if(role==='Tenant' || role==='Staff'){
+      const entityType=role.toLowerCase();
+      const link=await linkedEntity(req,entityType);
+      if(link){
+        const e=link.entity;
+        if(req.body?.displayName!==undefined){ e.fullName=req.body.displayName; e.name=req.body.displayName; }
+        if(req.body?.email!==undefined)e.email=String(req.body.email||'');
+        if(req.body?.profileImageUrl!==undefined)e.profileImageUrl=String(req.body.profileImageUrl||'');
+        if(entityType==='tenant' && req.body?.phoneNumber!==undefined)e.phoneNumber=req.body.phoneNumber;
+        if(entityType==='staff' && req.body?.phoneNumber!==undefined)e.phoneNumber=req.body.phoneNumber;
+        if(dbPool) await saveState(entityType==='tenant'?'tenants':'staff',entityType==='tenant'?tenantsStore:staffStore);
+        if(dbPool && (req.body?.email!==undefined || req.body?.displayName!==undefined)){
+          try { await dbPool.query("UPDATE app_users SET email=COALESCE(NULLIF($2,''),email),full_name=COALESCE(NULLIF($3,''),full_name),updated_at=NOW() WHERE id=$1",[req.user.sub,String(req.body.email||''),String(req.body.displayName||'')]); }
+          catch(e:any){ return res.status(409).json({message:'تعذر تحديث البريد الإلكتروني؛ قد يكون مستخدماً بالفعل'}); }
+        }
+      }
+    }
+    if(dbPool)await dbPool.query("INSERT INTO azhar_profiles(user_id,data,updated_at) VALUES($1,$2::jsonb,NOW()) ON CONFLICT(user_id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()",[req.user.sub,JSON.stringify(profileStore)]);
+    res.json(profileStore);
+  });
 
   // 7. Electricity Meter API
   app.get("/api/ElectricityMeter", (req, res) => {

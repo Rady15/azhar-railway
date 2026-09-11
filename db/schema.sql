@@ -457,4 +457,7 @@ CREATE TABLE IF NOT EXISTS user_devices (
 );
 CREATE INDEX IF NOT EXISTS idx_user_devices_user ON user_devices(user_id);
 
+-- Media categories used by the mobile/web clients. Files are stored in PostgreSQL and
+-- publicDisplay is enforced by the /media/:id route in server.ts.
+INSERT INTO schema_migrations(version) VALUES ('2026-09-11-media-fcm-v2') ON CONFLICT DO NOTHING;
 INSERT INTO schema_migrations(version) VALUES ('2026-08-15-full-audit-v1') ON CONFLICT DO NOTHING;
