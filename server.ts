@@ -1207,7 +1207,23 @@ async function startServer() {
   app.get('/api/tenant-portal/notifications', async (req:any,res)=>{const link=await linkedEntity(req,'tenant');res.json(selfNotifications(req,link));});
   app.put('/api/tenant-portal/notifications/:id/read', async (req:any,res)=>{const link=await linkedEntity(req,'tenant');const item=selfNotifications(req,link).find((x:any)=>String(x.id)===req.params.id);if(!item)return res.status(404).json({message:'الإشعار غير موجود'});item.isRead=true;res.json(item);});
   app.get('/api/tenant-portal/documents', async (req:any,res)=>{const link=await linkedEntity(req,'tenant');if(!link||!dbPool)return res.status(404).json({message:'ملف المستأجر غير موجود'});const contracts=tenantContracts(link.entity);const ids=[link.entityId,...contracts.map((x:any)=>String(x.id))];const r=await dbPool.query(`SELECT id,entity_type AS "entityType",entity_id AS "entityId",category,file_name AS "fileName",mime_type AS "mimeType",file_size AS "fileSize",created_at AS "createdAt" FROM media_assets WHERE entity_id=ANY($1::text[]) ORDER BY created_at DESC`,[ids]);res.json(r.rows);});
-  app.get('/api/tenant-portal/letters', async (req:any,res)=>{const link=await linkedEntity(req,'tenant');if(!link)return res.status(404).json({message:'ملف المستأجر غير موجود'});const eid=link.entityId;const name=(link.entity.fullName||link.entity.name||'').toLowerCase();res.json(lettersStore.filter((x:any)=>String(x.recipientId||'')===eid||String(x.tenantId||'')===eid||(name&&(String(x.recipientName||'').toLowerCase()===name))));});
+  app.get('/api/tenant-portal/letters', async (req:any,res)=>{
+    const link=await linkedEntity(req,'tenant');
+    if(!link)return res.status(404).json({message:'ملف المستأجر غير موجود'});
+    const eid=String(link.entityId);
+    const normalize=(v:any)=>String(v||'').trim().toLocaleLowerCase('ar').replace(/\s+/g,' ');
+    const names=[link.entity.fullName,link.entity.fullNameArabic,link.entity.name].filter(Boolean).map(normalize);
+    const unit=String(link.entity.unitNumber||link.entity.houseNumber||'').trim();
+    const visible=lettersStore.filter((x:any)=>{
+      if(String(x.recipientType||'')==='AllTenants') return true;
+      if(String(x.recipientId||x.tenantId||'')===eid) return true;
+      const rn=normalize(String(x.recipientName||'').replace(/\s*\([^)]*\)\s*$/,''));
+      if(rn && names.includes(rn)) return true;
+      if(unit && rn && names.length===0 && String(x.recipientName||'').includes(unit)) return true;
+      return false;
+    });
+    res.json(visible);
+  });
   app.put('/api/tenant-portal/profile', async (req:any,res)=>{
     const link=await linkedEntity(req,'tenant'); if(!link)return res.status(404).json({message:'ملف المستأجر غير موجود'});
     const allowed=['fullName','fullNameArabic','email','phoneNumber','mobile','whatsappNumber','whatsapp','emergencyPhoneNumber','familyCount','profileImageUrl'];
@@ -2098,8 +2114,85 @@ async function startServer() {
   app.delete("/api/Announcements/:id",(req,res)=>{announcementsStore=announcementsStore.filter((x:any)=>String(x.id)!==req.params.id);res.json({message:"Announcement deleted"});});
 
   app.get("/api/letters", (req,res)=>res.json(paginated(lettersStore.filter(x=>matchesQuery(x,String(req.query.q||req.query.search||""))), req)));
-  app.post("/api/letters", (req:any,res)=>{ const item={id:`letter-${Date.now()}`, sentById:req.user?.sub||"", sentByName:req.user?.username||"Admin", sentAt:new Date().toISOString(), ...req.body}; lettersStore.unshift(item); res.status(201).json(item); });
-  app.put("/api/letters/:id", (req,res)=>{const i=lettersStore.findIndex((x:any)=>String(x.id)===req.params.id);if(i<0)return res.status(404).json({message:"Letter not found"});lettersStore[i]={...lettersStore[i],...req.body};res.json(lettersStore[i]);});
+  app.post("/api/letters", async (req:any,res)=>{
+    const recipientType=String(req.body?.recipientType||'AllTenants');
+    let recipientId=req.body?.recipientId ? String(req.body.recipientId) : null;
+    let recipientName=String(req.body?.recipientName||'').trim();
+
+    // Resolve the selected tenant from the name sent by the admin UI. Older UI versions
+    // only sent recipientName, so the server must resolve the real tenant id here.
+    if(recipientType==='SpecificTenant' && dbPool && !recipientId){
+      const rawName=recipientName.replace(/\s*\([^)]*\)\s*$/,'').trim();
+      const rawUnit=(recipientName.match(/\(([^)]+)\)\s*$/)||[])[1]||'';
+      const norm=(v:any)=>String(v||'').trim().toLocaleLowerCase('ar');
+      const tenant=tenantsStore.find((t:any)=>{
+        const names=[t.fullName,t.fullNameArabic,t.name].filter(Boolean).map(norm);
+        return names.includes(norm(rawName)) && (!rawUnit || String(t.unitNumber||t.houseNumber||'').trim()===String(rawUnit).trim());
+      });
+      if(tenant){ recipientId=String(tenant.id); recipientName=String(tenant.fullNameArabic||tenant.fullName||tenant.name||recipientName); }
+    }
+
+    const item={
+      id:`letter-${Date.now()}`,
+      sentById:req.user?.sub||"",
+      sentByName:req.user?.username||"Admin",
+      sentAt:new Date().toISOString(),
+      ...req.body,
+      recipientType,
+      recipientId,
+      recipientName
+    };
+    lettersStore.unshift(item);
+
+    // Create an in-app notification for every actual recipient. AllTenants must not be
+    // stored as a single anonymous notification because the tenant portal filters by user.
+    let targetUserIds:string[]=[];
+    if(dbPool){
+      if(recipientType==='AllTenants'){
+        const r=await dbPool.query(`SELECT au.id FROM app_users au JOIN user_roles ur ON ur.user_id=au.id JOIN roles ro ON ro.id=ur.role_id WHERE ro.name='Tenant' AND au.is_active=TRUE`);
+        targetUserIds=r.rows.map((x:any)=>String(x.id));
+      } else if(recipientType==='SpecificTenant' && recipientId){
+        const r=await dbPool.query(`SELECT id FROM app_users WHERE entity_type='tenant' AND entity_id=$1 AND is_active=TRUE`,[recipientId]);
+        targetUserIds=r.rows.map((x:any)=>String(x.id));
+        if(!targetUserIds.length){
+          const t=tenantsStore.find((x:any)=>String(x.id)===recipientId);
+          if(t?.email){
+            const r2=await dbPool.query(`SELECT id FROM app_users WHERE lower(email)=lower($1) AND is_active=TRUE`,[String(t.email)]);
+            targetUserIds=r2.rows.map((x:any)=>String(x.id));
+          }
+        }
+      }
+      for(const userId of targetUserIds){
+        notificationsStore.unshift({
+          id:`ntf-letter-${item.id}-${userId}`,
+          userId,
+          tenantId:recipientType==='SpecificTenant' ? recipientId : undefined,
+          type:'letter',
+          title:item.title,
+          body:String(item.content||'').slice(0,240),
+          message:String(item.content||'').slice(0,240),
+          relatedEntityId:item.id,
+          letterId:item.id,
+          isRead:false,
+          createdAt:item.sentAt
+        });
+      }
+    }
+
+    // Send real-time FCM push when Firebase credentials are configured. Failure here
+    // never prevents the letter from being saved/in-app delivered.
+    let push={sent:0,skipped:true};
+    try { push=await sendFcmToUsers(targetUserIds,{title:item.title,body:String(item.content||'').slice(0,240)},{type:'letter',letterId:String(item.id),url:'/letters'}); }
+    catch(e){ console.warn('[letters] FCM delivery failed',e); }
+
+    res.status(201).json({...item,delivery:{recipients:targetUserIds.length,pushSent:push.sent,pushSkipped:push.skipped}});
+  });
+  app.put("/api/letters/:id", async (req:any,res)=>{
+    const i=lettersStore.findIndex((x:any)=>String(x.id)===req.params.id);
+    if(i<0)return res.status(404).json({message:"Letter not found"});
+    lettersStore[i]={...lettersStore[i],...req.body};
+    res.json(lettersStore[i]);
+  });
   app.delete("/api/letters/:id", (req,res)=>{ lettersStore=lettersStore.filter((x:any)=>x.id!==req.params.id); res.json({message:"Letter deleted"}); });
 
   app.get("/api/Facilities", (req,res)=>res.json(paginated(facilitiesStore.filter(x=>matchesQuery(x,String(req.query.q||req.query.search||""))), req)));
