@@ -1104,6 +1104,9 @@ async function startServer() {
     if (p.startsWith('/tenant-portal')) return req.user?.role==='Tenant' ? next() : res.status(403).json({message:'هذه الخدمة مخصصة للمستأجر فقط'});
     if (p.startsWith('/staff-portal')) return req.user?.role==='Staff' ? next() : res.status(403).json({message:'هذه الخدمة مخصصة للموظفين فقط'});
     if (p.startsWith('/account/change-password')) return next();
+    // Allow any authenticated user to register their own FCM device token,
+    // otherwise tenant phones can never receive push notifications.
+    if (p.startsWith('/account/fcm-token')) return next();
     const write = ["POST","PUT","PATCH","DELETE"].includes(req.method);
     const rules: Array<[string,string]> = [
       ["/tenants","tenants"],["/contracts","contracts"],["/house","units"],["/buildings","units"],
