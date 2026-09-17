@@ -1189,15 +1189,26 @@ async function startServer() {
             await saveState("facilityBookings", facilityBookingsStore);
             await saveState("notifications", notificationsStore);
           }
+        } catch (e:any) {
+          console.error('[persistence] pre-response persistence failed', e);
+          // Never convert a successful READ into a 500 because persistence hiccuped.
+          // Writes keep failing loudly so the UI never shows "success" for lost data.
+          if (!res.headersSent) {
+            if (mutating) { res.status(500); return originalJson({message:'Database persistence failed',detail:isProduction?undefined:String(e?.message||e)}); }
+            return originalJson(body);
+          }
+          return;
+        }
+        // Audit logging is best-effort and must never break any response.
+        try {
           await dbPool.query(
             "INSERT INTO azhar_audit_log(user_id, method, path, status_code, ip_address, user_agent, metadata) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb)",
             [req.user?.sub || null, req.method, req.path, res.statusCode, req.ip || null, String(req.headers["user-agent"] || "").slice(0,500), JSON.stringify({query:req.query || {}})]
           );
-          return originalJson(body);
         } catch (e:any) {
-          console.error('[persistence] pre-response persistence failed', e);
-          if (!res.headersSent) { res.status(500); return originalJson({message:'Database persistence failed',detail:isProduction?undefined:String(e?.message||e)}); }
+          console.error('[persistence] audit log write failed (non-fatal)', String(e?.message || e));
         }
+        return originalJson(body);
       })();
       return res;
     };
