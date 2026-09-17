@@ -1008,6 +1008,9 @@ async function startServer() {
   const PORT = Number(process.env.PORT || 3000);
 
   app.disable("x-powered-by");
+  // Never emit ETags for API payloads - a 304 after refresh would serve stale
+  // bodies to the UI instead of the fresh database state.
+  app.set("etag", false);
   app.use(express.json({ limit: "12mb" }));
   app.use(express.urlencoded({ extended: true, limit: "2mb" }));
   app.use((req, res, next) => {
@@ -1146,6 +1149,15 @@ async function startServer() {
     const row=r.rows[0];
     if(!['profile','facility-image','announcement-image','unit-image'].includes(String(row.category))) return res.status(403).end();
     res.setHeader('Content-Type',row.mime_type); res.setHeader('Cache-Control','public, max-age=3600'); res.setHeader('Content-Disposition', safeContentDisposition(row.file_name, 'inline')); res.send(row.content);
+  });
+
+  // API responses must never be cached anywhere (browser, CDN, proxy):
+  // after a refresh the UI must get fresh database state, never a 304.
+  app.use("/api", (req, res, next) => {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    next();
   });
 
   // Protect all remaining /api/* routes with an access token
