@@ -1168,6 +1168,18 @@ async function startServer() {
     res.setHeader('Content-Type',row.mime_type); res.setHeader('Cache-Control','public, max-age=3600'); res.setHeader('Content-Disposition', safeContentDisposition(row.file_name, 'inline')); res.send(row.content);
   });
 
+  // Public alias under /api so display images survive single-page-app
+  // rewrites on serverless hosts (Vercel). Must stay BEFORE requireAuth:
+  // <img> tags carry no access token. Private documents stay behind auth.
+  app.get("/api/Media/:id/public", async (req,res) => {
+    if(!dbPool) return res.status(404).end();
+    const r=await dbPool.query(`SELECT category,file_name,mime_type,content FROM media_assets WHERE id=$1`,[req.params.id]);
+    if(!r.rowCount) return res.status(404).end();
+    const prow=r.rows[0];
+    if(!['profile','facility-image','announcement-image','unit-image'].includes(String(prow.category))) return res.status(403).end();
+    res.setHeader('Content-Type',prow.mime_type); res.setHeader('Content-Disposition', safeContentDisposition(prow.file_name, 'inline')); res.setHeader('Cache-Control','public, max-age=3600'); res.send(prow.content);
+  });
+
   // API responses must never be cached anywhere (browser, CDN, proxy):
   // after a refresh the UI must get fresh database state, never a 304.
   app.use("/api", (req, res, next) => {
@@ -1435,7 +1447,7 @@ async function startServer() {
     if(!(await canAccessMedia(req,targetId))) return res.status(403).json({message:'لا يمكنك رفع ملفات لهذا السجل'});
     if(req.user?.role==='Tenant' && String(category)==='facility-image') return res.status(403).json({message:'ليس لديك صلاحية لتعديل صور المرافق'});
     const r=await dbPool.query(`INSERT INTO media_assets(entity_type,entity_id,category,file_name,mime_type,file_size,content,uploaded_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,file_name,mime_type,file_size,created_at`,[entityType||null,targetId||null,String(category),String(fileName).slice(0,255),String(mimeType),content.length,content,req.user?.sub||null]);
-    const row=r.rows[0]; const publicDisplay=['profile','facility-image','announcement-image','unit-image'].includes(String(category)); res.status(201).json({...row,url:publicDisplay?`/media/${row.id}`:`/api/Media/${row.id}/content`});
+    const row=r.rows[0]; const publicDisplay=['profile','facility-image','announcement-image','unit-image'].includes(String(category)); res.status(201).json({...row,url:publicDisplay?`/api/Media/${row.id}/public`:`/api/Media/${row.id}/content`});
   });
   app.get("/api/Media/:id/content", async (req:any,res) => {
     if(!dbPool) return res.status(404).end();

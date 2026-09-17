@@ -10,6 +10,7 @@
     }
   },
   "rewrites": [
+    { "source": "/media/(.*)", "destination": "/api/Media/$1/public" },
     { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/assets/(.*)", "destination": "/assets/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
