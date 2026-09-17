@@ -937,6 +937,44 @@ async function applyTerminationSettlement(contract:any,effectiveDate:string,clie
 
 function makeReceiptNo(){ return `RCPT-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`; }
 
+async function reloadStoresFromDb() {
+  // Database is the source of truth (serverless instances don't share memory).
+  if (!dbPool) return;
+  const [tenants, contracts, houses, staff, payments, meters, maintenance, letters, announcements, complaints, expenses, companies, facilities, facilityBookings, notifications, compoundAdminNotes] = await Promise.all([
+    loadState("tenants", []), loadState("contracts", []), loadState("houses", []),
+    loadState("staff", []), loadState("payments", []), loadState("electricityMeters", []),
+    loadState("maintenance", []), loadState("letters", []), loadState("announcements", []),
+    loadState("complaints", []), loadState("expenses", []), loadState("companies", []),
+    loadState("facilities", []), loadState("facilityBookings", []), loadState("notifications", []),
+    loadState("compoundAdminNotes", []),
+  ]);
+  tenantsStore = tenants;
+  contractsStore = contracts.map((c:any) => { const clean={...c}; delete clean.representativeName; delete clean.RepresentativeName; clean.paymentFrequency=normalizePaymentFrequency(clean.paymentFrequency || clean.paymentMethod); clean.paymentMethod=clean.paymentFrequency; normalizeContractMoney(clean); return clean; });
+  housesStore = houses.map((h:any)=>{ const living=Math.max(Number(h.livingCount||0),Number(h.living||0),Number(h.LivingCount||0),Number(h.Living||0)); const majlis=Math.max(Number(h.majlisCount||0),Number(h.majlis||0),Number(h.MajlisCount||0),Number(h.Majlis||0)); return {...h,livingCount:living,majlisCount:majlis,living,majlis}; });
+  staffStore = staff;
+  paymentsStore = payments;
+  // Meter records belong to units, never tenants. Migrate legacy transfer flags away.
+  electricityMetersStore = meters.map((meter:any) => {
+    const legacy = { ...meter };
+    delete legacy.transferredToTenant;
+    delete legacy.representativeName;
+    const unit = housesStore.find((u:any) => String(u.id) === String(legacy.unitId || legacy.houseId || ''))
+      || housesStore.find((u:any) => String(u.buildingNumber || '') === String(legacy.building || '') && String(u.unitNumber || u.houseNumber || '') === String(legacy.unitNumber || legacy.houseNumber || ''));
+    if (!unit) return legacy;
+    return { ...legacy, unitId: unit.id, houseId: unit.id, building: unit.buildingNumber || '', unitNumber: unit.unitNumber || unit.houseNumber || '', houseNumber: unit.unitNumber || unit.houseNumber || '', type: unit.type || legacy.type || '', isRented: unit.status === 'Occupied' };
+  });
+  maintenanceStore = maintenance;
+  lettersStore = letters;
+  announcementsStore = announcements;
+  complaintsStore = complaints;
+  expensesStore = expenses;
+  companiesStore = companies;
+  facilitiesStore = facilities;
+  facilityBookingsStore = facilityBookings;
+  notificationsStore = notifications;
+  compoundAdminNotesStore = compoundAdminNotes;
+}
+
 async function startServer() {
   // Production is database-only. Never allow bundled development/demo records to participate in startup or legacy repair.
   // Exception: Vercel without DATABASE_URL needs demo data for UI testing.
@@ -947,32 +985,7 @@ async function startServer() {
   }
   const seedTenants = tenantsStore.map((x:any)=>({...x}));
   await initDatabase();
-  tenantsStore = await loadState("tenants", tenantsStore);
-  contractsStore = (await loadState("contracts", contractsStore)).map((c:any) => { const clean={...c}; delete clean.representativeName; delete clean.RepresentativeName; clean.paymentFrequency=normalizePaymentFrequency(clean.paymentFrequency || clean.paymentMethod); clean.paymentMethod=clean.paymentFrequency; normalizeContractMoney(clean); return clean; });
-  housesStore = (await loadState("houses", housesStore)).map((h:any)=>{ const living=Math.max(Number(h.livingCount||0),Number(h.living||0),Number(h.LivingCount||0),Number(h.Living||0)); const majlis=Math.max(Number(h.majlisCount||0),Number(h.majlis||0),Number(h.MajlisCount||0),Number(h.Majlis||0)); return {...h,livingCount:living,majlisCount:majlis,living,majlis}; });
-  staffStore = await loadState("staff", staffStore);
-  paymentsStore = await loadState("payments", paymentsStore);
-  electricityMetersStore = await loadState("electricityMeters", electricityMetersStore);
-  // Meter records belong to units, never tenants. Migrate legacy transfer flags away.
-  electricityMetersStore = electricityMetersStore.map((meter:any) => {
-    const legacy = { ...meter };
-    delete legacy.transferredToTenant;
-    delete legacy.representativeName;
-    const unit = housesStore.find((u:any) => String(u.id) === String(legacy.unitId || legacy.houseId || ''))
-      || housesStore.find((u:any) => String(u.buildingNumber || '') === String(legacy.building || '') && String(u.unitNumber || u.houseNumber || '') === String(legacy.unitNumber || legacy.houseNumber || ''));
-    if (!unit) return legacy;
-    return { ...legacy, unitId: unit.id, houseId: unit.id, building: unit.buildingNumber || '', unitNumber: unit.unitNumber || unit.houseNumber || '', houseNumber: unit.unitNumber || unit.houseNumber || '', type: unit.type || legacy.type || '', isRented: unit.status === 'Occupied' };
-  });
-  maintenanceStore = await loadState("maintenance", maintenanceStore);
-  lettersStore = await loadState("letters", lettersStore);
-  announcementsStore = await loadState("announcements", announcementsStore);
-  complaintsStore = await loadState("complaints", complaintsStore);
-  expensesStore = await loadState("expenses", expensesStore);
-  companiesStore = await loadState("companies", companiesStore);
-  facilitiesStore = await loadState("facilities", facilitiesStore);
-  facilityBookingsStore = await loadState("facilityBookings", facilityBookingsStore);
-  notificationsStore = await loadState("notifications", notificationsStore);
-  compoundAdminNotesStore = await loadState("compoundAdminNotes", compoundAdminNotesStore);
+  await reloadStoresFromDb();
   // Repair legacy/partial database states before contracts or installments touch tenant foreign keys.
   await ensureTenantReferences(seedTenants);
   // Persist canonicalized legacy repairs (gross rent, removed representative field, unit living/majlis aliases).
@@ -1212,6 +1225,16 @@ async function startServer() {
       })();
       return res;
     };
+    next();
+  });
+
+  // Serverless instances (Vercel) don't share memory: the database is the source
+  // of truth. Re-sync stores before every API call so a record created on one
+  // instance is visible on the next, and concurrent writers don't clobber rows.
+  app.use("/api", async (_req: any, _res: any, next: any) => {
+    if (!dbPool) return next();
+    try { await reloadStoresFromDb(); }
+    catch (e: any) { console.error('[sync] reloadStoresFromDb failed (non-fatal)', String(e?.message || e)); }
     next();
   });
 
