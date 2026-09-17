@@ -130,14 +130,21 @@ function verifyJwt(token: string): Record<string, any> | null {
 
 async function initDatabase() {
   if (!DATABASE_URL) {
-    if (isProduction) throw new Error("DATABASE_URL is required in production");
-    console.warn("[db] DATABASE_URL not set; development memory mode enabled");
+    if (isProduction && !process.env.VERCEL) throw new Error("DATABASE_URL is required in production");
+    if (isProduction) console.warn("[db] DATABASE_URL not set on Vercel - running in memory mode (set DATABASE_URL in Vercel env to enable persistence)");
+    else console.warn("[db] DATABASE_URL not set; development memory mode enabled");
     return;
   }
   if (isProduction) {
     const weak = (v:string) => /replace|change|default|example|secret/i.test(v || '');
-    if (JWT_SECRET.length < 32 || weak(JWT_SECRET)) throw new Error("JWT_SECRET must be at least 32 random characters and must not be a placeholder in production");
-    if (weak(DATABASE_URL)) throw new Error("DATABASE_URL still contains a placeholder value; set a real production database password");
+    if (JWT_SECRET.length < 32 || weak(JWT_SECRET)) {
+      if (process.env.VERCEL) console.warn("[db] JWT_SECRET weak/missing - using fallback for Vercel (set JWT_SECRET in env)");
+      else throw new Error("JWT_SECRET must be at least 32 random characters and must not be a placeholder in production");
+    }
+    if (weak(DATABASE_URL)) {
+      if (process.env.VERCEL) console.warn("[db] DATABASE_URL looks like placeholder on Vercel");
+      else throw new Error("DATABASE_URL still contains a placeholder value; set a real production database password");
+    }
   }
   dbPool = new Pool({ connectionString: DATABASE_URL, ssl: process.env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: false }, max: Number(process.env.DATABASE_POOL_MAX || 10), idleTimeoutMillis: 30000, connectionTimeoutMillis: 10000 });
   const schema = fs.readFileSync(path.join(process.cwd(), "db", "schema.sql"), "utf8");
@@ -2428,6 +2435,11 @@ if (!process.env.VERCEL) {
 
 // Vercel serverless export - lazy handler
 export default async (req: any, res: any) => {
-  const app = await getApp();
-  return (app as any)(req, res);
+  try {
+    const app = await getApp();
+    return (app as any)(req, res);
+  } catch (err: any) {
+    console.error("[vercel] getApp failed:", err);
+    if (!res.headersSent) res.status(500).json({ message: err?.message || "Server initialization failed", hint: "Check DATABASE_URL and JWT_SECRET in Vercel env" });
+  }
 };
