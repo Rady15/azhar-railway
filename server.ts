@@ -37,6 +37,14 @@ function safeContentDisposition(fileName: unknown, disposition: "inline" | "atta
   const encoded = encodeURIComponent(raw).replace(/[!'()*]/g, c => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
   return `${disposition}; filename="${ascii}"; filename*=UTF-8''${encoded}`;
 }
+// Absolute URL for a path, so native mobile apps (no relative resolution)
+// can load it directly. Falls back to the relative path when host is unknown.
+function publicUrl(req: any, path: string) {
+  const host = String(req?.get?.("host") || "").trim();
+  if (!host) return path;
+  const proto = String(req?.protocol || "https").split(",")[0].trim() || "https";
+  return `${proto}://${host}${path}`;
+}
 function paginated<T>(items: T[], req: any) {
   const pageRaw = Number(req.query.page || 0), pageSizeRaw = Number(req.query.pageSize || req.query.limit || 0);
   if (!pageRaw && !pageSizeRaw) return items;
@@ -1025,6 +1033,8 @@ async function startServer() {
   const PORT = Number(process.env.PORT || 3000);
 
   app.disable("x-powered-by");
+  // Behind proxies (Vercel/Railway) so req.protocol/req.ip reflect the real client.
+  app.set("trust proxy", 1);
   // Never emit ETags for API payloads - a 304 after refresh would serve stale
   // bodies to the UI instead of the fresh database state.
   app.set("etag", false);
@@ -1447,7 +1457,7 @@ async function startServer() {
     if(!(await canAccessMedia(req,targetId))) return res.status(403).json({message:'لا يمكنك رفع ملفات لهذا السجل'});
     if(req.user?.role==='Tenant' && String(category)==='facility-image') return res.status(403).json({message:'ليس لديك صلاحية لتعديل صور المرافق'});
     const r=await dbPool.query(`INSERT INTO media_assets(entity_type,entity_id,category,file_name,mime_type,file_size,content,uploaded_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,file_name,mime_type,file_size,created_at`,[entityType||null,targetId||null,String(category),String(fileName).slice(0,255),String(mimeType),content.length,content,req.user?.sub||null]);
-    const row=r.rows[0]; const publicDisplay=['profile','facility-image','announcement-image','unit-image'].includes(String(category)); res.status(201).json({...row,url:publicDisplay?`/api/Media/${row.id}/public`:`/api/Media/${row.id}/content`});
+    const row=r.rows[0]; const publicDisplay=['profile','facility-image','announcement-image','unit-image'].includes(String(category)); res.status(201).json({...row,url:publicUrl(req, publicDisplay?`/api/Media/${row.id}/public`:`/api/Media/${row.id}/content`)});
   });
   app.get("/api/Media/:id/content", async (req:any,res) => {
     if(!dbPool) return res.status(404).end();
@@ -1465,7 +1475,7 @@ async function startServer() {
     const r=scope.all
       ? await dbPool.query(`SELECT id,entity_type AS "entityType",entity_id AS "entityId",category,file_name AS "fileName",mime_type AS "mimeType",file_size AS "fileSize",created_at AS "createdAt" FROM media_assets WHERE ($1::text IS NULL OR entity_type=$1) AND ($2::text IS NULL OR entity_id=$2) ORDER BY created_at DESC`,[req.query.entityType||null,requestedEntity])
       : await dbPool.query(`SELECT id,entity_type AS "entityType",entity_id AS "entityId",category,file_name AS "fileName",mime_type AS "mimeType",file_size AS "fileSize",created_at AS "createdAt" FROM media_assets WHERE entity_id=ANY($1::text[]) AND ($2::text IS NULL OR entity_type=$2) AND ($3::text IS NULL OR entity_id=$3) ORDER BY created_at DESC`,[ids,req.query.entityType||null,requestedEntity]);
-    res.json(r.rows.map((x:any)=>({...x,url:`/api/Media/${x.id}/content`})));
+    res.json(r.rows.map((x:any)=>({...x,url:publicUrl(req, `/api/Media/${x.id}/content`)})));
   });
   app.delete("/api/Media/:id", async (req:any,res) => { if(!dbPool)return res.status(503).json({message:"قاعدة البيانات غير متاحة"}); const f=await dbPool.query(`SELECT entity_id FROM media_assets WHERE id=$1`,[req.params.id]); if(!f.rowCount)return res.status(404).json({message:"الملف غير موجود"}); if(!(await canAccessMedia(req,f.rows[0].entity_id)))return res.status(403).json({message:'ليس لديك صلاحية لحذف هذا الملف'}); const r=await dbPool.query(`DELETE FROM media_assets WHERE id=$1 RETURNING id`,[req.params.id]); res.json({message:"تم حذف الملف"}); });
 
