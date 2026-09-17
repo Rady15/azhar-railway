@@ -898,6 +898,20 @@ async function syncContractMoney(contract:any, client?:any){
   }
   return contract;
 }
+// Keep the embedded installments snapshot in sync with the ledger tables
+// (non-fatal: the ledger itself is always the source of truth).
+async function refreshEmbeddedSchedule(contract:any) {
+  if (!dbPool || !contract) return;
+  try {
+    const sched = await rebuildContractSchedule(contract);
+    if (Array.isArray(sched) && sched.length) contract.installments = sched;
+    const idx = contractsStore.findIndex((x:any)=>String(x.id)===String(contract.id));
+    const base = idx>=0 ? contractsStore[idx] : contract;
+    const updated = {...base, installments: contract.installments, paidAmount: contract.paidAmount, remainingAmount: contract.remainingAmount, nextPaymentDate: contract.nextPaymentDate, nextPaymentDays: contract.nextPaymentDays};
+    if (idx>=0) contractsStore[idx]=updated; else contractsStore.push(updated);
+    await saveState('contracts', contractsStore);
+  } catch (e:any) { console.error('[contracts] embedded schedule refresh failed (non-fatal)', String(e?.message||e)); }
+}
 
 async function contractSettlementPreview(contractId:string,effectiveDate:string,client?:any){
   if(!dbPool) return null; const c=client||dbPool;
@@ -998,10 +1012,13 @@ async function startServer() {
   if (dbPool) {
     for (const contract of contractsStore) {
       if (String(contract.status || "Active").toLowerCase() !== "archived") {
-        await rebuildContractSchedule(contract);
+        const sched = await rebuildContractSchedule(contract);
+        if (Array.isArray(sched) && sched.length) contract.installments = sched;
         await syncContractMoney(contract);
       }
     }
+    // Persist healed embedded schedules + money so reads are correct immediately.
+    await saveState("contracts", contractsStore);
   }
 
   const app = express();
@@ -2083,6 +2100,7 @@ async function startServer() {
       }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
     }
     const newPayment={id:legacyId,tenantId:tenantId||contract.tenantId||'',tenantName:req.body.tenantName||contract.tenantName||'',unitNumber:req.body.unitNumber||contract.unitNumber||contract.houseNumber||'',contractId:String(contract.id),receiptNo,amount,paymentMethod:req.body.paymentMethod||'Cash',referenceNo:req.body.referenceNo||'',status:'Paid',paymentDate,unappliedAmount:unapplied,allocations};
+    await refreshEmbeddedSchedule(contract);
     paymentsStore.push(newPayment); if(dbPool) await saveState('payments',paymentsStore);
     res.status(201).json(newPayment);
   });
@@ -2107,7 +2125,7 @@ async function startServer() {
   });
 
   app.post('/api/Payment/:id/reverse', async (req:any,res)=>{
-    if(!dbPool)return res.status(503).json({message:'Database unavailable'}); const c=await dbPool.connect(); try{await c.query('BEGIN'); const p=await c.query(`SELECT * FROM rental_payments WHERE (id::text=$1 OR legacy_id=$1) FOR UPDATE`,[req.params.id]); if(!p.rowCount){await c.query('ROLLBACK');return res.status(404).json({message:'Payment not found'});} if(p.rows[0].status==='Reversed'){await c.query('ROLLBACK');return res.status(409).json({message:'Payment already reversed'});} const alloc=await c.query(`SELECT installment_id,amount::float8 FROM payment_allocations WHERE payment_id=$1`,[p.rows[0].id]); for(const a of alloc.rows) await c.query(`UPDATE rent_installments SET paid_amount=GREATEST(0,paid_amount-$2),updated_at=NOW() WHERE id=$1`,[a.installment_id,a.amount]); await c.query(`UPDATE rental_payments SET status='Reversed',reversed_at=NOW(),reversed_by=$2,reversal_reason=$3 WHERE id=$1`,[p.rows[0].id,req.user?.sub||null,req.body.reason||'Reversed by administrator']); await refreshInstallmentStatuses(c,p.rows[0].contract_id); const contract=contractsStore.find((x:any)=>String(x.id)===String(p.rows[0].contract_id)); if(contract)await syncContractMoney(contract,c); await c.query(`INSERT INTO rent_events(contract_id,tenant_id,event_type,metadata,created_by) VALUES($1,$2,'PaymentReversed',$3::jsonb,$4)`,[p.rows[0].contract_id,p.rows[0].tenant_id,JSON.stringify({paymentId:p.rows[0].legacy_id,reason:req.body.reason||''}),req.user?.sub||null]); await c.query('COMMIT'); paymentsStore=paymentsStore.map((x:any)=>String(x.id)===String(p.rows[0].legacy_id)?{...x,status:'Reversed'}:x); await saveState('payments',paymentsStore); res.json({message:'Payment reversed',id:p.rows[0].legacy_id});}catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
+    if(!dbPool)return res.status(503).json({message:'Database unavailable'}); const c=await dbPool.connect(); try{await c.query('BEGIN'); const p=await c.query(`SELECT * FROM rental_payments WHERE (id::text=$1 OR legacy_id=$1) FOR UPDATE`,[req.params.id]); if(!p.rowCount){await c.query('ROLLBACK');return res.status(404).json({message:'Payment not found'});} if(p.rows[0].status==='Reversed'){await c.query('ROLLBACK');return res.status(409).json({message:'Payment already reversed'});} const alloc=await c.query(`SELECT installment_id,amount::float8 FROM payment_allocations WHERE payment_id=$1`,[p.rows[0].id]); for(const a of alloc.rows) await c.query(`UPDATE rent_installments SET paid_amount=GREATEST(0,paid_amount-$2),updated_at=NOW() WHERE id=$1`,[a.installment_id,a.amount]); await c.query(`UPDATE rental_payments SET status='Reversed',reversed_at=NOW(),reversed_by=$2,reversal_reason=$3 WHERE id=$1`,[p.rows[0].id,req.user?.sub||null,req.body.reason||'Reversed by administrator']); await refreshInstallmentStatuses(c,p.rows[0].contract_id); const contract=contractsStore.find((x:any)=>String(x.id)===String(p.rows[0].contract_id)); if(contract)await syncContractMoney(contract,c); await c.query(`INSERT INTO rent_events(contract_id,tenant_id,event_type,metadata,created_by) VALUES($1,$2,'PaymentReversed',$3::jsonb,$4)`,[p.rows[0].contract_id,p.rows[0].tenant_id,JSON.stringify({paymentId:p.rows[0].legacy_id,reason:req.body.reason||''}),req.user?.sub||null]); await c.query('COMMIT'); if(contract) await refreshEmbeddedSchedule(contract); paymentsStore=paymentsStore.map((x:any)=>String(x.id)===String(p.rows[0].legacy_id)?{...x,status:'Reversed'}:x); await saveState('payments',paymentsStore); res.json({message:'Payment reversed',id:p.rows[0].legacy_id});}catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
   });
 
   app.get('/api/Contracts/:id/final-settlement', async (req,res)=>{ if(!dbPool)return res.status(503).json({message:'Database unavailable'}); const contract=contractsStore.find((x:any)=>String(x.id)===req.params.id); if(!contract)return res.status(404).json({message:'Contract not found'}); const effective=String(req.query.effectiveDate||new Date().toISOString().slice(0,10)).slice(0,10); res.json(await contractSettlementPreview(String(contract.id),effective)); });
