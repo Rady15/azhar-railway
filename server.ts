@@ -204,9 +204,18 @@ async function seedSecurity() {
 async function seedTestData() {
   if (!dbPool) return;
   if (process.env.SKIP_SEED === "true") { console.log("[seed] SKIP_SEED=true, skipping test data seeding"); return; }
-  const alreadySeeded = await dbPool.query("SELECT 1 FROM tenants LIMIT 1");
-  if (alreadySeeded.rowCount && alreadySeeded.rowCount > 0) return;
-  console.log("[seed] Seeding test data...");
+  // Seed missing demo data even if tenants already exist (handles partial seed after previous production clear)
+  const check = async (table:string) => {
+    try { const r=await dbPool.query(`SELECT 1 FROM ${table} LIMIT 1`); return (r.rowCount||0)>0; } catch { return false; }
+  };
+  const hasTenants = await check('tenants');
+  const hasHouses = await check('houses');
+  const hasContracts = await check('contracts');
+  if (hasTenants && hasHouses && hasContracts) {
+    const hasFacilities = await check('facilities');
+    if (hasFacilities) return;
+  }
+  console.log("[seed] Seeding test data (hasTenants:",hasTenants,"hasHouses:",hasHouses,"hasContracts:",hasContracts,")...");
   const now = new Date().toISOString();
   const st = (obj: any) => searchText(obj);
 
