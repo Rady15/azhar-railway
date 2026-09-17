@@ -2395,17 +2395,39 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
+    // Serve SPA fallback - but not for API routes
     app.get("*", (req, res) => {
+      if (req.path.startsWith("/api/")) return res.status(404).json({ message: "Not found" });
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  return app;
+}
+
+let cachedApp: express.Express | null = null;
+
+export async function getApp(): Promise<express.Express> {
+  if (cachedApp) return cachedApp;
+  cachedApp = await startServer();
+  return cachedApp;
+}
+
+// Local / Railway execution - start HTTP server
+if (!process.env.VERCEL) {
+  getApp().then((app) => {
+    const PORT = Number(process.env.PORT || 3000);
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }).catch((error) => {
+    console.error("Fatal startup error:", error);
+    process.exit(1);
   });
 }
 
-startServer().catch((error) => {
-  console.error("Fatal startup error:", error);
-  process.exit(1);
-});
+// Vercel serverless export - lazy handler
+export default async (req: any, res: any) => {
+  const app = await getApp();
+  return (app as any)(req, res);
+};
