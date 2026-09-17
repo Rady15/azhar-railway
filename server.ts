@@ -1014,7 +1014,26 @@ async function startServer() {
       const { email, username, password } = req.body || {};
       const identifier = String(email || username || '').trim();
       if (!identifier || !password) return res.status(400).json({ isSuccess:false, message:"Email/username and password are required" });
-      if (!dbPool) return res.status(503).json({ isSuccess:false, message:"Database is required for authentication" });
+      if (!dbPool) {
+        // Vercel demo fallback when DATABASE_URL not configured - allow memory login for testing
+        if (process.env.VERCEL) {
+          const adminU = process.env.ADMIN_USERNAME || "m.barmada";
+          const adminE = process.env.ADMIN_EMAIL || "admin@azhar.com";
+          const adminP = process.env.ADMIN_PASSWORD || "Admin@123";
+          const staffU = "staff1", staffE = "staff1@azhar.com", staffP = process.env.STAFF_PASSWORD || "Staff@12345678";
+          const tenantU = "tenant1", tenantE = "tenant1@azhar.com", tenantP = process.env.TENANT_PASSWORD || "Tenant@12345678";
+          let memUser: any = null;
+          const idLow = identifier.toLowerCase();
+          if ((idLow === adminU.toLowerCase() || idLow === adminE.toLowerCase()) && password === adminP) memUser = { id: "vercel-admin", username: adminU, email: adminE, full_name: "System Administrator", is_active: true, roles: ["Admin"], permissions: ["admin.manage","dashboard.read"], entity_type: null, entity_id: null };
+          else if ((idLow === staffU || idLow === staffE) && password === staffP) memUser = { id: "vercel-staff", username: staffU, email: staffE, full_name: "Ahmed Mohamed", is_active: true, roles: ["Staff"], permissions: ["dashboard.read"], entity_type: "staff", entity_id: "staff-ahmed-mohamed" };
+          else if ((idLow === tenantU || idLow === tenantE) && password === tenantP) memUser = { id: "vercel-tenant", username: tenantU, email: tenantE, full_name: "Aya Ahmed", is_active: true, roles: ["Tenant"], permissions: [], entity_type: "tenant", entity_id: "tenant-aya-ahmed" };
+          if (memUser) {
+            const tokens = await issueTokens(memUser, req);
+            return res.json({ isSuccess:true, ...tokens, user:publicUser(memUser) });
+          }
+        }
+        return res.status(503).json({ isSuccess:false, message:"Database is required for authentication. Set DATABASE_URL in Vercel env." });
+      }
       const user = await getUserWithRole(identifier);
       if (!user || !user.is_active || !verifyPassword(String(password), user.password_hash)) return res.status(401).json({ isSuccess:false, message:"Invalid email or password" });
       const tokens = await issueTokens(user, req);
