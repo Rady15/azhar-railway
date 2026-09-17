@@ -3,7 +3,6 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import "dotenv/config";
-import { createServer as createViteServer } from "vite";
 import { Pool } from "pg";
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const isProduction = process.env.NODE_ENV === "production";
@@ -2411,8 +2410,9 @@ async function startServer() {
     res.send(`importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');\nimportScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');\nfirebase.initializeApp(${JSON.stringify(cfg)});\nconst messaging=firebase.messaging();\nmessaging.onBackgroundMessage(payload=>self.registration.showNotification(payload.notification?.title||'إشعار جديد',{body:payload.notification?.body||'',icon:'/azhar-logo.svg',badge:'/azhar-logo.svg',dir:'rtl',lang:'ar',data:payload.data||{}}));\nself.addEventListener('notificationclick',event=>{event.notification.close();event.waitUntil(clients.openWindow(event.notification.data?.url||'/'));});`);
   });
 
-  // Vite development server setup
+  // Vite development server setup - dynamic import to avoid loading vite on Vercel
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa"
