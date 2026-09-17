@@ -469,23 +469,28 @@ async function ensureTenantForFinancialItem(client:any, item:any) {
 async function saveState(key: string, value: any[]) {
   if (!dbPool) return;
   const table = TABLES[key]; if (!table) return;
-  const client = await dbPool.connect();
-  try {
-    await client.query("BEGIN");
-    const ids: string[] = [];
-    for (const raw of value) {
-      const item = raw || {}; const id = String(item.id || crypto.randomUUID()); ids.push(id);
+  // Targeted upserts only - never mass-delete. Row deletes use deleteStateRow()
+  // explicitly, so one instance can never wipe another instance's rows.
+  // Rows go out in parallel chunks for speed on remote databases.
+  const runOne = async (raw: any) => {
+    const item = raw || {}; const id = String(item.id || crypto.randomUUID());
+    if (table === "contracts" || table === "payments") {
       let tenantId = item.tenantId ? String(item.tenantId) : null;
-      if (table === "contracts" || table === "payments") {
-        if (tenantId) tenantId = await ensureTenantForFinancialItem(client, item);
-        await client.query(`INSERT INTO ${table}(id,tenant_id,data,search_text,updated_at) VALUES($1,$2,$3::jsonb,$4,NOW()) ON CONFLICT(id) DO UPDATE SET tenant_id=EXCLUDED.tenant_id,data=EXCLUDED.data,search_text=EXCLUDED.search_text,updated_at=NOW()`, [id,tenantId,JSON.stringify({...item,id}),searchText(item)]);
-      } else {
-        await client.query(`INSERT INTO ${table}(id,data,search_text,updated_at) VALUES($1,$2::jsonb,$3,NOW()) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,search_text=EXCLUDED.search_text,updated_at=NOW()`, [id,JSON.stringify({...item,id}),searchText(item)]);
-      }
+      if (tenantId) tenantId = await ensureTenantForFinancialItem(dbPool, item);
+      await dbPool.query(`INSERT INTO ${table}(id,tenant_id,data,search_text,updated_at) VALUES($1,$2,$3::jsonb,$4,NOW()) ON CONFLICT(id) DO UPDATE SET tenant_id=EXCLUDED.tenant_id,data=EXCLUDED.data,search_text=EXCLUDED.search_text,updated_at=NOW()`, [id,tenantId,JSON.stringify({...item,id}),searchText(item)]);
+    } else {
+      await dbPool.query(`INSERT INTO ${table}(id,data,search_text,updated_at) VALUES($1,$2::jsonb,$3,NOW()) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,search_text=EXCLUDED.search_text,updated_at=NOW()`, [id,JSON.stringify({...item,id}),searchText(item)]);
     }
-    if (ids.length) await client.query(`DELETE FROM ${table} WHERE NOT (id = ANY($1::text[]))`, [ids]); else await client.query(`DELETE FROM ${table}`);
-    await client.query("COMMIT");
-  } catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); }
+  };
+  const CHUNK = 8;
+  for (let i = 0; i < value.length; i += CHUNK) {
+    await Promise.all(value.slice(i, i + CHUNK).map(runOne));
+  }
+}
+async function deleteStateRow(key: string, id: string) {
+  if (!dbPool) return;
+  const table = TABLES[key]; if (!table) return;
+  await dbPool.query(`DELETE FROM ${table} WHERE id=$1`, [String(id)]);
 }
 async function ensureTenantReferences(seedTenants: any[] = []) {
   if (!dbPool) return;
@@ -1185,22 +1190,45 @@ async function startServer() {
         const mutating = ["POST", "PUT", "PATCH", "DELETE"].includes(req.method);
         try {
           if (mutating && res.statusCode < 400) {
-            // Persist in dependency order. Contracts/payments reference tenants, so never race them.
-            await saveState("tenants", tenantsStore);
-            await saveState("houses", housesStore);
-            await saveState("staff", staffStore);
-            await saveState("contracts", contractsStore);
-            await saveState("payments", paymentsStore);
-            await saveState("electricityMeters", electricityMetersStore);
-            await saveState("maintenance", maintenanceStore);
-            await saveState("letters", lettersStore);
-            await saveState("announcements", announcementsStore);
-            await saveState("complaints", complaintsStore);
-            await saveState("expenses", expensesStore);
-            await saveState("companies", companiesStore);
-            await saveState("facilities", facilitiesStore);
-            await saveState("facilityBookings", facilityBookingsStore);
-            await saveState("notifications", notificationsStore);
+            // Persist only the stores this route owns (upserts only - never
+            // mass-delete, so concurrent serverless instances can't clobber
+            // each other's rows). Handlers persist cross-store side effects
+            // themselves via saveState/deleteStateRow.
+            const p = String(req.path || "").toLowerCase();
+            const STORE_BY_PREFIX: Array<[string, string[]]> = [
+              ["/facilitybookings", ["facilityBookings"]],
+              ["/electricitymeter", ["electricityMeters"]],
+              ["/compound-notes", ["compoundAdminNotes"]],
+              ["/tenant-portal", ["maintenance", "complaints", "facilityBookings", "tenants", "staff", "notifications"]],
+              ["/staff-portal", ["maintenance", "complaints", "tenants", "staff", "notifications"]],
+              ["/tenants", ["tenants"]],
+              ["/contracts", ["contracts", "payments"]],
+              ["/rental", ["contracts", "payments"]],
+              ["/house", ["houses"]],
+              ["/buildings", ["houses"]],
+              ["/payment", ["payments", "contracts"]],
+              ["/maintenance", ["maintenance", "notifications"]],
+              ["/complaints", ["complaints"]],
+              ["/staff", ["staff"]],
+              ["/expense", ["expenses"]],
+              ["/facilities", ["facilities"]],
+              ["/company", ["companies"]],
+              ["/announcements", ["announcements"]],
+              ["/letters", ["letters"]],
+              ["/notifications", ["notifications"]],
+            ];
+            const hit = STORE_BY_PREFIX.find(([prefix]) => p.startsWith(prefix));
+            if (hit) {
+              const live: Record<string, any[]> = {
+                tenants: tenantsStore, contracts: contractsStore, houses: housesStore,
+                staff: staffStore, payments: paymentsStore, electricityMeters: electricityMetersStore,
+                maintenance: maintenanceStore, letters: lettersStore, announcements: announcementsStore,
+                complaints: complaintsStore, expenses: expensesStore, companies: companiesStore,
+                facilities: facilitiesStore, facilityBookings: facilityBookingsStore,
+                notifications: notificationsStore, compoundAdminNotes: compoundAdminNotesStore,
+              };
+              for (const k of hit[1]) await saveState(k, live[k] || []);
+            }
           }
         } catch (e:any) {
           console.error('[persistence] pre-response persistence failed', e);
@@ -1229,10 +1257,11 @@ async function startServer() {
   });
 
   // Serverless instances (Vercel) don't share memory: the database is the source
-  // of truth. Re-sync stores before every API call so a record created on one
-  // instance is visible on the next, and concurrent writers don't clobber rows.
-  app.use("/api", async (_req: any, _res: any, next: any) => {
-    if (!dbPool) return next();
+  // of truth. Re-sync stores before every READ so a record created on one
+  // instance is visible on the next. (Writes use targeted upserts, so they
+  // don't need a pre-reload and stay fast.)
+  app.use("/api", async (req: any, _res: any, next: any) => {
+    if (!dbPool || req.method !== "GET") return next();
     try { await reloadStoresFromDb(); }
     catch (e: any) { console.error('[sync] reloadStoresFromDb failed (non-fatal)', String(e?.message || e)); }
     next();
@@ -1938,7 +1967,7 @@ async function startServer() {
       const r=refs.rows[0];
       if(Number(r.contracts_count||0)>0 || Number(r.electricity_count||0)>0 || Number(r.water_count||0)>0) return res.status(409).json({message:'لا يمكن حذف الوحدة لأنها مرتبطة بعقود أو عدادات. قم بأرشفتها بدلاً من حذفها.'});
     }
-    const n=housesStore.length; housesStore=housesStore.filter((x:any)=>String(x.id)!==id); if(n===housesStore.length) return res.status(404).json({message:"Unit not found"}); res.json({message:"Unit deleted"});
+    const n=housesStore.length; housesStore=housesStore.filter((x:any)=>String(x.id)!==id); if(n===housesStore.length) return res.status(404).json({message:"Unit not found"}); if (dbPool) await deleteStateRow("houses", id); res.json({message:"Unit deleted"});
   });
   // Compound admin notes API (Admin only via the /api auth middleware + admin permission).
   app.get("/api/compound-notes", async (req:any, res:any) => {
@@ -1988,7 +2017,7 @@ async function startServer() {
     const before=compoundAdminNotesStore.length;
     compoundAdminNotesStore=compoundAdminNotesStore.filter((x:any)=>String(x.id)!==String(req.params.id));
     if (before===compoundAdminNotesStore.length) return res.status(404).json({message:'الملاحظة غير موجودة'});
-    if (dbPool) await saveState("compoundAdminNotes", compoundAdminNotesStore);
+    if (dbPool) await deleteStateRow("compoundAdminNotes", String(req.params.id));
     res.json({message:'تم حذف الملاحظة'});
   });
 
@@ -2116,13 +2145,13 @@ async function startServer() {
     maintenanceStore[i]=next;
     res.json(next);
   });
-  app.delete("/api/Maintenance/:id", (req,res)=>{ const n=maintenanceStore.length; maintenanceStore=maintenanceStore.filter((x:any)=>x.id!==req.params.id); if(n===maintenanceStore.length) return res.status(404).json({message:"Maintenance not found"}); res.json({message:"Maintenance deleted"}); });
+  app.delete("/api/Maintenance/:id", async (req,res)=>{ const n=maintenanceStore.length; maintenanceStore=maintenanceStore.filter((x:any)=>x.id!==req.params.id); if(n===maintenanceStore.length) return res.status(404).json({message:"Maintenance not found"}); if (dbPool) await deleteStateRow("maintenance", String(req.params.id)); res.json({message:"Maintenance deleted"}); });
 
   app.get("/api/Complaints", (req, res) => res.json(paginated(complaintsStore.filter(x => matchesQuery(x, String(req.query.q || req.query.search || ""))), req)));
   app.post("/api/Complaints", (req, res) => { const item = { id: `cmp-${Date.now()}`, ticketNumber: `TKT-${Date.now()}`, createdAt: new Date().toISOString(), status: "New", ...req.body }; complaintsStore.unshift(item); res.status(201).json(item); });
   app.put("/api/Complaints/:id/status", (req, res) => { const i=complaintsStore.findIndex((x:any)=>x.id===req.params.id); if(i<0) return res.status(404).json({message:"Complaint not found"}); complaintsStore[i]={...complaintsStore[i],...req.body}; res.json(complaintsStore[i]); });
   app.put("/api/Complaints/:id", (req,res)=>{ const i=complaintsStore.findIndex((x:any)=>x.id===req.params.id); if(i<0) return res.status(404).json({message:"Complaint not found"}); complaintsStore[i]={...complaintsStore[i],...req.body}; res.json(complaintsStore[i]); });
-  app.delete("/api/Complaints/:id", (req,res)=>{ const n=complaintsStore.length; complaintsStore=complaintsStore.filter((x:any)=>x.id!==req.params.id); if(n===complaintsStore.length) return res.status(404).json({message:"Complaint not found"}); res.json({message:"Complaint deleted"}); });
+  app.delete("/api/Complaints/:id", async (req,res)=>{ const n=complaintsStore.length; complaintsStore=complaintsStore.filter((x:any)=>x.id!==req.params.id); if(n===complaintsStore.length) return res.status(404).json({message:"Complaint not found"}); if (dbPool) await deleteStateRow("complaints", String(req.params.id)); res.json({message:"Complaint deleted"}); });
 
   app.post("/api/staff", async (req:any, res) => {
     const body = req.body || {};
@@ -2156,17 +2185,17 @@ async function startServer() {
     }
     res.json(updated);
   });
-  app.delete("/api/staff/:id", (req,res)=>{ const n=staffStore.length; staffStore=staffStore.filter((x:any)=>x.id!==req.params.id); if(n===staffStore.length) return res.status(404).json({message:"Staff not found"}); res.json({message:"Staff deleted"}); });
+  app.delete("/api/staff/:id", async (req,res)=>{ const n=staffStore.length; staffStore=staffStore.filter((x:any)=>x.id!==req.params.id); if(n===staffStore.length) return res.status(404).json({message:"Staff not found"}); if (dbPool) await deleteStateRow("staff", String(req.params.id)); res.json({message:"Staff deleted"}); });
 
   app.get("/api/Expense", (req,res)=>res.json(paginated(expensesStore.filter(x=>matchesQuery(x,String(req.query.q||req.query.search||""))), req)));
   app.post("/api/Expense", (req,res)=>{ const stamp=Date.now(); const item={id:`exp-${stamp}`, ...req.body, voucherNo:String(req.body?.voucherNo||`EXP-${new Date().getFullYear()}-${String(stamp).slice(-6)}`)}; expensesStore.unshift(item); res.status(201).json(item); });
   app.put("/api/Expense/:id", (req,res)=>{ const i=expensesStore.findIndex((x:any)=>x.id===req.params.id); if(i<0) return res.status(404).json({message:"Expense not found"}); expensesStore[i]={...expensesStore[i],...req.body}; res.json(expensesStore[i]); });
-  app.delete("/api/Expense/:id", (req,res)=>{ const n=expensesStore.length; expensesStore=expensesStore.filter((x:any)=>x.id!==req.params.id); if(n===expensesStore.length) return res.status(404).json({message:"Expense not found"}); res.json({message:"Expense deleted"}); });
+  app.delete("/api/Expense/:id", async (req,res)=>{ const n=expensesStore.length; expensesStore=expensesStore.filter((x:any)=>x.id!==req.params.id); if(n===expensesStore.length) return res.status(404).json({message:"Expense not found"}); if (dbPool) await deleteStateRow("expenses", String(req.params.id)); res.json({message:"Expense deleted"}); });
 
   app.get("/api/Company", (req,res)=>res.json(paginated(companiesStore.filter(x=>matchesQuery(x,String(req.query.q||req.query.search||""))),req)));
   app.post("/api/Company",(req,res)=>{const item={id:`company-${Date.now()}`,...req.body};companiesStore.unshift(item);res.status(201).json(item);});
   app.put("/api/Company/:id",(req,res)=>{const i=companiesStore.findIndex((x:any)=>String(x.id)===req.params.id);if(i<0)return res.status(404).json({message:"Company not found"});companiesStore[i]={...companiesStore[i],...req.body};res.json(companiesStore[i]);});
-  app.delete("/api/Company/:id",(req,res)=>{companiesStore=companiesStore.filter((x:any)=>String(x.id)!==req.params.id);res.json({message:"Company deleted"});});
+  app.delete("/api/Company/:id",async (req,res)=>{companiesStore=companiesStore.filter((x:any)=>String(x.id)!==req.params.id); if (dbPool) await deleteStateRow("companies", String(req.params.id)); res.json({message:"Company deleted"});});
   app.get("/api/Announcements", (req,res)=>res.json(paginated(announcementsStore.filter(x=>matchesQuery(x,String(req.query.q||req.query.search||""))),req)));
   app.post("/api/Announcements",async(req:any,res)=>{
     const body=req.body||{};
@@ -2185,7 +2214,7 @@ async function startServer() {
     if(dbPool) await saveState("announcements", announcementsStore);
     res.json(announcementsStore[i]);
   });
-  app.delete("/api/Announcements/:id",(req,res)=>{announcementsStore=announcementsStore.filter((x:any)=>String(x.id)!==req.params.id);res.json({message:"Announcement deleted"});});
+  app.delete("/api/Announcements/:id",async (req,res)=>{announcementsStore=announcementsStore.filter((x:any)=>String(x.id)!==req.params.id); if (dbPool) await deleteStateRow("announcements", String(req.params.id)); res.json({message:"Announcement deleted"});});
 
   app.get("/api/letters", (req,res)=>res.json(paginated(lettersStore.filter(x=>matchesQuery(x,String(req.query.q||req.query.search||""))), req)));
   app.post("/api/letters", async (req:any,res)=>{
@@ -2267,17 +2296,17 @@ async function startServer() {
     lettersStore[i]={...lettersStore[i],...req.body};
     res.json(lettersStore[i]);
   });
-  app.delete("/api/letters/:id", (req,res)=>{ lettersStore=lettersStore.filter((x:any)=>x.id!==req.params.id); res.json({message:"Letter deleted"}); });
+  app.delete("/api/letters/:id", async (req,res)=>{ lettersStore=lettersStore.filter((x:any)=>x.id!==req.params.id); if (dbPool) await deleteStateRow("letters", String(req.params.id)); res.json({message:"Letter deleted"}); });
 
   app.get("/api/Facilities", (req,res)=>res.json(paginated(facilitiesStore.filter(x=>matchesQuery(x,String(req.query.q||req.query.search||""))), req)));
   app.post("/api/Facilities", (req,res)=>{ const item={id:`facility-${Date.now()}`,...req.body}; facilitiesStore.unshift(item); res.status(201).json(item); });
   app.put("/api/Facilities/:id", (req,res)=>{ const i=facilitiesStore.findIndex((x:any)=>x.id===req.params.id); if(i<0) return res.status(404).json({message:"Facility not found"}); facilitiesStore[i]={...facilitiesStore[i],...req.body}; res.json(facilitiesStore[i]); });
-  app.delete("/api/Facilities/:id", (req,res)=>{ facilitiesStore=facilitiesStore.filter((x:any)=>x.id!==req.params.id); res.json({message:"Facility deleted"}); });
+  app.delete("/api/Facilities/:id", async (req,res)=>{ facilitiesStore=facilitiesStore.filter((x:any)=>x.id!==req.params.id); if (dbPool) await deleteStateRow("facilities", String(req.params.id)); res.json({message:"Facility deleted"}); });
 
   app.get("/api/FacilityBookings", (req,res)=>res.json(paginated(facilityBookingsStore.filter(x=>matchesQuery(x,String(req.query.q||req.query.search||""))), req)));
   app.post("/api/FacilityBookings", (req,res)=>{ const item={id:`booking-${Date.now()}`, bookingNo:`BK-${Date.now()}`, createdAt:new Date().toISOString(), ...req.body}; facilityBookingsStore.unshift(item); res.status(201).json(item); });
   app.put("/api/FacilityBookings/:id", (req,res)=>{ const i=facilityBookingsStore.findIndex((x:any)=>x.id===req.params.id); if(i<0) return res.status(404).json({message:"Booking not found"}); facilityBookingsStore[i]={...facilityBookingsStore[i],...req.body}; res.json(facilityBookingsStore[i]); });
-  app.delete("/api/FacilityBookings/:id", (req,res)=>{ facilityBookingsStore=facilityBookingsStore.filter((x:any)=>x.id!==req.params.id); res.json({message:"Booking deleted"}); });
+  app.delete("/api/FacilityBookings/:id", async (req,res)=>{ facilityBookingsStore=facilityBookingsStore.filter((x:any)=>x.id!==req.params.id); if (dbPool) await deleteStateRow("facilityBookings", String(req.params.id)); res.json({message:"Booking deleted"}); });
 
   app.get("/api/Profile", async (req:any,res)=>{ if(!dbPool)return res.json(profileStore); const r=await dbPool.query("SELECT data FROM azhar_profiles WHERE user_id=$1",[req.user.sub]); res.json(r.rows[0]?.data || profileStore); });
   app.put("/api/Profile", async (req:any,res)=>{
@@ -2337,7 +2366,7 @@ async function startServer() {
     delete electricityMetersStore[i].transferredToTenant;
     res.json(electricityMetersStore[i]);
   });
-  app.delete("/api/ElectricityMeter/:id", (req,res)=>{ const n=electricityMetersStore.length; electricityMetersStore=electricityMetersStore.filter((x:any)=>String(x.id)!==req.params.id); if(n===electricityMetersStore.length)return res.status(404).json({message:'Meter not found'}); res.json({message:'Meter deleted'}); });
+  app.delete("/api/ElectricityMeter/:id", async (req,res)=>{ const n=electricityMetersStore.length; electricityMetersStore=electricityMetersStore.filter((x:any)=>String(x.id)!==req.params.id); if(n===electricityMetersStore.length)return res.status(404).json({message:'Meter not found'}); if (dbPool) await deleteStateRow("electricityMeters", String(req.params.id)); res.json({message:'Meter deleted'}); });
 
   app.get('/api/WaterMeter', async (req,res)=>{ if(!dbPool)return res.json([]); const q=String(req.query.q||req.query.search||'').trim(); const vals:any[]=[]; let where='WHERE is_active=true'; if(q){vals.push(`%${q}%`);where+=` AND (meter_number ILIKE $1 OR building ILIKE $1 OR unit_number ILIKE $1)`;} const r=await dbPool.query(`SELECT id,unit_id AS "unitId",building,unit_number AS "unitNumber",meter_number AS "meterNumber",last_reading::float8 AS "lastReading",reading_date AS "readingDate",is_active AS "isActive" FROM water_meters ${where} ORDER BY updated_at DESC`,vals); const rows=r.rows.map((m:any)=>{if(m.unitId)return m;const u=housesStore.find((x:any)=>String(x.buildingNumber||'')===String(m.building||'') && String(x.unitNumber||x.houseNumber||'')===String(m.unitNumber||''));return {...m,unitId:u?.id};}); res.json(paginated(rows,req)); });
   app.post('/api/WaterMeter', async (req,res)=>{ if(!dbPool)return res.status(503).json({message:'Database unavailable'}); const unitId=String(req.body.unitId||'').trim(); const unit=housesStore.find((x:any)=>String(x.id)===unitId); if(!unit)return res.status(400).json({message:'A valid unit is required for every water meter.'}); const meterNumber=String(req.body.meterNumber||'').trim(); if(!meterNumber)return res.status(400).json({message:'Meter number is required.'}); const id=`water-${Date.now()}`; try{const r=await dbPool.query(`INSERT INTO water_meters(id,unit_id,building,unit_number,meter_number,last_reading,reading_date) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id,unit_id AS "unitId",building,unit_number AS "unitNumber",meter_number AS "meterNumber",last_reading::float8 AS "lastReading",reading_date AS "readingDate"`,[id,unit.id,unit.buildingNumber||'',unit.unitNumber||unit.houseNumber||'',meterNumber,req.body.lastReading??null,req.body.readingDate||null]); res.status(201).json({...r.rows[0],unitId:unit.id});}catch(e:any){if(e?.code==='23505')return res.status(409).json({message:'Meter number already exists.'});throw e;} });
