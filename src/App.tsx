@@ -54,8 +54,31 @@ function MainApp() {
     return user;
   });
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>('azhar_contracts');
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
+    const hash = typeof window !== 'undefined' ? window.location.hash.replace('#','') as ActiveTab : '' as ActiveTab;
+    if (hash) return hash;
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('azhar_active_tab') as ActiveTab | null : null;
+    if (saved) return saved;
+    return 'azhar_contracts';
+  });
   const [selectedCompoundId, setSelectedCompoundId] = useState<string>('1');
+
+  // Persist active tab across refresh and enable hash navigation
+  useEffect(() => {
+    localStorage.setItem('azhar_active_tab', activeTab);
+    if (window.location.hash.replace('#','') !== activeTab) {
+      window.history.replaceState(null, '', `#${activeTab}`);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    const onHashChange = () => {
+      const h = window.location.hash.replace('#','') as ActiveTab;
+      if (h && h !== activeTab) setActiveTab(h);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, [activeTab]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [showProfileSettings, setShowProfileSettings] = useState<boolean>(false);

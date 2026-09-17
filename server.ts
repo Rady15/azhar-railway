@@ -928,7 +928,8 @@ function makeReceiptNo(){ return `RCPT-${new Date().toISOString().slice(0,10).re
 
 async function startServer() {
   // Production is database-only. Never allow bundled development/demo records to participate in startup or legacy repair.
-  if (isProduction) {
+  // Exception: Vercel without DATABASE_URL needs demo data for UI testing.
+  if (isProduction && !(process.env.VERCEL && !process.env.DATABASE_URL)) {
     tenantsStore=[]; contractsStore=[]; housesStore=[]; staffStore=[]; paymentsStore=[]; electricityMetersStore=[];
     maintenanceStore=[]; lettersStore=[]; announcementsStore=[]; complaintsStore=[]; expensesStore=[]; companiesStore=[];
     facilitiesStore=[]; facilityBookingsStore=[]; notificationsStore=[]; compoundAdminNotesStore=[];
