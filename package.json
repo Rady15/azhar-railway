@@ -12,7 +12,8 @@
     "lint": "tsc --noEmit",
     "check": "npm run lint && npm run build",
     "db:backup": "node scripts/backup-db.mjs",
-    "db:restore": "node scripts/restore-db.mjs"
+    "db:restore": "node scripts/restore-db.mjs",
+    "db:clear": "node scripts/clear-data.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

@@ -203,6 +203,8 @@ async function seedSecurity() {
 
 async function seedTestData() {
   if (!dbPool) return;
+  // Demo data is opt-in only. An empty database must stay empty so the UI stays empty.
+  if (process.env.SEED_DEMO_DATA !== "true") { console.log("[seed] demo seeding disabled (set SEED_DEMO_DATA=true to enable)"); return; }
   if (process.env.SKIP_SEED === "true") { console.log("[seed] SKIP_SEED=true, skipping test data seeding"); return; }
   // Seed missing demo data even if tenants already exist (handles partial seed after previous production clear)
   const check = async (table:string) => {
@@ -434,12 +436,12 @@ async function seedTestData() {
   console.log("[seed] Test data seeded successfully: 3 buildings, 16 units, 8 tenants, 5 staff, 3 companies, 8 contracts, 12 payments, 8 maintenance, 6 complaints, 6 letters, 4 announcements, 6 facilities, 5 bookings, 8 expenses, 6 meters");
 }
 
-async function loadState(key: string, fallback: any[]) {
-  if (!dbPool) return fallback;
-  const table = TABLES[key]; if (!table) return fallback;
+async function loadState(key: string, _fallback: any[]) {
+  // Empty database must mean empty UI. Never serve bundled demo records as fallback.
+  if (!dbPool) return [];
+  const table = TABLES[key]; if (!table) return [];
   const result = await dbPool.query(`SELECT data FROM ${table} ORDER BY updated_at DESC`);
-  // Never seed demonstration/fallback records into a production database.
-  if (!result.rowCount) return (isProduction || process.env.SKIP_SEED === "true") ? [] : fallback;
+  if (!result.rowCount) return [];
   return result.rows.map((r:any)=>r.data);
 }
 async function ensureTenantForFinancialItem(client:any, item:any) {
