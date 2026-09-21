@@ -2212,7 +2212,7 @@ async function startServer() {
     if(assignedId){ notificationsStore.unshift({id:`ntf-${Date.now()}`,type:'maintenance',title:'طلب صيانة جديد',message:`تم إسناد طلب الصيانة ${item.requestNumber||item.rvNo||item.id} إليك`,staffId:assignedId,entityId:String(item.id),isRead:false,createdAt:new Date().toISOString()}); }
     res.status(201).json(item);
   });
-  app.put("/api/Maintenance/:id", (req, res) => {
+  app.put("/api/Maintenance/:id", async (req, res) => {
     const i = maintenanceStore.findIndex((x:any)=>x.id===req.params.id);
     if(i<0) return res.status(404).json({message:"Maintenance not found"});
     const body=req.body||{};
