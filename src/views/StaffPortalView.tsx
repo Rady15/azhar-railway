@@ -11,7 +11,7 @@ import { AzharLogo } from '../components/AzharLogo';
 import { useNotifications } from '../context/NotificationContext';
 import { apiService } from '../services/api';
 
-type StaffTab = 'dashboard' | 'tasks' | 'password';
+type StaffTab = 'dashboard' | 'tasks' | 'services' | 'password';
 
 interface StaffPortalViewProps {
   currentUser: UserType;
@@ -41,6 +41,10 @@ export const StaffPortalView: React.FC<StaffPortalViewProps> = ({
   };
   const [portalStaff, setPortalStaff] = useState<StaffMember>(fallbackStaff);
   const [portalMaintenance, setPortalMaintenance] = useState<MaintenanceRequest[]>(maintenanceRequests || []);
+  const [portalComplaints, setPortalComplaints] = useState<any[]>([]);
+  const [portalFacilities, setPortalFacilities] = useState<any[]>([]);
+  const [portalBookings, setPortalBookings] = useState<any[]>([]);
+  const [portalLetters, setPortalLetters] = useState<any[]>([]);
 
   const currentStaff = portalStaff;
 
@@ -107,6 +111,10 @@ export const StaffPortalView: React.FC<StaffPortalViewProps> = ({
           attachmentUrl: m.attachmentUrl || m.attachment?.url || (Array.isArray(m.attachments) && m.attachments[0]?.url) || '',
           attachmentName: m.attachmentName || m.attachment?.name || (Array.isArray(m.attachments) && m.attachments[0]?.name) || ''
         })));
+        setPortalComplaints(Array.isArray(data?.complaints) ? data.complaints : []);
+        setPortalFacilities(Array.isArray(data?.facilities) ? data.facilities : []);
+        setPortalBookings(Array.isArray(data?.bookings) ? data.bookings : []);
+        setPortalLetters(Array.isArray(data?.letters) ? data.letters : []);
       } catch (error) {
         console.error('Failed to load complete staff portal data', error);
         if (alive) setPortalMaintenance(maintenanceRequests || []);
@@ -129,8 +137,9 @@ export const StaffPortalView: React.FC<StaffPortalViewProps> = ({
   const bellRef = useRef<HTMLDivElement>(null);
 
   const myTasks = portalMaintenance.filter(req => {
-    const isAssignedToMe = req.assignedStaffId === currentStaff.id || req.assignedStaffName?.trim() === currentStaff.name.trim() || (req as any).assignedToName?.trim() === currentStaff.name.trim() || (currentStaff.role.includes('مشرف') || currentStaff.role.includes('General Manager'));
-    if (!isAssignedToMe && currentUser.role !== 'Admin') return false;
+    const hasAssignment = Boolean(req.assignedStaffId || (req as any).assignedToId || req.assignedStaffName || (req as any).assignedToName);
+    const isAssignedToMe = req.assignedStaffId === currentStaff.id || (req as any).assignedToId === currentStaff.id || req.assignedStaffName?.trim() === currentStaff.name.trim() || (req as any).assignedToName?.trim() === currentStaff.name.trim() || (currentStaff.role.includes('مشرف') || currentStaff.role.includes('General Manager'));
+    if (hasAssignment && !isAssignedToMe && currentUser.role !== 'Admin') return false;
     if (filterStatus === 'ALL') return true;
     return req.status === filterStatus;
   });
@@ -145,6 +154,13 @@ export const StaffPortalView: React.FC<StaffPortalViewProps> = ({
     await onUpdateMaintenanceNotes(taskId, techNotesInput);
     setPortalMaintenance(prev => prev.map(item => item.id === taskId ? { ...item, notes: techNotesInput, workNotes: techNotesInput } : item));
     setEditingNotesId(null); setTechNotesInput('');
+  };
+
+  const handleClaimTask = async (taskId: string) => {
+    try {
+      const saved = await apiService.staffClaimMaintenance(taskId);
+      setPortalMaintenance(prev => prev.map(item => item.id === taskId ? { ...item, ...saved, assignedStaffId: currentStaff.id, assignedStaffName: currentStaff.name, assignedToId: currentStaff.id, assignedToName: currentStaff.name } : item));
+    } catch (error) { console.error('Failed to claim maintenance task', error); }
   };
 
   const handleStatusUpdate = async (taskId: string, status: MaintenanceRequest['status']) => {
@@ -178,6 +194,7 @@ export const StaffPortalView: React.FC<StaffPortalViewProps> = ({
   const SIDEBAR_ITEMS: { key: StaffTab; labelAr: string; labelEn: string; icon: React.ReactNode; badge?: number }[] = [
     { key: 'dashboard', labelAr: 'لوحة المهام', labelEn: 'Dashboard', icon: <Home className="w-4 h-4" /> },
     { key: 'tasks', labelAr: 'المهام', labelEn: 'Tasks', icon: <Wrench className="w-4 h-4" />, badge: inProgressCount },
+    { key: 'services', labelAr: 'الخدمات والمرافق', labelEn: 'Services & Facilities', icon: <Building2 className="w-4 h-4" />, badge: portalBookings.length + portalComplaints.filter(x => ['New','Open'].includes(String(x.status))).length },
     { key: 'password', labelAr: 'تغيير كلمة المرور', labelEn: 'Password', icon: <Key className="w-4 h-4" /> },
   ];
 
@@ -479,6 +496,9 @@ export const StaffPortalView: React.FC<StaffPortalViewProps> = ({
                             </div>
 
                             <div className="flex flex-col sm:flex-row lg:flex-col items-stretch justify-center gap-2 shrink-0 min-w-[180px] border-t lg:border-t-0 lg:border-r border-slate-200 pt-3 lg:pt-0 pr-0 lg:pr-4">
+                              {!(task.assignedStaffId || (task as any).assignedToId || task.assignedStaffName || (task as any).assignedToName) && (
+                                <button onClick={() => handleClaimTask(task.id)} className="py-2 px-3 rounded-xl text-xs font-bold bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200">{t('استلام المهمة', 'Claim Task')}</button>
+                              )}
                               <p className="text-[11px] font-semibold text-slate-500 text-center lg:text-start">{t('تحديث الحالة:', 'Change Status:')}</p>
                               <div className="grid grid-cols-2 lg:grid-cols-1 gap-2">
                                 <button onClick={() => handleStatusUpdate(task.id, 'In Progress')} disabled={task.status !== 'New' && task.status !== 'Assigned' && task.status !== 'Open'}
@@ -515,6 +535,41 @@ export const StaffPortalView: React.FC<StaffPortalViewProps> = ({
                     })}
                   </div>
                 )}
+              </div>
+            )}
+
+            {activeTab === 'services' && (
+              <div className="space-y-5">
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                  <h2 className="text-base font-bold text-slate-800 flex items-center gap-2"><Building2 className="w-5 h-5 text-[#29b4c4]" />{t('الخدمات والمرافق والحجوزات', 'Services, Facilities & Bookings')}</h2>
+                  <p className="text-xs text-slate-500 mt-1">{t('كل البيانات التشغيلية متاحة للموظف من نفس البوابة بدون الحاجة لتسجيل الخروج.', 'Operational services are visible here without leaving the staff portal.')}</p>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2"><MessageSquare className="w-4 h-4 text-amber-500" />{t('الشكاوى', 'Complaints')} ({portalComplaints.length})</h3>
+                    <div className="mt-3 space-y-2 max-h-72 overflow-auto">
+                      {portalComplaints.length ? portalComplaints.map((c:any)=><div key={c.id} className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs"><div className="flex justify-between gap-2"><b>{c.ticketNumber || c.ticketNo || c.id}</b><span>{c.status || 'New'}</span></div><p className="mt-1 text-slate-600">{c.description || c.category || '—'}</p></div>) : <p className="text-xs text-slate-400 py-6 text-center">{t('لا توجد شكاوى', 'No complaints')}</p>}
+                    </div>
+                  </div>
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2"><Building2 className="w-4 h-4 text-purple-500" />{t('المرافق', 'Facilities')} ({portalFacilities.length})</h3>
+                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-auto">
+                      {portalFacilities.length ? portalFacilities.map((f:any)=><div key={f.id} className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs"><b>{f.name || f.nameAr || f.title || '—'}</b><p className="text-slate-500 mt-1">{f.location || f.operatingHours || '—'}</p></div>) : <p className="text-xs text-slate-400 py-6 text-center col-span-2">{t('لا توجد مرافق', 'No facilities')}</p>}
+                    </div>
+                  </div>
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2"><Calendar className="w-4 h-4 text-cyan-500" />{t('حجوزات المرافق', 'Facility Bookings')} ({portalBookings.length})</h3>
+                    <div className="mt-3 space-y-2 max-h-72 overflow-auto">
+                      {portalBookings.length ? portalBookings.map((b:any)=><div key={b.id} className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs"><div className="flex justify-between gap-2"><b>{b.bookingNo || b.id}</b><span>{b.status || 'Pending'}</span></div><p className="mt-1 text-slate-600">{b.facilityName || '—'} • {b.bookingDate || '—'} • {b.tenantName || '—'}</p></div>) : <p className="text-xs text-slate-400 py-6 text-center">{t('لا توجد حجوزات', 'No bookings')}</p>}
+                    </div>
+                  </div>
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2"><FileText className="w-4 h-4 text-emerald-500" />{t('الخطابات', 'Letters')} ({portalLetters.length})</h3>
+                    <div className="mt-3 space-y-2 max-h-72 overflow-auto">
+                      {portalLetters.length ? portalLetters.map((l:any)=><div key={l.id} className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs"><b>{l.title || '—'}</b><p className="text-slate-500 mt-1 line-clamp-2">{l.content || '—'}</p></div>) : <p className="text-xs text-slate-400 py-6 text-center">{t('لا توجد خطابات', 'No letters')}</p>}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 

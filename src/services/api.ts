@@ -1242,17 +1242,21 @@ export const apiService = {
   async tenantCancelBooking(id: string, reason?: string): Promise<any> { const r=await authedFetch(`/tenant-portal/facility-bookings/${id}/cancel`,{method:'PUT',body:JSON.stringify({reason:reason||''})}); if(!r.ok)throw new Error('TENANT_CANCEL_BOOKING_FAILED'); return r.json(); },
 
   async getStaffPortalData(): Promise<any> {
-    const [me, dashboard, maintenance, complaints, units, tenants, announcements] = await Promise.all([
+    const [me, dashboard, maintenance, complaints, units, tenants, announcements, facilities, bookings, letters] = await Promise.all([
       authedFetch('/staff-portal/me').then(r=>r.ok?r.json():Promise.reject(new Error('STAFF_ME_FAILED'))),
       authedFetch('/staff-portal/dashboard').then(r=>r.ok?r.json():null),
       authedFetch('/staff-portal/maintenance').then(r=>r.ok?r.json():[]),
       authedFetch('/staff-portal/complaints').then(r=>r.ok?r.json():[]),
       authedFetch('/staff-portal/units').then(r=>r.ok?r.json():[]),
       authedFetch('/staff-portal/tenants').then(r=>r.ok?r.json():[]),
-      authedFetch('/staff-portal/announcements').then(r=>r.ok?r.json():[])
+      authedFetch('/staff-portal/announcements').then(r=>r.ok?r.json():[]),
+      authedFetch('/staff-portal/facilities').then(r=>r.ok?r.json():[]),
+      authedFetch('/staff-portal/facility-bookings').then(r=>r.ok?r.json():[]),
+      authedFetch('/staff-portal/letters').then(r=>r.ok?r.json():[])
     ]);
-    return { me, dashboard, maintenance, complaints, units, tenants, announcements };
+    return { me, dashboard, maintenance, complaints, units, tenants, announcements, facilities, bookings, letters };
   },
+  async staffClaimMaintenance(id:string): Promise<any> { const r=await authedFetch(`/staff-portal/maintenance/${id}/claim`,{method:'PUT',body:JSON.stringify({})}); if(!r.ok)throw new Error('STAFF_MAINT_CLAIM_FAILED'); return r.json(); },
   async staffUpdateMaintenanceStatus(id:string,status:string): Promise<any> { const r=await authedFetch(`/staff-portal/maintenance/${id}/status`,{method:'PUT',body:JSON.stringify({status})}); if(!r.ok)throw new Error('STAFF_MAINT_STATUS_FAILED'); return r.json(); },
   async staffUpdateMaintenanceNotes(id:string,notes:string): Promise<any> { const r=await authedFetch(`/staff-portal/maintenance/${id}/notes`,{method:'PUT',body:JSON.stringify({notes})}); if(!r.ok)throw new Error('STAFF_MAINT_NOTES_FAILED'); return r.json(); }
 };
