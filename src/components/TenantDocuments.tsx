@@ -2,6 +2,7 @@ import React from 'react';
 import { FileText, Eye, Printer, Download, FolderOpen } from 'lucide-react';
 import { apiService } from '../services/api';
 import { printMediaDocument } from '../utils/mediaPrint';
+import { notifyUser } from '../utils/userFeedback';
 import { useLanguage } from '../context/LanguageContext';
 import type { Tenant, Contract } from '../types';
 
@@ -44,6 +45,9 @@ export const TenantDocuments: React.FC<{ tenant: Tenant; contracts: Contract[]; 
   const ar = language === 'ar';
   const docs = collectTenantDocuments(tenant, contracts);
 
+  // Surface failures instead of leaving an unhandled rejection with no feedback.
+  const run = (fn: () => Promise<unknown>) => { fn().catch(() => notifyUser({ kind: 'error', ar: 'تعذر فتح الملف. تأكد من تسجيل الدخول ثم حاول مرة أخرى.', en: 'Could not open the file. Please sign in and try again.' })); };
+
   if (docs.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-slate-500 text-xs">
@@ -67,7 +71,7 @@ export const TenantDocuments: React.FC<{ tenant: Tenant; contracts: Contract[]; 
           <div className="flex items-center gap-1 shrink-0">
             <button
               type="button"
-              onClick={() => apiService.openMedia(doc.url)}
+              onClick={() => run(() => apiService.openMedia(doc.url))}
               className="p-1.5 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 transition-colors"
               title={ar ? 'عرض الملف' : 'View file'}
             >
@@ -75,7 +79,7 @@ export const TenantDocuments: React.FC<{ tenant: Tenant; contracts: Contract[]; 
             </button>
             <button
               type="button"
-              onClick={() => printMediaDocument(doc.url, doc.fileName)}
+              onClick={() => run(() => printMediaDocument(doc.url, doc.fileName))}
               className="p-1.5 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 transition-colors"
               title={ar ? 'طباعة الملف' : 'Print file'}
             >
@@ -83,7 +87,7 @@ export const TenantDocuments: React.FC<{ tenant: Tenant; contracts: Contract[]; 
             </button>
             <button
               type="button"
-              onClick={() => apiService.downloadMedia(doc.url, doc.fileName)}
+              onClick={() => run(() => apiService.downloadMedia(doc.url, doc.fileName))}
               className="p-1.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors"
               title={ar ? 'تنزيل الملف' : 'Download file'}
             >

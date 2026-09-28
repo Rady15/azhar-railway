@@ -1273,34 +1273,70 @@ export const apiService = {
     return uploaded.url;
   },
 
+  // Stored media URLs are absolute (the server builds them with publicUrl), e.g.
+  // https://host/api/Media/<id>/content. Reduce any absolute or relative form to the
+  // API-relative path so the file is always fetched from the current deployment.
+  mediaPath(url: string): string {
+    // authedFetch re-adds API_BASE, so the returned path must not keep the "api/" segment.
+    const m = String(url).match(/(?:^|\/)api\/Media\/[^?#]+/i);
+    if (m) return m[0].replace(/^(?:\/)?api\//i, '');
+    if (url.startsWith('/api/')) return url.slice(4);
+    return url.replace(/^\//, '');
+  },
+
   async getMediaBlob(url: string): Promise<Blob> {
     if (!url) throw new Error('MEDIA_URL_REQUIRED');
-    // /media/* is served statically; /api/Media/* needs the bearer token.
-    const res = url.startsWith('/media/')
-      ? await fetch(url, { credentials: 'include' })
-      : await authedFetch(url.startsWith('/api/') ? url.slice(4) : url);
+    // /media/* is served statically; everything else goes through the authenticated API.
+    if (url.startsWith('/media/')) {
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error('تعذر تحميل الملف');
+      return res.blob();
+    }
+    const res = await authedFetch(this.mediaPath(url));
     if (!res.ok) { const raw = await res.text(); throw new Error(friendlyApiError(res.status, raw, '/Media').ar); }
     return res.blob();
   },
 
   async openMedia(url: string): Promise<void> {
     if (!url) return;
-    if (url.startsWith('/media/')) { window.open(url, '_blank', 'noopener,noreferrer'); return; }
-    const path = url.startsWith('/api/') ? url.slice(4) : url;
-    const res = await authedFetch(path);
-    if (!res.ok) { const raw = await res.text(); throw new Error(friendlyApiError(res.status, raw, '/Media').ar); }
-    const blob = await res.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    window.open(objectUrl, '_blank', 'noopener,noreferrer');
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    // Open the tab synchronously: after the first await the browser no longer treats
+    // window.open as user-initiated and blocks it as a popup.
+    const viewer = window.open('', '_blank');
+    if (viewer) {
+      viewer.opener = null;
+      try {
+        viewer.document.write('<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>جارٍ التحميل…</title><style>body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:Arial,Tahoma,sans-serif;color:#64748b;background:#f8fafc}</style></head><body>جارٍ تحميل الملف…</body></html>');
+        viewer.document.close();
+      } catch { /* about:blank is fine as a placeholder */ }
+    }
+    try {
+      const blob = await this.getMediaBlob(url);
+      const objectUrl = URL.createObjectURL(blob);
+      if (!viewer) {
+        // No tab could be opened synchronously (popup blocked); fall back to a download.
+        const a = document.createElement('a'); a.href = objectUrl; a.download = 'file'; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+        return;
+      }
+      viewer.location.href = objectUrl;
+      // Keep the blob alive while the tab is open, then release it.
+      const poll = window.setInterval(() => {
+        if (viewer.closed) { window.clearInterval(poll); URL.revokeObjectURL(objectUrl); }
+      }, 5000);
+      setTimeout(() => { window.clearInterval(poll); URL.revokeObjectURL(objectUrl); }, 10 * 60_000);
+    } catch (err) {
+      if (viewer) {
+        try {
+          viewer.document.write('<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>تعذر العرض</title><style>body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:Arial,Tahoma,sans-serif;color:#b91c1c;background:#fef2f2}</style></head><body>تعذر عرض الملف. تأكد من تسجيل الدخول ثم حاول مرة أخرى.</body></html>');
+          viewer.document.close();
+        } catch { viewer.close(); }
+      }
+      throw err;
+    }
   },
 
   async downloadMedia(url: string, fileName = 'download'): Promise<void> {
-    if (!url) return;
-    const path = url.startsWith('/api/') ? url.slice(4) : url;
-    const res = await authedFetch(path);
-    if (!res.ok) { const raw = await res.text(); throw new Error(friendlyApiError(res.status, raw, '/Media').ar); }
-    const blob = await res.blob();
+    const blob = await this.getMediaBlob(url);
     const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = objectUrl; a.download = fileName || 'download'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
