@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install",
+  "framework": "vite",
+  "functions": {
+    "api/index.ts": {
+      "includeFiles": "db/**"
+    }
+  },
+  "rewrites": [
+    { "source": "/media/(.*)", "destination": "/api/Media/$1/public" },
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/assets/(.*)", "destination": "/assets/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "env": {
+    "NODE_ENV": "production",
+    "VERCEL": "1"
+  }
+}

@@ -1,0 +1,12 @@
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+const url = process.env.DATABASE_URL;
+if (!url) throw new Error('DATABASE_URL is required');
+const dir = process.env.BACKUP_DIR || path.resolve('backups');
+fs.mkdirSync(dir, { recursive: true });
+const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+const out = path.join(dir, `azhar-${stamp}.dump`);
+const r = spawnSync('pg_dump', ['--format=custom', '--no-owner', '--no-acl', '--file', out, url], { stdio: 'inherit' });
+if (r.status !== 0) process.exit(r.status ?? 1);
+console.log(`Backup created: ${out}`);

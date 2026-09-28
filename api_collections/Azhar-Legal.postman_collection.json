@@ -1,0 +1,29 @@
+{
+  "info": {
+    "name": "Azhar Legal Public API",
+    "_postman_id": "2b7e9c8d-2f0b-4d91-a2ef-legal2026",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Public endpoints for Azhar Residence Privacy Policy and Terms of Use. No Authorization header is required."
+  },
+  "item": [
+    {
+      "name": "Privacy Policy",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/legal/privacy-policy"
+      }
+    },
+    {
+      "name": "Terms of Use",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/legal/terms-of-use"
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" }
+  ]
+}

@@ -1,0 +1,23 @@
+@import url('https://cdn.jsdelivr.net/npm/@dawod/thmanyah-font-web@1.2.0/sans.css');
+
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Thmanyah Sans", "Calibri", system-ui, -apple-system, sans-serif;
+  --font-mono: "Consolas", "Thmanyah Sans", monospace;
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 700;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 700;
+  --font-weight-black: 900;
+}
+
+html, body, #root, button, input, select, textarea {
+  font-family: "Thmanyah Sans", "Calibri", system-ui, -apple-system, sans-serif !important;
+}
+
+* {
+  font-family: inherit;
+}
