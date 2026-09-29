@@ -13,6 +13,7 @@ import { User as UserType, Contract, MaintenanceRequest, Complaint, Tenant } fro
 import { useLanguage } from '../context/LanguageContext';
 import { apiService } from '../services/api';
 import { MediaUploadField } from '../components/MediaUploadField';
+import { FamilyMembersView } from '../components/FamilyMembersView';
 import { AzharLogo } from '../components/AzharLogo';
 import { useNotifications } from '../context/NotificationContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
@@ -1125,6 +1126,11 @@ const ProfileTab: React.FC<any> = ({ currentUser, currentTenant, documents, lang
               </div>
             ))}
           </div>
+        </div>
+      )}
+      {currentTenant?.id && (
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+          <FamilyMembersView tenant={currentTenant as Tenant} />
         </div>
       )}
     </div>

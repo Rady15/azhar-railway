@@ -24,6 +24,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { confirmUi, promptUi } from '../utils/uiDialog';
 import { MediaUploadField } from '../components/MediaUploadField';
 import { TenantDocuments, TenantDocumentsModal, collectTenantDocuments } from '../components/TenantDocuments';
+import { FamilyMembersView } from '../components/FamilyMembersView';
 import { FormError } from '../components/FormError';
 
 interface TenantsListProps {
@@ -498,6 +499,10 @@ export const TenantsList: React.FC<TenantsListProps> = ({
                     <div className="border-t border-slate-200 pt-4">
                       <div className="flex items-center gap-2 mb-3"><FolderOpen className="w-4 h-4 text-[#29b4c4]" /><h4 className="font-bold text-sm text-slate-900">{language === 'ar' ? 'المرفقات' : 'Attachments'}</h4></div>
                       <TenantDocuments tenant={viewingTenant} contracts={history} />
+                    </div>
+
+                    <div className="border-t border-slate-200 pt-4">
+                      <FamilyMembersView tenant={viewingTenant} />
                     </div>
 
                     <div className="border-t border-slate-200 pt-4">

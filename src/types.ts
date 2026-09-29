@@ -459,5 +459,73 @@ export interface Notification {
   createdAt: string;
 }
 
+export interface FamilyMember {
+  id: string;
+  tenantId: string;
+  name: string;
+  fullNameArabic?: string;
+  relation: 'father' | 'mother' | 'son' | 'daughter' | 'brother' | 'sister' | 'spouse' | 'other';
+  birthDate?: string;
+  nationality?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface FamilyMemberDocument {
+  id: string;
+  familyMemberId: string;
+  tenantId: string;
+  documentType: 'identity' | 'residence';
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  storageKey: string;
+  uploadedBy?: string;
+  createdAt: string;
+  isValid: boolean;
+}
+
+export interface FamilyMemberFormValues {
+  name: string;
+  relation: FamilyMember['relation'];
+  birthDate?: string;
+  nationality?: string;
+}
+
+export interface FamilyMember {
+  id: string;
+  tenantId: string;
+  name: string;
+  fullNameArabic?: string;
+  relation: 'father' | 'mother' | 'son' | 'daughter' | 'brother' | 'sister' | 'spouse' | 'other';
+  birthDate?: string;
+  nationality?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface FamilyMemberDocument {
+  id: string;
+  familyMemberId: string;
+  tenantId: string;
+  documentType: 'identity' | 'residence';
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  storageKey: string; // reference to media_assets.id or path
+  uploadedBy?: string;
+  createdAt: string;
+  isValid: boolean;
+}
+
+export interface FamilyMemberFormValues {
+  name: string;
+  relation: FamilyMember['relation'];
+  birthDate?: string;
+  nationality?: string;
+}
+
 
 

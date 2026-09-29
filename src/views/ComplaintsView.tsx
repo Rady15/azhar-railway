@@ -21,6 +21,7 @@ import { Complaint, ComplaintPriority, ComplaintStatus } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { confirmUi, promptUi } from '../utils/uiDialog';
 import { MediaUploadField } from '../components/MediaUploadField';
+import { WhatsAppStatusBadge } from '../components/WhatsAppStatusBadge';
 import { printDocument } from '../utils/printDocument';
 import { notifyUser } from '../utils/userFeedback';
 
@@ -297,6 +298,9 @@ export const ComplaintsView: React.FC<ComplaintsViewProps> = ({
                     <ArrowUpDown className="w-3 h-3 text-white/70" />
                   </div>
                 </th>
+                <th className="py-3 px-3 border-r border-blue-600/40 text-center">
+                  <span>WhatsApp</span>
+                </th>
                 <th className="py-3 px-3 text-center">
                   <span>{language === 'ar' ? 'الإجراءات' : 'Actions'}</span>
                 </th>
@@ -305,7 +309,7 @@ export const ComplaintsView: React.FC<ComplaintsViewProps> = ({
             <tbody className="divide-y divide-slate-100 font-medium bg-white">
               {sortedComplaints.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-8 text-center text-slate-400">
+                  <td colSpan={11} className="py-8 text-center text-slate-400">
                     {language === 'ar' ? 'لا توجد شكاوى مطابقة للبحث.' : 'No complaints found.'}
                   </td>
                 </tr>
@@ -356,6 +360,9 @@ export const ComplaintsView: React.FC<ComplaintsViewProps> = ({
                           {language === 'ar' ? 'مغلق' : 'Closed'}
                         </span>
                       )}
+                    </td>
+                    <td className="py-3 px-3 text-center border-l border-slate-100">
+                      <WhatsAppStatusBadge kind="complaint" record={c} />
                     </td>
                     <td className="py-3 px-3 text-center">
                       <div className="flex items-center justify-center gap-1.5">

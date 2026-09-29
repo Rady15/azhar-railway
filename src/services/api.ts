@@ -1,5 +1,7 @@
 import { notifyUser, friendlyApiError, actionSuccess } from '../utils/userFeedback';
-import { Tenant, Contract, Unit, ElectricityMeter, MaintenanceRequest, MaintenanceStatus, WaterMeter, Complaint, ComplaintStatus, ComplaintPriority, StaffMember, StaffStatus, Expense, DueItem, PaymentRecord, PaymentInstallment, Company, Letter, Announcement, RentReport, Notification, Facility, FacilityBooking, FacilityBookingStatus } from '../types';
+import { WhatsAppService, initializeWhatsAppService, getWhatsAppService, buildMaintenanceWhatsApp, buildComplaintWhatsApp } from './whatsappService';
+import { setWhatsAppStatus } from '../utils/whatsappStatus';
+import { Tenant, Contract, Unit, ElectricityMeter, MaintenanceRequest, MaintenanceStatus, WaterMeter, Complaint, ComplaintStatus, ComplaintPriority, StaffMember, StaffStatus, Expense, DueItem, PaymentRecord, PaymentInstallment, Company, Letter, Announcement, RentReport, Notification, Facility, FacilityBooking, FacilityBookingStatus, FamilyMember, FamilyMemberDocument, FamilyMemberFormValues } from '../types';
 
 // Allow switching backend via VITE_API_BASE (e.g. local dev server), default to the real Azhar API.
 const viteEnv = (import.meta as any).env || {};
@@ -332,6 +334,56 @@ export const apiService = {
       };
     });
   },
+// --- Family Members ---
+  async getFamilyMembers(tenantId: string): Promise<FamilyMember[]> {
+    const res = await authedFetch(`/Tenants/${tenantId}/family-members`);
+    if (!res.ok) throw new Error('Failed to fetch family members');
+    return (await res.json()) as FamilyMember[];
+  },
+
+  async addFamilyMember(tenantId: string, values: FamilyMemberFormValues, documents?: { file: File; kind: 'identity' | 'residence' }[]): Promise<FamilyMember> {
+    const body: any = { tenantId, ...values };
+    if (documents && documents.length > 0) {
+      const uploaded = await Promise.all(documents.map(async ({ file, kind }) => {
+        const r = await this.uploadMedia(file, kind === 'identity' ? 'family_member_identity' : 'family_member_residence', 'family_member', 'pending');
+        return { storageKey: r.id, url: r.url, fileName: r.fileName, mimeType: r.mimeType, fileSize: r.fileSize, kind };
+      }));
+      body.documentRefs = uploaded;
+    }
+    const res = await authedFetch('/Tenants/family-members', { method: 'POST', body: JSON.stringify(body) });
+    if (!res.ok) { const raw = await res.text(); throw new Error(friendlyApiError(res.status, raw, '/FamilyMember').ar); }
+    return (await res.json()) as FamilyMember;
+  },
+
+  async updateFamilyMember(id: string, values: FamilyMemberFormValues, documentUpdates?: { remove?: string[]; add?: { kind: 'identity' | 'residence'; url: string; fileName: string; storageKey: string }[] }): Promise<FamilyMember> {
+    const body: any = { ...values };
+    if (documentUpdates) {
+      if (documentUpdates.remove && documentUpdates.remove.length > 0) {
+        body.documentRemovals = documentUpdates.remove;
+      }
+      if (documentUpdates.add && documentUpdates.add.length > 0) {
+        body.documentAdditions = documentUpdates.add;
+      }
+    }
+    const res = await authedFetch(`/family-members/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+    if (!res.ok) { const raw = await res.text(); throw new Error(friendlyApiError(res.status, raw, '/FamilyMember').ar); }
+    return (await res.json()) as FamilyMember;
+  },
+
+  async deleteFamilyMember(id: string): Promise<void> {
+    const res = await authedFetch(`/family-members/${id}`, { method: 'DELETE' });
+    if (!res.ok) { const raw = await res.text(); throw new Error(friendlyApiError(res.status, raw, '/FamilyMember').ar); }
+  },
+
+  async uploadFamilyMemberDocument(familyMemberId: string, file: File, kind: 'identity' | 'residence'): Promise<{ id: string; storageKey: string; url: string; fileName: string; mimeType: string; fileSize: number }> {
+    const r = await this.uploadMedia(file, kind === 'identity' ? 'family_member_identity' : 'family_member_residence', 'family_member', familyMemberId);
+    return { id: r.id, storageKey: r.id, url: r.url, fileName: r.fileName, mimeType: r.mimeType, fileSize: r.fileSize };
+  },
+
+  async deleteFamilyMemberDocument(familyMemberId: string, documentId: string): Promise<void> {
+    const res = await authedFetch(`/family-members/${familyMemberId}/documents/${documentId}`, { method: 'DELETE' });
+    if (!res.ok) { const raw = await res.text(); throw new Error(friendlyApiError(res.status, raw, '/FamilyMember').ar); }
+  },
 
   async addTenant(tenantData: Partial<Tenant>): Promise<Tenant> {
     const payload = {
@@ -655,7 +707,28 @@ export const apiService = {
       body: JSON.stringify(payload)
     });
     if (!res.ok) throw new Error('Failed to create maintenance request');
-    const saved = await res.json().catch(()=>null); return { ...req, ...(saved || {}), id: String(saved?.id || Date.now()), assignedStaffId: saved?.assignedStaffId || saved?.assignedToId || req.assignedStaffId || '', assignedStaffName: saved?.assignedStaffName || saved?.assignedToName || req.assignedStaffName || '' } as MaintenanceRequest;
+    const saved = await res.json().catch(()=>null); 
+    const maintenance = { ...req, ...(saved || {}), id: String(saved?.id || Date.now()), assignedStaffId: saved?.assignedStaffId || saved?.assignedToId || req.assignedStaffId || '', assignedStaffName: saved?.assignedStaffName || saved?.assignedToName || req.assignedStaffName || '' } as MaintenanceRequest;
+    
+    // Send WhatsApp notification asynchronously (don't block creation).
+    // Failure only records a status; the request itself is already saved.
+    try {
+      const whatsappService = getWhatsAppService();
+      if (whatsappService) {
+        setWhatsAppStatus('maintenance', maintenance.id, 'pending');
+        const result = await whatsappService.send({
+          to: (whatsappService as any)['config']?.recipientPhone || '',
+          body: buildMaintenanceWhatsApp(maintenance),
+        });
+        setWhatsAppStatus('maintenance', maintenance.id, result.status, result.errorMessage);
+      }
+    } catch (e) {
+      // Log error but don't block maintenance creation
+      console.error('WhatsApp notification failed for maintenance request', e);
+      try { setWhatsAppStatus('maintenance', maintenance.id, 'failed', e instanceof Error ? e.message : 'Unknown error'); } catch { /* noop */ }
+    }
+    
+    return maintenance;
   },
 
   async updateMaintenanceStatus(id: string, status: MaintenanceStatus): Promise<any> {
@@ -707,7 +780,27 @@ export const apiService = {
       body: JSON.stringify(payload)
     });
     if (!res.ok) throw new Error('Failed to create complaint');
-    return { ...complaint, id: String(Date.now()) } as Complaint;
+    const saved = { ...complaint, id: String(Date.now()) } as Complaint;
+    
+    // Send WhatsApp notification asynchronously (don't block creation).
+    // Failure only records a status; the complaint itself is already saved.
+    try {
+      const whatsappService = getWhatsAppService();
+      if (whatsappService) {
+        setWhatsAppStatus('complaint', saved.id, 'pending');
+        const result = await whatsappService.send({
+          to: (whatsappService as any)['config']?.recipientPhone || '',
+          body: buildComplaintWhatsApp(saved),
+        });
+        setWhatsAppStatus('complaint', saved.id, result.status, result.errorMessage);
+      }
+    } catch (e) {
+      // Log error but don't block complaint creation
+      console.error('WhatsApp notification failed for complaint', e);
+      try { setWhatsAppStatus('complaint', saved.id, 'failed', e instanceof Error ? e.message : 'Unknown error'); } catch { /* noop */ }
+    }
+    
+    return saved;
   },
 
   async updateComplaintStatus(id: string, status: ComplaintStatus, resolutionNotes?: string): Promise<any> {

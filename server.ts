@@ -2045,6 +2045,151 @@ async function startServer() {
     }
   });
 
+  // 2b. Family Members API. Members are nested in the tenant record (persisted via
+  // the tenants table) while their files live in media_assets with
+  // entity_type='family_member', entity_id=<member id> and category
+  // 'family_member_identity' | 'family_member_residence'.
+  const getFamilyMembers = (tenant:any): any[] => Array.isArray(tenant?.familyMembers) ? tenant.familyMembers : [];
+  const findFamilyMember = (memberId:string): { tenant:any; member:any; index:number } | null => {
+    for (const t of tenantsStore) {
+      const list = getFamilyMembers(t);
+      const index = list.findIndex((m:any) => String(m?.id) === String(memberId));
+      if (index !== -1) return { tenant: t, member: list[index], index };
+    }
+    return null;
+  };
+  // Tenant-portal users may only touch their own tenant; identity always comes
+  // from JWT -> app_users.entity_id, never from a client-supplied tenantId.
+  const familyScope = async (req:any, tenantId:string): Promise<{ tenantId:string } | null> => {
+    const link = await linkedEntity(req, 'tenant');
+    if (link) {
+      if (String(link.entityId) !== String(tenantId)) return null;
+      return { tenantId: String(link.entityId) };
+    }
+    return { tenantId: String(tenantId) };
+  };
+  const retagFamilyMedia = async (memberId:string, refs:any[]): Promise<void> => {
+    if (!dbPool || !Array.isArray(refs)) return;
+    for (const r of refs) {
+      const mediaId = String(r?.storageKey || r?.id || '');
+      if (!mediaId) continue;
+      const category = r?.kind === 'residence' ? 'family_member_residence' : 'family_member_identity';
+      await dbPool.query(
+        `UPDATE media_assets SET entity_type='family_member', entity_id=$2, category=$3 WHERE id=$1::uuid`,
+        [mediaId, String(memberId), category]
+      );
+    }
+  };
+
+  app.get("/api/Tenants/:id/family-members", async (req:any, res:any) => {
+    const scope = await familyScope(req, req.params.id);
+    if (!scope) return res.status(403).json({ message: 'Forbidden' });
+    const tenant = tenantsStore.find((t:any) => String(t.id) === String(scope.tenantId) && !t.isDeleted);
+    if (!tenant) return res.status(404).json({ message: "Tenant not found" });
+    res.json(getFamilyMembers(tenant).filter((m:any) => m?.isActive !== false));
+  });
+
+  app.post("/api/Tenants/family-members", async (req:any, res:any) => {
+    const body = req.body || {};
+    const scope = await familyScope(req, body.tenantId || '');
+    if (!scope || !scope.tenantId) return res.status(403).json({ message: 'Forbidden' });
+    const tenant = tenantsStore.find((t:any) => String(t.id) === String(scope.tenantId) && !t.isDeleted);
+    if (!tenant) return res.status(404).json({ message: "Tenant not found" });
+    const name = String(body.name || '').trim();
+    if (!name) return res.status(400).json({ message: 'يرجى إدخال الاسم الكامل لفرد الأسرة' });
+    const rel = String(body.relation || 'other');
+    const allowedRel = ['father','mother','son','daughter','brother','sister','spouse','other'];
+    const member:any = {
+      id: `fm-${crypto.randomUUID()}`,
+      tenantId: scope.tenantId,
+      name,
+      relation: allowedRel.includes(rel) ? rel : 'other',
+      birthDate: String(body.birthDate || ''),
+      nationality: String(body.nationality || ''),
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    };
+    const refs = Array.isArray(body.documentRefs) ? body.documentRefs : [];
+    await retagFamilyMedia(member.id, refs);
+    for (const r of refs) {
+      const target = r?.kind === 'residence' ? 'residence' : 'identity';
+      const urlKey = target === 'residence' ? 'residenceDocumentUrl' : 'identityDocumentUrl';
+      const nameKey = target === 'residence' ? 'residenceDocumentName' : 'identityDocumentName';
+      const storeKey = target === 'residence' ? 'residenceStorageKey' : 'identityStorageKey';
+      // The /Media upload response already carries the absolute content URL.
+      member[urlKey] = String(r?.url || '');
+      member[nameKey] = String(r?.fileName || '');
+      member[storeKey] = String(r?.storageKey || '');
+    }
+    tenant.familyMembers = [...getFamilyMembers(tenant), member];
+    await persistStores(['tenants']);
+    res.status(201).json(member);
+  });
+
+  app.put("/api/family-members/:id", async (req:any, res:any) => {
+    const found = findFamilyMember(req.params.id);
+    if (!found) return res.status(404).json({ message: "Family member not found" });
+    const scope = await familyScope(req, found.member.tenantId || found.tenant.id);
+    if (!scope) return res.status(403).json({ message: 'Forbidden' });
+    const body = req.body || {};
+    if (body.name !== undefined) {
+      const name = String(body.name || '').trim();
+      if (!name) return res.status(400).json({ message: 'يرجى إدخال الاسم الكامل لفرد الأسرة' });
+      found.member.name = name;
+    }
+    if (body.relation !== undefined) {
+      const rel = String(body.relation || 'other');
+      found.member.relation = ['father','mother','son','daughter','brother','sister','spouse','other'].includes(rel) ? rel : 'other';
+    }
+    if (body.birthDate !== undefined) found.member.birthDate = String(body.birthDate || '');
+    if (body.nationality !== undefined) found.member.nationality = String(body.nationality || '');
+    const additions = Array.isArray(body.documentAdditions) ? body.documentAdditions : [];
+    await retagFamilyMedia(found.member.id, additions.map((a:any) => ({ storageKey: a?.storageKey, kind: a?.kind })));
+    for (const a of additions) {
+      const target = a?.kind === 'residence' ? 'residence' : 'identity';
+      found.member[target === 'residence' ? 'residenceDocumentUrl' : 'identityDocumentUrl'] = String(a?.url || '');
+      found.member[target === 'residence' ? 'residenceDocumentName' : 'identityDocumentName'] = String(a?.fileName || '');
+      found.member[target === 'residence' ? 'residenceStorageKey' : 'identityStorageKey'] = String(a?.storageKey || '');
+    }
+    const removals = Array.isArray(body.documentRemovals) ? body.documentRemovals : [];
+    for (const key of removals.map(String)) {
+      if (dbPool) await dbPool.query(`DELETE FROM media_assets WHERE id=$1::uuid AND entity_id=$2`, [key, String(found.member.id)]);
+      if (String(found.member.identityStorageKey || '') === key) { found.member.identityDocumentUrl = ''; found.member.identityDocumentName = ''; found.member.identityStorageKey = ''; }
+      if (String(found.member.residenceStorageKey || '') === key) { found.member.residenceDocumentUrl = ''; found.member.residenceDocumentName = ''; found.member.residenceStorageKey = ''; }
+    }
+    found.member.updatedAt = new Date().toISOString();
+    await persistStores(['tenants']);
+    res.json(found.member);
+  });
+
+  app.delete("/api/family-members/:id", async (req:any, res:any) => {
+    const found = findFamilyMember(req.params.id);
+    if (!found) return res.status(404).json({ message: "Family member not found" });
+    const scope = await familyScope(req, found.member.tenantId || found.tenant.id);
+    if (!scope) return res.status(403).json({ message: 'Forbidden' });
+    found.tenant.familyMembers = getFamilyMembers(found.tenant).filter((m:any) => String(m?.id) !== String(found.member.id));
+    if (dbPool) await dbPool.query(`DELETE FROM media_assets WHERE entity_id=$1`, [String(found.member.id)]);
+    await persistStores(['tenants']);
+    res.json({ message: 'Deleted' });
+  });
+
+  app.delete("/api/family-members/:memberId/documents/:documentId", async (req:any, res:any) => {
+    const found = findFamilyMember(req.params.memberId);
+    if (!found) return res.status(404).json({ message: "Family member not found" });
+    const scope = await familyScope(req, found.member.tenantId || found.tenant.id);
+    if (!scope) return res.status(403).json({ message: 'Forbidden' });
+    const docId = String(req.params.documentId);
+    if (dbPool) {
+      const r = await dbPool.query(`DELETE FROM media_assets WHERE id=$1::uuid AND entity_id=$2`, [docId, String(found.member.id)]);
+      if (!r.rowCount) return res.status(404).json({ message: 'Document not found' });
+    }
+    if (String(found.member.identityStorageKey || '') === docId) { found.member.identityDocumentUrl = ''; found.member.identityDocumentName = ''; found.member.identityStorageKey = ''; }
+    if (String(found.member.residenceStorageKey || '') === docId) { found.member.residenceDocumentUrl = ''; found.member.residenceDocumentName = ''; found.member.residenceStorageKey = ''; }
+    found.member.updatedAt = new Date().toISOString();
+    await persistStores(['tenants']);
+    res.json({ message: 'Deleted' });
+  });
+
   // 3. Contracts API
   app.get("/api/Contracts", async (req, res) => {
     const q = String(req.query.q || req.query.search || "");
