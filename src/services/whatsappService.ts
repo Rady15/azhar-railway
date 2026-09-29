@@ -69,7 +69,8 @@ export class WhatsAppService {
   }
 
   private async sendViaMetaCloud(message: WhatsAppMessage): Promise<'sent' | 'failed'> {
-    const url = `${this.config.apiUrl}/messages`;
+    const base = this.config.apiUrl.replace(/\/+$/, '');
+    const url = `${base}/${this.config.phoneNumberId}/messages`;
     const payload: any = {
       messaging_product: 'whatsapp',
       to: message.to,

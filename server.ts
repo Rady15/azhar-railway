@@ -1439,6 +1439,63 @@ async function startServer() {
   function tenantContracts(tenant:any){ return contractsStore.filter((c:any)=>String(c.tenantId||'')===String(tenant.id) || (!!tenant.unitNumber && String(c.unitNumber||c.houseNumber||'')===String(tenant.unitNumber||tenant.houseNumber||''))); }
   function selfNotifications(req:any, link:any){ return notificationsStore.filter((n:any)=> !n.userId && !n.tenantId && !n.staffId || String(n.userId||'')===String(req.user.sub) || (link?.entityId && (String(n.tenantId||'')===link.entityId || String(n.staffId||'')===link.entityId))); }
 
+  // Server-side WhatsApp notifications (Meta Cloud API). Reads WHATSAPP_
+  // env vars; when unconfigured it returns 'skipped' and the caller keeps the
+  // request as-is. Never throws - a failed send must not break creation.
+  async function notifyWhatsApp(text:string): Promise<{ status:'sent'|'failed'|'skipped'; error?:string }> {
+    const provider = String(process.env.WHATSAPP_PROVIDER || '').trim().toLowerCase();
+    const token = String(process.env.WHATSAPP_ACCESS_TOKEN || '').trim();
+    const phoneId = String(process.env.WHATSAPP_PHONE_NUMBER_ID || '').trim();
+    const to = String(process.env.WHATSAPP_RECIPIENT_PHONE || '').replace(/[^0-9]/g, '');
+    if (!provider || !token || !phoneId || !to) return { status: 'skipped' };
+    const base = String(process.env.WHATSAPP_API_URL || 'https://graph.facebook.com/v25.0').replace(/\/+$/, '');
+    const template = String(process.env.WHATSAPP_TEMPLATE_NAME || '').trim();
+    const lang = String(process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'en_US').trim();
+    const body = template
+      ? { messaging_product: 'whatsapp', to, type: 'template', template: { name: template, language: { code: lang } } }
+      : { messaging_product: 'whatsapp', to, type: 'text', text: { body: text } };
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 10000);
+      try {
+        const r = await fetch(`${base}/${phoneId}/messages`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          signal: ctrl.signal,
+        });
+        if (!r.ok) {
+          const errText = await r.text().catch(() => '');
+          return { status: 'failed', error: `Meta ${r.status}: ${errText.slice(0, 300)}` };
+        }
+        return { status: 'sent' };
+      } finally {
+        clearTimeout(timer);
+      }
+    } catch (e:any) {
+      return { status: 'failed', error: String(e?.message || e || 'network error').slice(0, 300) };
+    }
+  }
+  const maintenanceWhatsAppText = (m:any): string => [
+    'طلب صيانة جديد',
+    `- المستأجر: ${m.tenantName || m.responsibleName || '-'}`,
+    `- الوحدة: ${m.unitNumber || m.houseNumber || '-'}`,
+    `- نوع الطلب: ${m.category || m.workActivity || m.title || '-'}`,
+    `- الوصف: ${m.description || m.issueDescription || m.notes || '-'}`,
+    `- الأولوية: ${m.priority || '-'}`,
+    `- رقم الطلب: ${m.ticketNo || m.requestNumber || m.rvNo || m.id || '-'}`,
+    `- تاريخ الطلب: ${String(m.requestDate || m.createdAt || '').slice(0, 10) || '-'}`,
+  ].join('\n');
+  const complaintWhatsAppText = (c:any): string => [
+    'شكوى جديدة',
+    `- المستأجر: ${c.complainantName || '-'}`,
+    `- الوحدة: ${c.unitNumber || '-'}`,
+    `- نوع الشكوى: ${c.category || '-'}`,
+    `- التفاصيل: ${c.description || '-'}`,
+    `- رقم الشكوى: ${c.ticketNo || c.ticketNumber || c.id || '-'}`,
+    `- التاريخ: ${String(c.createdAt || '').slice(0, 10) || '-'}`,
+  ].join('\n');
+
   app.put('/api/Account/change-password', async (req:any,res)=>{
     if(!dbPool)return res.status(503).json({message:'الخدمة غير متاحة حالياً'});
     const current=String(req.body?.currentPassword||''); const next=String(req.body?.newPassword||'');
@@ -1611,9 +1668,9 @@ async function startServer() {
   app.get('/api/tenant-portal/payments', async (req:any,res)=>{const link=await linkedEntity(req,'tenant');if(!link||!dbPool)return res.status(404).json({message:'ملف المستأجر غير موجود'});const r=await dbPool.query(`SELECT p.id,p.receipt_no AS "receiptNo",p.contract_id AS "contractId",p.amount::float8,p.payment_method AS "paymentMethod",p.reference_no AS "referenceNo",p.payment_date AS "paymentDate",p.notes,p.status,COALESCE(SUM(a.amount),0)::float8 AS "allocatedAmount",(p.amount-COALESCE(SUM(a.amount),0))::float8 AS "unappliedAmount" FROM rental_payments p LEFT JOIN payment_allocations a ON a.payment_id=p.id WHERE p.tenant_id=$1 GROUP BY p.id ORDER BY p.payment_date DESC,p.created_at DESC`,[link.entityId]);res.json(r.rows);});
   app.get('/api/tenant-portal/ledger', async (req:any,res)=>{const link=await linkedEntity(req,'tenant');if(!link||!dbPool)return res.status(404).json({message:'ملف المستأجر غير موجود'});await refreshInstallmentStatuses(dbPool);const installments=await dbPool.query(`SELECT id,contract_id AS "contractId",installment_no AS "installmentNo",due_date AS "dueDate",original_amount::float8 AS amount,paid_amount::float8 AS "paidAmount",GREATEST(original_amount-paid_amount,0)::float8 AS "remainingAmount",status FROM rent_installments WHERE tenant_id=$1 ORDER BY due_date`,[link.entityId]);const payments=await dbPool.query(`SELECT id,receipt_no AS "receiptNo",contract_id AS "contractId",amount::float8,payment_method AS "paymentMethod",payment_date AS "paymentDate",status FROM rental_payments WHERE tenant_id=$1 ORDER BY payment_date DESC`,[link.entityId]);const summary=installments.rows.reduce((a:any,x:any)=>{a.total+=Number(x.amount||0);a.paid+=Number(x.paidAmount||0);a.remaining+=Number(x.remainingAmount||0);if(x.status==='Overdue')a.overdue+=Number(x.remainingAmount||0);return a;},{total:0,paid:0,remaining:0,overdue:0});res.json({summary,installments:installments.rows,payments:payments.rows});});
   app.get('/api/tenant-portal/maintenance', async (req:any,res)=>{const link=await linkedEntity(req,'tenant');if(!link)return res.status(404).json({message:'ملف المستأجر غير موجود'});const unit=String(link.entity.unitNumber||link.entity.houseNumber||'');res.json(maintenanceStore.filter((x:any)=>String(x.tenantId||'')===link.entityId || (!!unit&&String(x.unitNumber||x.houseNumber||'')===unit)));});
-  app.post('/api/tenant-portal/maintenance', async (req:any,res)=>{const link=await linkedEntity(req,'tenant');if(!link)return res.status(404).json({message:'ملف المستأجر غير موجود'});const unit=String(link.entity.unitNumber||link.entity.houseNumber||'');const contract=tenantContracts(link.entity).find((x:any)=>!x.isArchived);const item={id:`mnt-${crypto.randomUUID()}`,ticketNo:`MNT-${Date.now()}`,tenantId:link.entityId,tenantName:link.entity.fullName||link.entity.name,tenantPhone:link.entity.phoneNumber||link.entity.mobile||'',unitNumber:unit,houseNumber:unit,buildingNumber:contract?.buildingNumber||'',category:req.body?.category||req.body?.workActivity||'General',title:req.body?.title||req.body?.category||'Maintenance',description:req.body?.description||req.body?.issueDescription||'',priority:req.body?.priority||'Medium',attachmentUrl:req.body?.attachmentUrl||'',status:'New',createdAt:new Date().toISOString(),requestDate:new Date().toISOString().slice(0,10)};maintenanceStore.unshift(item);await persistStores(['maintenance']);res.status(201).json(item);});
+  app.post('/api/tenant-portal/maintenance', async (req:any,res)=>{const link=await linkedEntity(req,'tenant');if(!link)return res.status(404).json({message:'ملف المستأجر غير موجود'});const unit=String(link.entity.unitNumber||link.entity.houseNumber||'');const contract=tenantContracts(link.entity).find((x:any)=>!x.isArchived);const item:any={id:`mnt-${crypto.randomUUID()}`,ticketNo:`MNT-${Date.now()}`,tenantId:link.entityId,tenantName:link.entity.fullName||link.entity.name,tenantPhone:link.entity.phoneNumber||link.entity.mobile||'',unitNumber:unit,houseNumber:unit,buildingNumber:contract?.buildingNumber||'',category:req.body?.category||req.body?.workActivity||'General',title:req.body?.title||req.body?.category||'Maintenance',description:req.body?.description||req.body?.issueDescription||'',priority:req.body?.priority||'Medium',attachmentUrl:req.body?.attachmentUrl||'',status:'New',whatsappStatus:'pending',createdAt:new Date().toISOString(),requestDate:new Date().toISOString().slice(0,10)};maintenanceStore.unshift(item);await persistStores(['maintenance']);const wa=await notifyWhatsApp(maintenanceWhatsAppText(item));item.whatsappStatus=wa.status==='skipped'?'idle':wa.status;if(wa.error)item.whatsappError=wa.error;item.whatsappSentAt=new Date().toISOString();await persistStores(['maintenance']);res.status(201).json(item);});
   app.get('/api/tenant-portal/complaints', async (req:any,res)=>{const link=await linkedEntity(req,'tenant');if(!link)return res.status(404).json({message:'ملف المستأجر غير موجود'});const unit=String(link.entity.unitNumber||link.entity.houseNumber||'');res.json(complaintsStore.filter((x:any)=>String(x.tenantId||'')===link.entityId || (!!unit&&String(x.unitNumber||'')===unit)));});
-  app.post('/api/tenant-portal/complaints', async (req:any,res)=>{const link=await linkedEntity(req,'tenant');if(!link)return res.status(404).json({message:'ملف المستأجر غير موجود'});const unit=String(link.entity.unitNumber||link.entity.houseNumber||'');const item={id:`cmp-${crypto.randomUUID()}`,ticketNo:`CMP-${Date.now()}`,ticketNumber:`CMP-${Date.now()}`,tenantId:link.entityId,complainantName:link.entity.fullName||link.entity.name,phone:link.entity.phoneNumber||link.entity.mobile||'',unitNumber:unit,category:req.body?.category||'General',description:req.body?.description||'',priority:req.body?.priority||'Medium',attachmentUrl:req.body?.attachmentUrl||'',status:'New',createdAt:new Date().toISOString()};complaintsStore.unshift(item);await persistStores(['complaints']);res.status(201).json(item);});
+  app.post('/api/tenant-portal/complaints', async (req:any,res)=>{const link=await linkedEntity(req,'tenant');if(!link)return res.status(404).json({message:'ملف المستأجر غير موجود'});const unit=String(link.entity.unitNumber||link.entity.houseNumber||'');const item:any={id:`cmp-${crypto.randomUUID()}`,ticketNumber:`CMP-${Date.now()}`,tenantId:link.entityId,complainantName:link.entity.fullName||link.entity.name,phone:link.entity.phoneNumber||link.entity.mobile||'',unitNumber:unit,category:req.body?.category||'General',description:req.body?.description||'',priority:req.body?.priority||'Medium',attachmentUrl:req.body?.attachmentUrl||'',status:'New',whatsappStatus:'pending',createdAt:new Date().toISOString()};complaintsStore.unshift(item);await persistStores(['complaints']);const wa=await notifyWhatsApp(complaintWhatsAppText(item));item.whatsappStatus=wa.status==='skipped'?'idle':wa.status;if(wa.error)item.whatsappError=wa.error;item.whatsappSentAt=new Date().toISOString();await persistStores(['complaints']);res.status(201).json(item);});
   app.get('/api/tenant-portal/announcements', async (_req,res)=>res.json(announcementsStore.filter((x:any)=>x.isActive!==false)));
   app.get('/api/tenant-portal/facilities', async (_req,res)=>res.json(facilitiesStore.filter((x:any)=>x.isActive!==false)));
   app.get('/api/tenant-portal/facility-bookings', async (req:any,res)=>{const link=await linkedEntity(req,'tenant');if(!link)return res.status(404).json({message:'ملف المستأجر غير موجود'});res.json(facilityBookingsStore.filter((x:any)=>String(x.tenantId||'')===link.entityId));});
@@ -2655,10 +2712,21 @@ async function startServer() {
     const assignedId=String(body.assignedStaffId||body.assignedToId||'').trim();
     const assignedName=String(body.assignedStaffName||body.assignedToName||'').trim();
     const item:any={ id:`mnt-${crypto.randomUUID()}`, createdAt:new Date().toISOString(), status: assignedId ? 'Assigned' : 'New', ...body, assignedStaffId:assignedId||undefined, assignedStaffName:assignedName||undefined, assignedToId:assignedId||undefined, assignedToName:assignedName||undefined };
+    item.whatsappStatus='pending';
     maintenanceStore.unshift(item);
     await persistStores(['maintenance']);
     if(assignedId){ notificationsStore.unshift({id:`ntf-${Date.now()}`,type:'maintenance',title:'طلب صيانة جديد',message:`تم إسناد طلب الصيانة ${item.requestNumber||item.rvNo||item.id} إليك`,staffId:assignedId,entityId:String(item.id),isRead:false,createdAt:new Date().toISOString()}); }
+    const wa=await notifyWhatsApp(maintenanceWhatsAppText(item));item.whatsappStatus=wa.status==='skipped'?'idle':wa.status;if(wa.error)item.whatsappError=wa.error;item.whatsappSentAt=new Date().toISOString();
+    await persistStores(['maintenance','notifications']);
     res.status(201).json(item);
+  });
+  app.post("/api/Maintenance/:id/whatsapp-retry", async (req:any, res:any) => {
+    const item:any = maintenanceStore.find((x:any)=>String(x.id)===String(req.params.id));
+    if(!item) return res.status(404).json({message:"Maintenance not found"});
+    item.whatsappStatus='pending';delete item.whatsappError;
+    const wa=await notifyWhatsApp(maintenanceWhatsAppText(item));item.whatsappStatus=wa.status==='skipped'?'idle':wa.status;if(wa.error)item.whatsappError=wa.error;item.whatsappSentAt=new Date().toISOString();
+    await persistStores(['maintenance']);
+    res.json(item);
   });
   app.put("/api/Maintenance/:id", async (req, res) => {
     const i = maintenanceStore.findIndex((x:any)=>x.id===req.params.id);
@@ -2680,7 +2748,8 @@ async function startServer() {
   app.delete("/api/Maintenance/:id", async (req,res)=>{ const n=maintenanceStore.length; maintenanceStore=maintenanceStore.filter((x:any)=>x.id!==req.params.id); if(n===maintenanceStore.length) return res.status(404).json({message:"Maintenance not found"}); if (dbPool) await deleteStateRow("maintenance", String(req.params.id)); res.json({message:"Maintenance deleted"}); });
 
   app.get("/api/Complaints", (req, res) => res.json(paginated(complaintsStore.filter(x => matchesQuery(x, String(req.query.q || req.query.search || ""))), req)));
-  app.post("/api/Complaints", async (req, res) => { const item = { id: `cmp-${crypto.randomUUID()}`, ticketNumber: `TKT-${Date.now()}`, createdAt: new Date().toISOString(), status: "New", ...req.body }; complaintsStore.unshift(item); await persistStores(["complaints"]); res.status(201).json(item); });
+  app.post("/api/Complaints", async (req, res) => { const item = { id: `cmp-${crypto.randomUUID()}`, ticketNumber: `TKT-${Date.now()}`, createdAt: new Date().toISOString(), status: "New", ...req.body, whatsappStatus:'pending' }; complaintsStore.unshift(item); await persistStores(["complaints"]); const wa=await notifyWhatsApp(complaintWhatsAppText(item));(item as any).whatsappStatus=wa.status==='skipped'?'idle':wa.status;if(wa.error)(item as any).whatsappError=wa.error;(item as any).whatsappSentAt=new Date().toISOString();await persistStores(["complaints"]);res.status(201).json(item); });
+  app.post("/api/Complaints/:id/whatsapp-retry", async (req, res) => { const item:any = complaintsStore.find((x:any)=>String(x.id)===String(req.params.id)); if(!item) return res.status(404).json({message:"Complaint not found"}); item.whatsappStatus='pending';delete item.whatsappError; const wa=await notifyWhatsApp(complaintWhatsAppText(item));item.whatsappStatus=wa.status==='skipped'?'idle':wa.status;if(wa.error)item.whatsappError=wa.error;item.whatsappSentAt=new Date().toISOString();await persistStores(["complaints"]);res.json(item); });
   app.put("/api/Complaints/:id/status", async (req, res) => { const i=complaintsStore.findIndex((x:any)=>x.id===req.params.id); if(i<0) return res.status(404).json({message:"Complaint not found"}); complaintsStore[i]={...complaintsStore[i],...req.body}; await persistStores(["complaints"]); res.json(complaintsStore[i]); });
   app.put("/api/Complaints/:id", async (req,res)=>{ const i=complaintsStore.findIndex((x:any)=>x.id===req.params.id); if(i<0) return res.status(404).json({message:"Complaint not found"}); complaintsStore[i]={...complaintsStore[i],...req.body}; await persistStores(["complaints"]); res.json(complaintsStore[i]); });
   app.delete("/api/Complaints/:id", async (req,res)=>{ const n=complaintsStore.length; complaintsStore=complaintsStore.filter((x:any)=>x.id!==req.params.id); if(n===complaintsStore.length) return res.status(404).json({message:"Complaint not found"}); if (dbPool) await deleteStateRow("complaints", String(req.params.id)); res.json({message:"Complaint deleted"}); });

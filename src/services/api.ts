@@ -710,24 +710,13 @@ export const apiService = {
     const saved = await res.json().catch(()=>null); 
     const maintenance = { ...req, ...(saved || {}), id: String(saved?.id || Date.now()), assignedStaffId: saved?.assignedStaffId || saved?.assignedToId || req.assignedStaffId || '', assignedStaffName: saved?.assignedStaffName || saved?.assignedToName || req.assignedStaffName || '' } as MaintenanceRequest;
     
-    // Send WhatsApp notification asynchronously (don't block creation).
-    // Failure only records a status; the request itself is already saved.
+    // WhatsApp is sent server-side during creation (single source, no duplicates).
+    // The record comes back carrying whatsappStatus: sent | failed | pending | idle.
     try {
-      const whatsappService = getWhatsAppService();
-      if (whatsappService) {
-        setWhatsAppStatus('maintenance', maintenance.id, 'pending');
-        const result = await whatsappService.send({
-          to: (whatsappService as any)['config']?.recipientPhone || '',
-          body: buildMaintenanceWhatsApp(maintenance),
-        });
-        setWhatsAppStatus('maintenance', maintenance.id, result.status, result.errorMessage);
-      }
-    } catch (e) {
-      // Log error but don't block maintenance creation
-      console.error('WhatsApp notification failed for maintenance request', e);
-      try { setWhatsAppStatus('maintenance', maintenance.id, 'failed', e instanceof Error ? e.message : 'Unknown error'); } catch { /* noop */ }
-    }
-    
+      const s = (maintenance as any)?.whatsappStatus;
+      if (s) setWhatsAppStatus('maintenance', maintenance.id, s === 'idle' ? 'idle' : s, (maintenance as any)?.whatsappError);
+    } catch { /* status is best-effort */ }
+
     return maintenance;
   },
 
@@ -782,24 +771,12 @@ export const apiService = {
     if (!res.ok) throw new Error('Failed to create complaint');
     const saved = { ...complaint, id: String(Date.now()) } as Complaint;
     
-    // Send WhatsApp notification asynchronously (don't block creation).
-    // Failure only records a status; the complaint itself is already saved.
+    // WhatsApp is sent server-side during creation (single source, no duplicates).
     try {
-      const whatsappService = getWhatsAppService();
-      if (whatsappService) {
-        setWhatsAppStatus('complaint', saved.id, 'pending');
-        const result = await whatsappService.send({
-          to: (whatsappService as any)['config']?.recipientPhone || '',
-          body: buildComplaintWhatsApp(saved),
-        });
-        setWhatsAppStatus('complaint', saved.id, result.status, result.errorMessage);
-      }
-    } catch (e) {
-      // Log error but don't block complaint creation
-      console.error('WhatsApp notification failed for complaint', e);
-      try { setWhatsAppStatus('complaint', saved.id, 'failed', e instanceof Error ? e.message : 'Unknown error'); } catch { /* noop */ }
-    }
-    
+      const s = (saved as any)?.whatsappStatus;
+      if (s) setWhatsAppStatus('complaint', saved.id, s === 'idle' ? 'idle' : s, (saved as any)?.whatsappError);
+    } catch { /* status is best-effort */ }
+
     return saved;
   },
 
@@ -809,6 +786,24 @@ export const apiService = {
       body: JSON.stringify({ status, adminReply: resolutionNotes || '' })
     });
     return res.ok ? res.json() : null;
+  },
+
+  // Re-sends the WhatsApp notification server-side without creating a new request.
+  // Returns the updated record (carrying whatsappStatus) or null on failure.
+  async retryWhatsApp(kind: 'maintenance' | 'complaint', id: string): Promise<any | null> {
+    const path = kind === 'maintenance' ? `/Maintenance/${id}/whatsapp-retry` : `/Complaints/${id}/whatsapp-retry`;
+    try {
+      const res = await authedFetch(path, { method: 'POST' });
+      if (!res.ok) return null;
+      const updated = await res.json().catch(() => null);
+      try {
+        const s = (updated as any)?.whatsappStatus;
+        if (updated && s) setWhatsAppStatus(kind, id, s === 'idle' ? 'idle' : s, (updated as any)?.whatsappError);
+      } catch { /* noop */ }
+      return updated;
+    } catch {
+      return null;
+    }
   },
 
   // Compound admin notes
