@@ -745,7 +745,7 @@ let contractsStore: any[] = [
     insurance: 1000,
     commission: 500,
     englishNotes: "Standard residential lease contract",
-    arabicNotes: "عقد إيجار سكني كمبوند أزهار",
+    arabicNotes: "عقد إيجار سكني كمباوند أزهار",
     status: "Active",
     isArchived: false,
     adminNote: null,
@@ -824,7 +824,7 @@ let facilityBookingsStore: any[] = [];
 let profileStore: any = { displayName: "Admin", email: "admin@azhar.com", profileImageUrl: "" };
 
 let notificationsStore: any[] = [
-  { id: "local-notif-1", title: "مرحباً بك", body: "تم تسجيل الدخول بنجاح في نظام إدارة كمبوند أزهار", type: "System", relatedEntityId: "", isRead: false, createdAt: new Date().toISOString() }
+  { id: "local-notif-1", title: "مرحباً بك", body: "تم تسجيل الدخول بنجاح في نظام إدارة كمباوند أزهار", type: "System", relatedEntityId: "", isRead: false, createdAt: new Date().toISOString() }
 ];
 
 

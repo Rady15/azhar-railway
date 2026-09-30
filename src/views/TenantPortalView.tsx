@@ -375,7 +375,7 @@ const HomeTab: React.FC<any> = ({ currentTenant, currentUnit, unitImages, curren
             {currentContract && <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-md text-[11px] font-bold">{t('عقد ساري', 'Active Contract')}</span>}
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-white">{t(`مرحباً بك، ${tenantName}`, `Welcome, ${tenantName}`)}</h1>
-          <p className="text-xs text-slate-400 mt-1">{t('بوابة الخدمات الذاتية لمستأجري كمبوند أزهار السكني', 'Azhar Residence Tenant Self-Service Portal')}</p>
+          <p className="text-xs text-slate-400 mt-1">{t('بوابة الخدمات الذاتية لمستأجري كمباوند أزهار السكني', 'Azhar Residence Tenant Self-Service Portal')}</p>
         </div>
       </div>
 
@@ -930,7 +930,7 @@ const FacilitiesTab: React.FC<any> = ({ facilities, currentTenant, myBookings, l
   return (
     <div className="space-y-4">
       <div className="border-b border-slate-200 pb-4">
-        <h2 className="text-base font-bold text-slate-800 flex items-center gap-2"><Building2 className="w-5 h-5 text-purple-500" />{t('مرافق الكمبوند', 'Community Facilities')}</h2>
+        <h2 className="text-base font-bold text-slate-800 flex items-center gap-2"><Building2 className="w-5 h-5 text-purple-500" />{t('مرافق الكمباوند', 'Community Facilities')}</h2>
         <p className="text-xs text-slate-500 mt-0.5">{t('تصفح المرافق المتاحة واحجز موعدك', 'Browse available facilities and book your slot')}</p>
       </div>
       {facilities.length === 0 ? (
@@ -1005,7 +1005,7 @@ const BookingsTab: React.FC<any> = ({ myBookings, facilities, language, t, onRef
     <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
       <div className="border-b border-slate-200 pb-4">
         <h2 className="text-base font-bold text-slate-800 flex items-center gap-2"><CalendarDays className="w-5 h-5 text-purple-500" />{t('حجوزاتي', 'My Bookings')}</h2>
-        <p className="text-xs text-slate-500 mt-0.5">{t('إدارة حجوزاتك في مرافق الكمبوند', 'Manage your facility bookings')}</p>
+        <p className="text-xs text-slate-500 mt-0.5">{t('إدارة حجوزاتك في مرافق الكمباوند', 'Manage your facility bookings')}</p>
       </div>
       {myBookings.length === 0 ? (
         <div className="py-12 text-center text-slate-400 space-y-2"><CalendarDays className="w-10 h-10 mx-auto text-slate-300" /><p className="text-sm">{t('لا توجد حجوزات', 'No bookings yet')}</p></div>
@@ -1044,7 +1044,7 @@ const AnnouncementsTab: React.FC<any> = ({ announcements, language, t }) => {
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
       <div className="border-b border-slate-200 pb-4">
-        <h2 className="text-base font-bold text-slate-800 flex items-center gap-2"><Bell className="w-5 h-5 text-amber-500" />{t('إعلانات الكمبوند', 'Community Announcements')}</h2>
+        <h2 className="text-base font-bold text-slate-800 flex items-center gap-2"><Bell className="w-5 h-5 text-amber-500" />{t('إعلانات الكمباوند', 'Community Announcements')}</h2>
         <p className="text-xs text-slate-500 mt-0.5">{t('آخر الأخبار والإعلانات من إدارة المجمع', 'Latest news and announcements from management')}</p>
       </div>
       {announcements.length === 0 ? (

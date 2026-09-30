@@ -406,7 +406,7 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
     const formattedPhone = rawMobile.startsWith('0') ? `966${rawMobile.slice(1)}` : rawMobile.startsWith('966') ? rawMobile : `966${rawMobile}`;
     const text = encodeURIComponent(
       `مرحباً السيد/ة ${c.tenantName} المحترم،\n` +
-      `تحية طيبة من إدارة كمبوند أزهار (Azhar Residence).\n` +
+      `تحية طيبة من إدارة كمباوند أزهار (Azhar Residence).\n` +
       `نود إشعاركم بتفاصيل عقد إيجار الوحدة رقم (${c.unitNumber}) - عقد رقم (${c.contractNo}).\n` +
       `إيجار الوحدة السنوي: ${Number(c.annualRent || 0).toLocaleString()} ريال.\n` +
       `المياه السنوية: ${Number(c.waterYearlyBill || 0).toLocaleString()} ريال.\n` +
@@ -514,10 +514,10 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
           <div>
             <div className="flex items-center gap-2 text-xs font-bold text-[#29b4c4] uppercase tracking-wider mb-0.5">
               <FileText className="w-4 h-4" />
-              <span>كمبوند أزهار - Azhar Residence</span>
+              <span>كمباوند أزهار - Azhar Residence</span>
             </div>
             <h1 className="text-xl font-black text-slate-900 tracking-tight">
-              {showArchivedOnly ? 'العقود المؤرشفة - كمبوند أزهار' : 'سجل العقود والتحرير (Contract Management)'}
+              {showArchivedOnly ? 'العقود المؤرشفة - كمباوند أزهار' : 'سجل العقود والتحرير (Contract Management)'}
             </h1>
             <p className="text-xs text-slate-500 mt-1">
               إدارة جميع عقود الإيجار، العمليات والتحرير، متابعة المبالغ المدفوعة والمتبقية، والطباعة الرسمية.
@@ -992,7 +992,7 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
               <div className="flex items-center gap-2">
                 <AzharLogo variant="dark" size="sm" />
                 <h3 className="text-base font-bold text-slate-900 mr-2">
-                  تحرير عقد جديد - كمبوند أزهار
+                  تحرير عقد جديد - كمباوند أزهار
                 </h3>
               </div>
               <button 
@@ -1594,7 +1594,7 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
               <div className="flex items-center gap-2">
                 <Eye className="w-5 h-5 text-[#29b4c4]" />
                 <h3 className="text-base font-bold text-slate-900">
-                  تفاصيل العقد الكاملة - كمبوند أزهار
+                  تفاصيل العقد الكاملة - كمباوند أزهار
                 </h3>
               </div>
               <button 
@@ -1613,7 +1613,7 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
                 </div>
                 <div className="flex justify-between border-b border-slate-200 pb-2">
                   <span className="text-slate-500">المشروع:</span>
-                  <span className="font-bold text-[#29b4c4]">Azhar Residence (كمبوند أزهار)</span>
+                  <span className="font-bold text-[#29b4c4]">Azhar Residence (كمباوند أزهار)</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-200 pb-2">
                   <span className="text-slate-500">رقم الوحدة ونوعها:</span>
@@ -2014,7 +2014,7 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
 
             <div className="space-y-3 text-xs">
               <div className="bg-blue-50 p-3 rounded-xl border border-blue-200">
-                <p className="font-bold text-blue-900">كمبوند أزهار - Azhar Residence</p>
+                <p className="font-bold text-blue-900">كمباوند أزهار - Azhar Residence</p>
                 <p className="text-blue-700">رقم الوحدة: {activeModal.contract.unitNumber} | النوع: {activeModal.contract.unitType}</p>
               </div>
 
@@ -2060,7 +2060,7 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
               </div>
 
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <p className="font-bold text-slate-900">العقد الحالي بـ كمبوند أزهار</p>
+                <p className="font-bold text-slate-900">العقد الحالي بـ كمباوند أزهار</p>
                 <p className="text-slate-600">وحدة #{activeModal.contract.unitNumber} - الإيجار: {activeModal.contract.annualRent.toLocaleString()} SAR</p>
                 <p className="text-slate-600">حالة السداد: مدفوع {activeModal.contract.paidAmount.toLocaleString()} SAR / متبقي {activeModal.contract.remainingAmount.toLocaleString()} SAR</p>
               </div>
@@ -2084,14 +2084,14 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
 
             <div className="text-center my-4">
               <h1 className="text-xl font-black tracking-tight text-slate-900 underline underline-offset-8 decoration-2">
-                عقد إيجار موحد - كمبوند أزهار (Azhar Residence)
+                عقد إيجار موحد - كمباوند أزهار (Azhar Residence)
               </h1>
             </div>
 
             {/* Terms Table */}
             <div className="border border-slate-300 rounded-xl overflow-hidden text-xs">
               <div className="bg-slate-100 p-3 font-bold border-b border-slate-300 grid grid-cols-2">
-                <span>الطرف الأول (المؤجر): إدارة كمبوند أزهار</span>
+                <span>الطرف الأول (المؤجر): إدارة كمباوند أزهار</span>
                 <span>الطرف الثاني (المستأجر): {activeModal.contract.tenantName}</span>
               </div>
               <div className="p-4 space-y-2 bg-white">
@@ -2117,15 +2117,15 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
 
             <div className="text-[11px] text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-200">
               <p className="font-bold text-slate-800 mb-1">الشروط والأحكام الإيجارية:</p>
-              <p>1. يتعهد المستأجر بالمحافظة على العين المؤجرة والمرافق العامة بـ كمبوند أزهار.</p>
+              <p>1. يتعهد المستأجر بالمحافظة على العين المؤجرة والمرافق العامة بـ كمباوند أزهار.</p>
               <p>2. يتم سداد المبالغ المتبقية في المواعيد المحددة وحسب الجدول الزمني المعتمد.</p>
-              <p>3. هذا العقد موثق ومعتمد رسمياً من قبل إدارة كمبوند أزهار (Azhar Residence).</p>
+              <p>3. هذا العقد موثق ومعتمد رسمياً من قبل إدارة كمباوند أزهار (Azhar Residence).</p>
             </div>
 
             {/* Signatures */}
             <div className="grid grid-cols-2 gap-8 pt-8 border-t border-slate-200 text-xs text-center font-bold">
               <div>
-                <p className="mb-8">توقيع الطرف الأول (إدارة كمبوند أزهار)</p>
+                <p className="mb-8">توقيع الطرف الأول (إدارة كمباوند أزهار)</p>
                 <p className="text-slate-400 font-normal">___________________________</p>
                 
               </div>

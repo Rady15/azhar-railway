@@ -103,7 +103,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Contracts View
     contracts_registry: 'العقود والتحرير',
     archived_contracts_registry: 'العقود المؤرشفة',
-    contracts_desc: 'إدارة وتوثيق جميع عقود إيجار كمبوند أزهار مع متابعة التحصيل والتنبيهات.',
+    contracts_desc: 'إدارة وتوثيق جميع عقود إيجار كمباوند أزهار مع متابعة التحصيل والتنبيهات.',
     draft_new_contract: 'تحرير عقد جديد',
     contract_number: 'رقم العقد',
     unit_number: 'رقم الوحدة',
@@ -121,7 +121,7 @@ const translations: Record<Language, Record<string, string>> = {
     no: 'لا',
 
     // Login Screen
-    welcome_back: 'مرحباً بك في نظام كمبوند أزهار',
+    welcome_back: 'مرحباً بك في نظام كمباوند أزهار',
     login_subtitle: 'الرجاء إدخال بيانات الدخول لإدارة العقارات والمستأجرين',
     login_button: 'تسجيل الدخول',
     admin_login: 'دخول المدير (Admin)',
