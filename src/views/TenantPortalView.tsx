@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { User as UserType, Contract, MaintenanceRequest, Complaint, Tenant } from '../types';
 import { useLanguage } from '../context/LanguageContext';
-import { apiService } from '../services/api';
+import { apiService, mediaSrc } from '../services/api';
 import { MediaUploadField } from '../components/MediaUploadField';
 import { FamilyMembersView } from '../components/FamilyMembersView';
 import { AzharLogo } from '../components/AzharLogo';
@@ -368,7 +368,7 @@ const HomeTab: React.FC<any> = ({ currentTenant, currentUnit, unitImages, curren
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-[#1e3448] border border-cyan-500/20 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
-        {unitImageUrl && <img src={unitImageUrl} alt={t('صورة الوحدة','Unit')} className="absolute inset-0 w-full h-full object-cover opacity-20" />}
+        {unitImageUrl && <img src={mediaSrc(unitImageUrl)} alt={t('صورة الوحدة','Unit')} className="absolute inset-0 w-full h-full object-cover opacity-20" />}
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-2">
             <span className="px-2.5 py-0.5 bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-md text-[11px] font-bold">{t(`الوحدة: ${unitNumber}`, `Unit: ${unitNumber}`)}</span>
@@ -546,7 +546,7 @@ const UnitTab: React.FC<any> = ({ currentTenant, currentUnit, unitImages, langua
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-1 bg-slate-950">
             {images.slice(0, 8).map((src:string, index:number) => (
               <a key={`${src}-${index}`} href={src} target="_blank" rel="noreferrer" className={`block overflow-hidden ${index === 0 ? 'col-span-2 row-span-2' : ''}`}>
-                <img src={src} alt={`${t('صورة الوحدة','Unit image')} ${index + 1}`} className="w-full h-40 sm:h-48 object-cover hover:scale-105 transition-transform duration-300" />
+                <img src={mediaSrc(src)} alt={`${t('صورة الوحدة','Unit image')} ${index + 1}`} className="w-full h-40 sm:h-48 object-cover hover:scale-105 transition-transform duration-300" />
               </a>
             ))}
           </div>
@@ -941,7 +941,7 @@ const FacilitiesTab: React.FC<any> = ({ facilities, currentTenant, myBookings, l
             const meta = CATEGORY_META[f.category] || CATEGORY_META['Hall'];
             return (
               <div key={f.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all">
-                {f.image && <img src={f.image} alt={f.name || f.title} className="w-full h-36 object-cover" />}
+                {f.image && <img src={mediaSrc(f.image)} alt={f.name || f.title} className="w-full h-36 object-cover" />}
                 {!f.image && <div className="w-full h-36 flex items-center justify-center" style={{ background: `${meta.bg}` }}>{facilityIcon(meta.icon, 'w-12 h-12')}</div>}
                 <div className="p-4 space-y-3">
                   <div className="flex items-center justify-between">
@@ -1053,7 +1053,7 @@ const AnnouncementsTab: React.FC<any> = ({ announcements, language, t }) => {
         <div className="space-y-4">
           {announcements.map((a: any) => (
             <div key={a.id} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
-              {a.imageUrls?.[0] && <img src={a.imageUrls[0]} alt={a.title} className="w-full h-40 object-cover rounded-lg" />}
+              {a.imageUrls?.[0] && <img src={mediaSrc(a.imageUrls[0])} alt={a.title} className="w-full h-40 object-cover rounded-lg" />}
               <h3 className="text-sm font-bold text-slate-800">{a.title || a.name}</h3>
               <p className="text-xs text-slate-600 leading-relaxed">{a.description || a.body || ''}</p>
               <div className="text-[11px] text-slate-400 flex items-center gap-1"><Calendar className="w-3 h-3" />{a.announcementDate || a.createdAt?.slice(0, 10) || '—'}</div>
@@ -1093,7 +1093,7 @@ const ProfileTab: React.FC<any> = ({ currentUser, currentTenant, documents, lang
         <form onSubmit={handleSave} className="space-y-6">
           <div className="flex flex-col items-center gap-3">
             <div className="relative group">
-              <img src={profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || 'U')}&background=29b4c4&color=fff`} alt="" className="w-24 h-24 rounded-full object-cover border-4 border-[#29b4c4] shadow-lg" onError={(e) => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || 'U')}&background=29b4c4&color=fff`; }} />
+              <img src={mediaSrc(profileImage) || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || 'U')}&background=29b4c4&color=fff`} alt="" className="w-24 h-24 rounded-full object-cover border-4 border-[#29b4c4] shadow-lg" onError={(e) => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || 'U')}&background=29b4c4&color=fff`; }} />
               {isUploading && <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full"><Loader2 className="w-8 h-8 text-white animate-spin" /></div>}
               {!isUploading && <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Camera className="w-8 h-8 text-white" /></button>}
             </div>

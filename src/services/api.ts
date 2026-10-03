@@ -7,6 +7,25 @@ import { Tenant, Contract, Unit, ElectricityMeter, MaintenanceRequest, Maintenan
 const viteEnv = (import.meta as any).env || {};
 export const API_BASE: string = viteEnv.VITE_API_BASE || '/api';
 
+/**
+ * Build a browser-loadable URL for a protected media file.
+ *
+ * <img src>, <a download> and CSS url() cannot send an Authorization header,
+ * so the JWT is appended as ?access_token=. The server accepts it for safe
+ * methods only (see extractToken in server.ts).
+ */
+export function mediaSrc(url: string | null | undefined): string {
+  if (!url) return '';
+  if (/^(data:|https?:\/\/(?!localhost|127\.0\.0\.1))/i.test(url) && !/\/api\/Media\//i.test(url)) return url;
+  // normalise to an absolute /api/Media/... path
+  const m = String(url).match(/(?:^|\/)api\/Media\/[^?#]+/i);
+  let path = m ? m[0].replace(/^\//, '') : String(url).replace(/^\//, '');
+  if (!/^api\/Media\//i.test(path)) return url;
+  if (!/\?/.test(path)) path += '?access_token=' + encodeURIComponent(authToken || '');
+  return '/' + path;
+}
+
+
 export const SESSION_EXPIRED_EVENT = 'azhar:session-expired';
 
 let authToken: string | null = null;
@@ -1365,11 +1384,28 @@ export const apiService = {
   // https://host/api/Media/<id>/content. Reduce any absolute or relative form to the
   // API-relative path so the file is always fetched from the current deployment.
   mediaPath(url: string): string {
-    // authedFetch re-adds API_BASE, so the returned path must not keep the "api/" segment.
-    const m = String(url).match(/(?:^|\/)api\/Media\/[^?#]+/i);
-    if (m) return m[0].replace(/^(?:\/)?api\//i, '');
-    if (url.startsWith('/api/')) return url.slice(4);
-    return url.replace(/^\//, '');
+    // authedFetch re-adds API_BASE ("/api"), so the returned path must NOT keep
+    // the "api/" segment. The old code used url.slice(4) on "/api/..." which cut
+    // only 4 characters and left "apiMedia/...", producing a request for
+    // /apiMedia/<id>/content which 404s. Strip the segment properly.
+    const raw = String(url).split('?')[0].split('#')[0];
+    const m = raw.match(/(?:^|\/)api\/Media\/[^/]+/i);
+    // strip the leading slash first, THEN the "api/" segment — doing it in one
+    // pass left the slash behind ("/apiMedia/<id>") which nginx 404s.
+    if (m) return m[0].replace(/^\//, '').replace(/^api\//i, '');
+    if (/^api\//i.test(raw)) return raw.replace(/^api\//i, '');
+    return raw.replace(/^\//, '');
+  },
+
+  /** Every file the current user may see (GET /api/Media, scoped server-side). */
+  async listMedia(params?: { entityType?: string; entityId?: string }): Promise<any[]> {
+    const qs = new URLSearchParams();
+    if (params?.entityType) qs.set('entityType', params.entityType);
+    if (params?.entityId) qs.set('entityId', params.entityId);
+    const q = qs.toString();
+    const res = await authedFetch('/Media' + (q ? '?' + q : ''));
+    if (!res.ok) { const raw = await res.text(); throw new Error(friendlyApiError(res.status, raw, '/Media').ar); }
+    return res.json();
   },
 
   async getMediaBlob(url: string): Promise<Blob> {

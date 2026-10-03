@@ -26,7 +26,7 @@ import { Building, Contract, Unit } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { confirmUi, promptUi } from '../utils/uiDialog';
 import { MediaUploadField } from '../components/MediaUploadField';
-import { apiService } from '../services/api';
+import { apiService, mediaSrc } from '../services/api';
 
 interface CompoundUnitsProps {
   units: Unit[];
@@ -437,7 +437,7 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
                 ) : sortedUnits.map((u, idx) => (
                   <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3 px-3 text-center text-slate-400">{idx + 1}</td>
-                    <td className="py-3 px-3 text-center">{u.imageUrl ? <img src={u.imageUrl} alt={u.unitNumber} className="w-12 h-10 mx-auto object-cover rounded-lg border border-slate-200" /> : <span className="text-slate-400 text-[10px]">{language === 'ar' ? 'بدون صورة' : 'No image'}</span>}</td>
+                    <td className="py-3 px-3 text-center">{u.imageUrl ? <img src={mediaSrc(u.imageUrl)} alt={u.unitNumber} className="w-12 h-10 mx-auto object-cover rounded-lg border border-slate-200" /> : <span className="text-slate-400 text-[10px]">{language === 'ar' ? 'بدون صورة' : 'No image'}</span>}</td>
                     <td className="py-3 px-3 font-semibold text-slate-800">{u.compoundName || 'Azhar Residence'}</td>
                     <td className="py-3 px-3">{u.type || '-'}</td>
                     <td className="py-3 px-3"><span className="font-mono font-bold text-[#1a7f8b] bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">{u.unitNumber}</span></td>
@@ -580,7 +580,7 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
             </div>
             <div className="p-6 space-y-5 text-xs overflow-y-auto">
               {(viewingUnit as any).imageUrl && (
-                <img src={(viewingUnit as any).imageUrl} alt={viewingUnit.unitNumber} className="w-full h-56 md:h-72 object-cover rounded-2xl border border-slate-200" />
+                <img src={mediaSrc((viewingUnit as any).imageUrl)} alt={viewingUnit.unitNumber} className="w-full h-56 md:h-72 object-cover rounded-2xl border border-slate-200" />
               )}
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">

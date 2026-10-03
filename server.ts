@@ -648,8 +648,27 @@ function rateLimit(name:string, max:number, windowMs:number) {
   };
 }
 
+function extractToken(req:any):string {
+  // 1) normal API call: Authorization: Bearer <jwt>
+  const auth=req.headers?.authorization||"";
+  if(auth.startsWith("Bearer ")) return auth.slice(7).trim();
+  // 2) <img src>, <a download> and CSS url() CANNOT set an Authorization
+  //    header. Those pass the JWT as a query param instead
+  //    (?access_token= / ?token=). Only honoured on safe methods, so a
+  //    mutating request can never be triggered from a bare link.
+  if(req.method==="GET"||req.method==="HEAD"){
+    const q=req.query||{};
+    const t=q.access_token||q.token||q.jwt||q.auth;
+    if(typeof t==="string" && t.length>0) return t;
+    const cookie=req.headers?.cookie||"";
+    const m=cookie.match(/(?:access_token|token)=([^;]+)/);
+    if(m) return decodeURIComponent(m[1]);
+  }
+  return "";
+}
+
 function requireAuth(req:any,res:any,next:any) {
-  const auth=req.headers.authorization||""; const payload=auth.startsWith("Bearer ")?verifyJwt(auth.slice(7)):null;
+  const payload=verifyJwt(extractToken(req));
   if(!payload) return res.status(401).json({isSuccess:false,message:"Unauthorized: missing or expired access token"}); req.user=payload; next();
 }
 function requirePermission(code:string) { return (req:any,res:any,next:any)=> req.user?.permissions?.includes(code) ? next() : res.status(403).json({message:"Forbidden",requiredPermission:code}); }
@@ -1805,6 +1824,33 @@ async function startServer() {
       const ids=new Set<string>([String(req.user.sub),link.entityId,...tenantContracts(link.entity).map((x:any)=>String(x.id))]);
       for(const x of maintenanceStore)if(String(x.tenantId||'')===link.entityId)ids.add(String(x.id));
       for(const x of complaintsStore)if(String(x.tenantId||'')===link.entityId)ids.add(String(x.id));
+      // A tenant must be able to open their OWN family members' identity and
+      // residence documents. Those media rows carry entity_id = <familyMemberId>,
+      // which was never added to the scope, so every view returned 403.
+      if(dbPool){
+        try{
+          // The tenant's family members live inside tenants.data->familyMembers[],
+          // each with its own id. A tenant must be able to open the identity and
+          // residence files that belong to THOSE members.
+          // The in-memory store may be stale, so read the authoritative row from pg.
+          let members:any[] = Array.isArray((link?.entity as any)?.data?.familyMembers)
+            ? (link.entity as any).data.familyMembers
+            : [];
+          if(!members.length){
+            const tr=await dbPool.query(
+              `SELECT data->'familyMembers' AS fm FROM tenants WHERE id=$1`, [link.entityId]
+            );
+            const raw=tr.rows?.[0]?.fm;
+            if(Array.isArray(raw)) members=raw;
+          }
+          const memberIds = members.map((m:any)=>String(m?.id||'')).filter(Boolean);
+          const ownIds = [String(req.user.sub), String(link.entityId), ...memberIds];
+          const r = await dbPool.query(
+            `SELECT id FROM media_assets WHERE entity_id = ANY($1::text[])`, [ownIds]
+          );
+          for(const row of r.rows) ids.add('media:'+String(row.id));
+        }catch(e){ /* scope is best-effort; fall through with what we have */ }
+      }
       return {all:false,ids};
     }
     if(req.user?.role==='Staff'){
@@ -1815,7 +1861,14 @@ async function startServer() {
     }
     return {all:false,ids:new Set<string>([String(req.user?.sub||'')])};
   }
-  async function canAccessMedia(req:any, entityId:any){ const scope=await mediaScope(req); return scope.all || (!!entityId && scope.ids.has(String(entityId))); }
+  async function canAccessMedia(req:any, entityId:any, mediaId?:any){
+    const scope=await mediaScope(req);
+    if(scope.all) return true;
+    if(!entityId) return false;
+    if(scope.ids.has(String(entityId))) return true;
+    if(mediaId && scope.ids.has('media:'+String(mediaId))) return true;
+    return false;
+  }
 
   // Media API - database-backed uploads for profile photos, facility images and tenant documents
   app.post("/api/Media", rateLimit("media-upload", 30, 10*60*1000), async (req:any,res) => {
@@ -1839,7 +1892,7 @@ async function startServer() {
     if(!dbPool) return res.status(404).end();
     const r=await dbPool.query(`SELECT entity_id,file_name,mime_type,content FROM media_assets WHERE id=$1`,[req.params.id]);
     if(!r.rowCount) return res.status(404).json({message:"الملف غير موجود"});
-    if(!(await canAccessMedia(req,r.rows[0].entity_id))) return res.status(403).json({message:'ليس لديك صلاحية لعرض هذا الملف'});
+    if(!(await canAccessMedia(req,r.rows[0].entity_id,req.params.id))) return res.status(403).json({message:'ليس لديك صلاحية لعرض هذا الملف'});
     res.setHeader('Content-Type',r.rows[0].mime_type); res.setHeader('Content-Disposition', safeContentDisposition(r.rows[0].file_name, 'inline')); res.setHeader('Cache-Control','private, max-age=3600'); res.send(r.rows[0].content);
   });
   app.get("/api/Media", async (req:any,res) => {

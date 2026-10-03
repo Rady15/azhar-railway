@@ -17,6 +17,7 @@ import { ComplaintsView } from './views/ComplaintsView';
 import { StaffView } from './views/StaffView';
 import { StaffPortalView } from './views/StaffPortalView';
 import { TenantPortalView } from './views/TenantPortalView';
+import { MediaLibraryView } from './views/MediaLibraryView';
 import { ExpensesView } from './views/ExpensesView';
 import { LettersView } from './views/LettersView';
 import { FacilitiesView } from './views/FacilitiesView';
@@ -529,6 +530,8 @@ function MainApp() {
                 onNavigate={setActiveTab}
               />
             )}
+
+            {activeTab === 'azhar_media' && <MediaLibraryView />}
 
             {/* Azhar Residence Tabs */}
             {activeTab === 'azhar_collections' && (

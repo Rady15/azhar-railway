@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Upload, FileText, Image as ImageIcon, Loader2, Trash2, X, CheckCircle2, AlertCircle, Eye, Download } from 'lucide-react';
-import { apiService } from '../services/api';
+import { apiService, mediaSrc } from '../services/api';
 import { notifyUser } from '../utils/userFeedback';
 import { useLanguage } from '../context/LanguageContext';
 import type { FamilyMember, FamilyMemberFormValues } from '../types';
@@ -163,7 +163,7 @@ export const FamilyMemberForm: React.FC<Props> = ({ tenantId, member, existingDo
         {slot.status === 'ready' && slot.url && (
           <div className="mb-2">
             {isImage(slot.fileName || slot.url) || slot.url.startsWith('blob:') ? (
-              <img src={slot.url} alt={slot.fileName} className="w-full h-28 object-cover rounded-lg border border-slate-200" />
+              <img src={mediaSrc(slot.url)} alt={slot.fileName} className="w-full h-28 object-cover rounded-lg border border-slate-200" />
             ) : (
               <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 p-2">
                 <FileText className="w-4 h-4 text-[#29b4c4] shrink-0" />
