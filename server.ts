@@ -3232,7 +3232,8 @@ async function startServer() {
   // Full logical export built in memory from the live database. This is the
   // serverless-safe path: it needs no filesystem and no pg_dump, so the backup
   // button produces a genuine, restorable file on any host.
-  const buildSqlExport = async (): Promise<string> => {
+  const INCLUDE_MEDIA_MAX_BYTES = 6 * 1024 * 1024;
+  const buildSqlExport = async (forceMedia = false): Promise<string> => {
     if (!dbPool) throw new Error("Database unavailable");
     // azhar_audit_log is an append-only operational log, not business data: it
     // held 25038 of the 25312 rows here and made the export 9.4 MB, which is
@@ -3245,6 +3246,40 @@ async function startServer() {
     )).rows.map((r: any) => r.table_name as string);
     const tables = allTables.filter((t: string) => !EXCLUDE.has(t));
     const skipped = allTables.filter((t: string) => EXCLUDE.has(t));
+
+    // Insert parents before children. Alphabetical order broke 18 of the 29
+    // foreign keys here (buildings references compounds, contracts references
+    // houses and tenants, ...), so psql aborted with a constraint violation.
+    const exported = new Set(tables);
+    const edges = (await dbPool.query(
+      `SELECT c.conrelid::regclass::text AS child, c.confrelid::regclass::text AS parent
+         FROM pg_constraint c
+        WHERE c.contype = 'f' AND c.connamespace = 'public'::regnamespace`
+    )).rows as { child: string; parent: string }[];
+
+    // prerequisites[t] = the tables t references, i.e. t's FK parents.
+    const prerequisites = new Map<string, Set<string>>();
+    for (const t of tables) prerequisites.set(t, new Set());
+    for (const e of edges) {
+      // Only edges between exported tables matter: a parent that is not in the
+      // file already has its rows in the live database.
+      if (!exported.has(e.child) || !exported.has(e.parent)) continue;
+      if (e.child === e.parent) continue;            // self-reference
+      prerequisites.get(e.child)!.add(e.parent);
+    }
+
+    // Kahn's algorithm: a table may be emitted once every parent is done.
+    const ordered: string[] = [];
+    const remaining = new Set(tables);
+    while (remaining.size) {
+      const ready = tables.filter((t: string) =>
+        remaining.has(t) &&
+        [...(prerequisites.get(t) || [])].every((parent: string) => !remaining.has(parent)));
+      if (!ready.length) break;                       // only a cycle can stall it
+      for (const t of ready) { ordered.push(t); remaining.delete(t); }
+    }
+    const cyclic = tables.filter((t: string) => remaining.has(t));
+    for (const t of cyclic) ordered.push(t);
 
     const lit = (v: any): string => {
       if (v === null || v === undefined) return "NULL";
@@ -3261,22 +3296,57 @@ async function startServer() {
     // response ceiling on serverless - 38 files made the export 44 MB. The rows
     // and their metadata are kept so the catalogue survives; the bytes themselves
     // are backed up by the file-based pg_dump on the hosted server.
-    const SKIP_COLUMNS = new Set(["content"]);
+    // Binary payloads are omitted only when they cannot fit. media_assets.content
+    // holds the uploaded files, and a .sql restore replaces the whole schema, so
+    // an export without them would silently blank every stored file. Include them
+    // whenever the total is reasonable and say so plainly in the header.
+    const blobBytes = Number((await dbPool.query(
+      `SELECT COALESCE(SUM(octet_length(content)),0) AS n FROM media_assets WHERE content IS NOT NULL`
+    )).rows[0]?.n || 0);
+    const wantMedia = forceMedia || blobBytes <= INCLUDE_MEDIA_MAX_BYTES;
+    const SKIP_COLUMNS = new Set(wantMedia ? [] : ["content"]);
 
     const out: string[] = [
-      "-- Azhar System — logical SQL export",
+      "-- Azhar System — logical SQL DATA export",
       `-- generated ${new Date().toISOString()}`,
-      "-- Restore: psql \"$DATABASE_URL\" -f this-file.sql",
+      "--",
+      "-- This file replaces DATA. It does not rebuild the schema: the CREATE TABLE",
+      "-- statements below are a best-effort approximation so the file is readable on",
+      "-- an empty database, and they are skipped entirely when the tables already",
+      "-- exist. A restore therefore keeps the live schema with its foreign keys and",
+      "-- indexes intact - which a dropped-and-recreated schema would lose, breaking",
+      "-- the app's start-up migrations.",
+      "--",
+      "-- For a byte-faithful full restore (schema, constraints, indexes, ownership)",
+      "-- use a .dump from the hosted server: pg_dump custom format via",
+      "-- azhar-backup, restored with azhar-restore-auto.",
+      "--",
+      "-- Restore: psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f this-file.sql",
       ...(skipped.length
         ? [`-- NOTE: table excluded (operational log, not business data): ${skipped.join(", ")}`]
         : []),
-      `-- NOTE: the binary "content" column of media_assets is excluded; file bytes are`,
-      "--       backed up by the file-based pg_dump on the hosted server. Metadata is kept.",
+      ...(wantMedia
+        ? [`-- media file bytes are included (${fmtBytes(blobBytes)}), so this is a full restore.`]
+        : []),
       "SET client_encoding = 'UTF8';",
       "BEGIN;",
       "",
     ];
-    for (const table of tables) {
+    // Wipe the current contents before inserting. One statement covering every
+    // table is required: tables reference each other, and CASCADE inside a loop
+    // would empty a table that was already repopulated.
+    if (ordered.length) {
+      out.push(`TRUNCATE TABLE ${ordered.map((t: string) => `"${t}"`).join(", ")} RESTART IDENTITY CASCADE;`);
+      out.push("");
+    }
+    if (cyclic.length) {
+      out.push(`-- WARNING: these tables take part in a foreign-key cycle and are inserted`);
+      out.push(`--          last; if your psql reports a constraint error, re-run the inserts`);
+      out.push(`--          for them individually: ${cyclic.join(", ")}`);
+      out.push("");
+    }
+
+    for (const table of ordered) {
       const cols = (await dbPool.query(
         `SELECT column_name, data_type, is_nullable, column_default
            FROM information_schema.columns WHERE table_schema='public' AND table_name=$1
@@ -3310,10 +3380,7 @@ async function startServer() {
         const nullable = c.is_nullable === 'NO' && !SKIP_COLUMNS.has(String(c.column_name)) ? ' NOT NULL' : '';
         return `  "${c.column_name}" ${type}${nullable}${def}`;
       }).join(",\n");
-      // pg_dump's plain format drops first so a restore actually replaces the
-      // existing contents; matching that keeps the two backup kinds equivalent.
-      out.push(`DROP TABLE IF EXISTS "${table}" CASCADE;`);
-      out.push(`CREATE TABLE "${table}" (\n${ddl}\n);`);
+      out.push(`CREATE TABLE IF NOT EXISTS "${table}" (\n${ddl}\n);`);
 
       const rows = (await dbPool.query(`SELECT ${colList} FROM "${table}"`)).rows;
       if (rows.length) {
@@ -3325,8 +3392,95 @@ async function startServer() {
       out.push("");
     }
     out.push("COMMIT;", "");
+    if (!wantMedia) {
+      out.push(`-- WARNING: file bytes were NOT included (${fmtBytes(blobBytes)} of media exceeds the ${fmtBytes(INCLUDE_MEDIA_MAX_BYTES)} limit).`);
+      out.push("--          Restoring this file leaves media_assets.content empty, so stored files");
+      out.push("--          must be re-uploaded. Use a .dump backup from the hosted server for a full restore.");
+    }
     return out.join("\n");
   };
+
+  const UPLOAD_DIR = process.env.UPLOAD_DIR || "/var/lib/azhar-restore";
+  const UPLOAD_SCRIPT = "/usr/local/bin/azhar-restore-upload";
+  const MAX_UPLOAD_BYTES = 120 * 1024 * 1024;
+
+  // Restore a backup file the admin uploaded from any device. This is the path
+  // for a .sql export downloaded from a serverless deployment, which pg_restore
+  // cannot read and which therefore could not be restored before.
+  app.post("/api/admin/backups/upload",
+    requirePermission("admin.manage"),
+    // The global express.json() only claims application/json, so the raw bytes
+    // are still on the stream here and this parser can take them.
+    express.raw({ type: "*/*", limit: MAX_UPLOAD_BYTES }),
+    rateLimit("restore-upload", 3, 60 * 60 * 1000),
+    async (req: any, res) => {
+      try {
+        if (!fileBackupsAvailable() || !fs.existsSync(UPLOAD_SCRIPT)) {
+          return res.status(409).json({ isSuccess: false, message: NO_FILE_BACKUP_MSG });
+        }
+        const buf: Buffer = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+        if (!buf.length) {
+          return res.status(400).json({ isSuccess: false, message: "لم يتم رفع أي ملف" });
+        }
+        // Validate the client-supplied name strictly before anything touches the
+        // disk. Silently coercing an arbitrary name to upload-<stamp>.sql meant a
+        // traversal attempt like "../../etc/passwd.sql" was accepted as a real
+        // .sql upload and then handed to the restore script, which drops the
+        // schema before reading the file.
+        const raw = decodeURIComponent(String(req.query.name || req.headers["x-file-name"] || "backup.sql")).trim();
+        const base = raw.split(/[\\/]/).pop() || "";
+        if (base !== raw || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(raw) || raw.includes("..")) {
+          return res.status(400).json({ isSuccess: false, message: "اسم الملف غير صالح" });
+        }
+        const ext = /\.dump$/i.test(raw) ? ".dump" : ".sql";
+        if (!/\.(dump|sql)$/i.test(raw)) {
+          return res.status(400).json({ isSuccess: false, message: "الملف يجب أن يكون .dump أو .sql" });
+        }
+        // A .sql file that cannot contain a schema is garbage. Catching it here
+        // avoids handing it to a script whose first step is DROP SCHEMA.
+        if (ext === ".sql" && buf.length < 64) {
+          return res.status(400).json({ isSuccess: false, message: "الملف فارغ أو تالف — لا يحتوي على بيانات" });
+        }
+        const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "");
+        const filename = `upload-${stamp}${ext}`;
+        fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+        fs.writeFileSync(path.join(UPLOAD_DIR, filename), buf, { mode: 0o600 });
+
+        const r = await runCmd(privileged(UPLOAD_SCRIPT)[0], privileged(UPLOAD_SCRIPT).slice(1).concat([filename]), 1800000);
+        if (r.code !== 0) {
+          // The wrapper exits 2 when it refuses the file (bad name, missing file,
+          // unsupported type). That is a bad request, not a failed restore, and
+          // must not be reported as a server error.
+          const rejected = r.code === 2;
+          return res.status(rejected ? 400 : 500).json({
+            isSuccess: false,
+            message: rejected
+              ? "الملف المرفوع مرفوض"
+              : "فشل الاسترجاع من الملف المرفوع",
+            detail: String(r.out).slice(-1200),
+          });
+        }
+        // The app keeps tenants, users and media in memory, loaded once at
+        // start-up. After a restore that cache is stale and every authorised
+        // request comes back 401 until the process reloads. systemd is configured
+        // with Restart=always, so exiting here brings it straight back up. The
+        // response is sent first, and the delay gives it time to flush.
+        const restartSoon = !process.env.VERCEL && String(r.out).includes("restore complete");
+        res.json({
+          isSuccess: true,
+          message: restartSoon
+            ? "تم الاسترجاع بنجاح — جارٍ إعادة تشغيل التطبيق لتطبيق البيانات"
+            : "تم الاسترجاع بنجاح — أعد تحميل الصفحة",
+          output: String(r.out).slice(-1500),
+        });
+        if (restartSoon) setTimeout(() => process.exit(0), 1200);
+      } catch (e: any) {
+        res.status(500).json({ isSuccess: false, message: e?.message || "خطأ غير متوقع" });
+      }
+    });
+
+  const fmtBytes = (n: number) =>
+    n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(2)} MB`;
 
   const sqlExportFilename = () =>
     `azhar-${new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "")}-export.sql`;
@@ -3386,9 +3540,9 @@ async function startServer() {
 
   // Download a complete logical export. Works on every host, including
   // serverless where the file-based backup above is impossible.
-  app.get("/api/admin/backups/export.sql", requirePermission("admin.manage"), async (_req, res) => {
+  app.get("/api/admin/backups/export.sql", requirePermission("admin.manage"), async (req: any, res) => {
     try {
-      const sql = await buildSqlExport();
+      const sql = await buildSqlExport(req.query?.includeMedia === "1");
       // Serverless platforms cap a function response well below this. Failing
       // here with an explanation beats a truncated download.
       const MAX_EXPORT_BYTES = 3 * 1024 * 1024;
@@ -3511,9 +3665,10 @@ async function startServer() {
         }
         res.json({
           isSuccess: true,
-          message: 'تم الاسترجاع بنجاح — أعد تشغيل التطبيق لتطبيق البيانات',
+          message: 'تم الاسترجاع بنجاح — جارٍ إعادة تشغيل التطبيق لتطبيق البيانات',
           output: String(r.out).slice(-1200),
         });
+        if (!process.env.VERCEL) setTimeout(() => process.exit(0), 1200);
       } catch (e: any) {
         res.status(500).json({ isSuccess: false, message: e?.message || 'خطأ غير متوقع' });
       }

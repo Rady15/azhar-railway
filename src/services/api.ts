@@ -1520,6 +1520,35 @@ export const apiService = {
     setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
   },
 
+  /**
+   * Upload a backup file and restore it. This is how a .sql export from a
+   * serverless deployment comes back: pg_restore cannot read plain SQL, so it
+   * had no restore path before.
+   */
+  async uploadAndRestoreBackup(file: File, onProgress?: (pct: number) => void): Promise<{ message: string; output?: string }> {
+    await ensureAuth();
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      // The name travels in a header: a multipart body would need a parser, and
+      // the bytes themselves are what the raw parser on the server expects.
+      xhr.open('POST', `${API_BASE}/admin/backups/upload?name=${encodeURIComponent(file.name)}`);
+      if (authToken) xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
+      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+      xhr.withCredentials = true;
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.onload = () => {
+        let data: any = {};
+        try { data = JSON.parse(xhr.responseText); } catch { /* non-JSON error page */ }
+        if (xhr.status >= 200 && xhr.status < 300 && data?.isSuccess !== false) resolve(data);
+        else reject(new Error(data?.message || friendlyApiError(xhr.status, xhr.responseText, '/admin/backups/upload').ar));
+      };
+      xhr.onerror = () => reject(new Error('فشل الاتصال بالخادم'));
+      xhr.send(file);
+    });
+  },
+
   async restoreBackup(id: string): Promise<{ message: string; output?: string }> {
     const res = await authedFetch(`/admin/backups/${encodeURIComponent(id)}/restore`, {
       method: 'POST',

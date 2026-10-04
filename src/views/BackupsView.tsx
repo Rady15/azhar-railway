@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   DatabaseBackup, Loader2, RefreshCw, HardDriveDownload,
   AlertTriangle, CheckCircle2, Info, RotateCcw, Eye,
-  Download, FileCode2,
+  Download, FileCode2, Upload,
 } from 'lucide-react';
 import { apiService } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
@@ -35,6 +35,8 @@ export function BackupsView() {
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState<{ kind: 'ok' | 'bad' | 'info'; text: string } | null>(null);
   const [preview, setPreview] = useState<{ id: string; counts: Record<string, number> } | null>(null);
+  const [picked, setPicked] = useState<File | null>(null);
+  const [pct, setPct] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -99,6 +101,24 @@ export function BackupsView() {
       setMsg({ kind: 'ok', text: t(`تم تحميل النسخة إلى جهازك`, 'Backup downloaded to this device') });
     } catch (e: any) {
       setMsg({ kind: 'bad', text: `${t('فشل التحميل', 'Download failed')}: ${e?.message || ''}` });
+    } finally { setBusy(''); }
+  };
+
+  const uploadRestore = async () => {
+    if (!picked) return;
+    const ok = window.confirm(
+      ar
+        ? `⚠️willسيستبدل كل البيانات الحالية بموجات الملف:\n\n${picked.name}\n\nهل أنت متأكد؟`
+        : `⚠️This will REPLACE all current data with:\n\n${picked.name}\n\nAre you sure?`);
+    if (!ok) return;
+    setBusy('upload'); setMsg(null); setPct(0);
+    try {
+      const r = await apiService.uploadAndRestoreBackup(picked, setPct);
+      setMsg({ kind: 'ok', text: `${r.message || t('تم الاسترجاع', 'Restore complete')} (${pct}%)` });
+      setPicked(null);
+      await load();
+    } catch (e: any) {
+      setMsg({ kind: 'bad', text: `${t('فشل الاسترجاع', 'Restore failed')}: ${e?.message || ''}` });
     } finally { setBusy(''); }
   };
 
@@ -287,6 +307,37 @@ export function BackupsView() {
                   <span className="text-[11px] font-bold text-slate-700 shrink-0">{n}</span>
                 </div>
               ))}
+          </div>
+        </div>
+      )}
+
+      {/* upload a backup file and restore it */}
+      {caps.canRestore && (
+        <div className="bg-white border rounded-2xl p-5">
+          <h3 className="font-bold text-sm text-slate-800 flex items-center gap-2 mb-1">
+            <Upload className="w-4 h-4 text-cyan-600" />
+            {t('رفع نسخة واسترجاعها', 'Upload a backup and restore it')}
+          </h3>
+          <p className="text-xs text-slate-500 mb-3">
+            {t(
+              'الملف يمكن ملف .dump أو .sql. استخدم نسخة SQL المنزلة من Vercel يمكن رفعها هنا.',
+              'Accepts .dump or .sql. An SQL export downloaded from a serverless deployment can be restored here.'
+            )}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="file" accept=".dump,.sql"
+              onChange={(e) => { setPicked(e.target.files?.[0] || null); setPct(0); }}
+              className="text-xs file:me-2 file:rounded-lg file:border-0 file:bg-cyan-50 file:px-3 file:py-1.5 file:text-cyan-700 file:font-bold file:cursor-pointer"
+            />
+            <button
+              onClick={uploadRestore} disabled={!picked || busy === 'upload'}
+              className="inline-flex items-center gap-1.5 text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl px-4 py-2 disabled:opacity-50"
+            >
+              {busy === 'upload' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+              {busy === 'upload' && pct ? `${pct}%` : t('استرجاع', 'Restore')}
+            </button>
+            {picked && <span className="text-[11px] text-slate-500 font-mono">{picked.name}</span>}
           </div>
         </div>
       )}
