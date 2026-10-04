@@ -1395,6 +1395,14 @@ export const apiService = {
     //      "/content", so the app requested /apiMedia/<id>
     // Take the whole "/api/..." tail instead of a fixed-width match.
     const raw = String(url).split('#')[0];
+    // Legacy rows written by the old off-by-one bug hold "/apiMedia/<id>/content"
+    // (no slash between api and Media). Rewrite that to "Media/<id>/content"
+    // before the generic handling, otherwise the request 404s — or worse, falls
+    // through to the SPA fallback and returns index.html, which the viewer then
+    // reports as an unsupported file type.
+    const legacy = raw.match(/\/apiMedia\/([^?#]*)/i);
+    if (legacy) return 'Media/' + legacy[1];
+    if (/^apiMedia\//i.test(raw)) return 'Media/' + raw.replace(/^apiMedia\//i, '');
     const m = raw.match(/\/api\/[^?#]*/i);
     if (m) return m[0].replace(/^\//, '').replace(/^api\//i, '');
     if (/^api\//i.test(raw)) return raw.replace(/^api\//i, '');
@@ -1482,7 +1490,15 @@ export const apiService = {
     }
     const res = await authedFetch(this.mediaPath(url));
     if (!res.ok) { const raw = await res.text(); throw new Error(friendlyApiError(res.status, raw, '/Media').ar); }
-    return res.blob();
+    const blob = await res.blob();
+    // A misrouted request falls through to the SPA fallback and comes back as
+    // index.html with status 200, so res.ok is true and the viewer would report
+    // a bogus "unsupported file type". Detect the HTML body and say what
+    // actually went wrong.
+    if (/^text\/html/i.test(blob.type || '')) {
+      throw new Error(`المسار رجّع صفحة الموقع بدل الملف (${blob.type || 'html'}) — غالباً رابط قديم للميديا`);
+    }
+    return blob;
   },
 
 async openMedia(url: string): Promise<void> {
