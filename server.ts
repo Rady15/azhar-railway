@@ -3286,7 +3286,10 @@ async function startServer() {
       if (!usable.length) continue;
 
       const colList = usable.map((c: any) => `"${c.column_name}"`).join(", ");
-      const ddl = usable.map((c: any) => {
+      // Every column is described, including the ones we do not export values
+      // for: the app inserts media_assets.content explicitly, so a restored
+      // table that lacks the column would break the first upload after a restore.
+      const ddl = cols.map((c: any) => {
         const type = /int/i.test(c.data_type) ? "bigint"
           : /numeric|decimal|real|double/i.test(c.data_type) ? "numeric"
           : /bool/i.test(c.data_type) ? "boolean"
@@ -3303,7 +3306,9 @@ async function startServer() {
         // self-contained.
         const unsafeDefault = /nextval\(|::regclass/i.test(String(c.column_default || ""));
         const def = c.column_default && !unsafeDefault ? ` DEFAULT ${c.column_default}` : "";
-        return `  "${c.column_name}" ${type}${c.is_nullable === 'NO' ? ' NOT NULL' : ''}${def}`;
+        // A skipped binary column must stay nullable so inserts omitting it work.
+        const nullable = c.is_nullable === 'NO' && !SKIP_COLUMNS.has(String(c.column_name)) ? ' NOT NULL' : '';
+        return `  "${c.column_name}" ${type}${nullable}${def}`;
       }).join(",\n");
       // pg_dump's plain format drops first so a restore actually replaces the
       // existing contents; matching that keeps the two backup kinds equivalent.
