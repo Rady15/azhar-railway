@@ -3256,13 +3256,22 @@ async function startServer() {
       return `'${String(v).replace(/'/g, "''")}'`;
     };
 
+    // Binary payloads (media_assets.content holds the uploaded files) become
+    // base64 inside INSERT statements: ~33% larger, unreadable, and far past the
+    // response ceiling on serverless - 38 files made the export 44 MB. The rows
+    // and their metadata are kept so the catalogue survives; the bytes themselves
+    // are backed up by the file-based pg_dump on the hosted server.
+    const SKIP_COLUMNS = new Set(["content"]);
+
     const out: string[] = [
       "-- Azhar System — logical SQL export",
       `-- generated ${new Date().toISOString()}`,
       "-- Restore: psql \"$DATABASE_URL\" -f this-file.sql",
       ...(skipped.length
-        ? [`-- NOTE: intentionally excluded (operational log, not business data): ${skipped.join(", ")}`]
+        ? [`-- NOTE: table excluded (operational log, not business data): ${skipped.join(", ")}`]
         : []),
+      `-- NOTE: the binary "content" column of media_assets is excluded; file bytes are`,
+      "--       backed up by the file-based pg_dump on the hosted server. Metadata is kept.",
       "SET client_encoding = 'UTF8';",
       "BEGIN;",
       "",
@@ -3273,10 +3282,11 @@ async function startServer() {
            FROM information_schema.columns WHERE table_schema='public' AND table_name=$1
           ORDER BY ordinal_position`, [table]
       )).rows;
-      if (!cols.length) continue;
+      const usable = cols.filter((c: any) => !SKIP_COLUMNS.has(String(c.column_name)));
+      if (!usable.length) continue;
 
-      const colList = cols.map((c: any) => `"${c.column_name}"`).join(", ");
-      const ddl = cols.map((c: any) => {
+      const colList = usable.map((c: any) => `"${c.column_name}"`).join(", ");
+      const ddl = usable.map((c: any) => {
         const type = /int/i.test(c.data_type) ? "bigint"
           : /numeric|decimal|real|double/i.test(c.data_type) ? "numeric"
           : /bool/i.test(c.data_type) ? "boolean"
@@ -3303,7 +3313,7 @@ async function startServer() {
       const rows = (await dbPool.query(`SELECT ${colList} FROM "${table}"`)).rows;
       if (rows.length) {
         const values = rows
-          .map((r: any) => `INSERT INTO "${table}" (${colList}) VALUES (${cols.map((c: any) => lit(r[c.column_name])).join(", ")});`)
+          .map((r: any) => `INSERT INTO "${table}" (${colList}) VALUES (${usable.map((c: any) => lit(r[c.column_name])).join(", ")});`)
           .join("\n");
         out.push(values);
       }
@@ -3374,6 +3384,15 @@ async function startServer() {
   app.get("/api/admin/backups/export.sql", requirePermission("admin.manage"), async (_req, res) => {
     try {
       const sql = await buildSqlExport();
+      // Serverless platforms cap a function response well below this. Failing
+      // here with an explanation beats a truncated download.
+      const MAX_EXPORT_BYTES = 3 * 1024 * 1024;
+      if (Buffer.byteLength(sql, "utf8") > MAX_EXPORT_BYTES) {
+        return res.status(413).json({
+          isSuccess: false,
+          message: "النسخة أكبر من الحد المسموح بتنزيله من هذه المنصة. استخدم زر النسخ الاحتياطي على السيرفر المستضاف.",
+        });
+      }
       res.setHeader("Content-Type", "application/sql; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="${sqlExportFilename()}"`);
       res.setHeader("Cache-Control", "no-store");
