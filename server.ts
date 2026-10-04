@@ -1099,6 +1099,24 @@ async function startServer() {
   // Never emit ETags for API payloads - a 304 after refresh would serve stale
   // bodies to the UI instead of the fresh database state.
   app.set("etag", false);
+
+  // Legacy media URL shapes, normalised before anything else can look at the
+  // path. The old client built "/apiMedia/<id>/content" (missing slash), which
+  // nginx has always rewritten with a location block. Vercel has no nginx, and
+  // its rewrites cannot chain into a function, so the request used to fall
+  // through to the SPA fallback and return index.html with status 200 - the UI
+  // then reported "unsupported file type" for a perfectly valid image.
+  // Rewriting req.url here makes the aliases work on every host.
+  app.use((req, _res, next) => {
+    const url = req.url || "";
+    let m = /^\/apiMedia\/([^?]*)(.*)$/.exec(url);
+    if (m) { req.url = `/api/Media/${m[1]}${m[2]}`; return next(); }
+    m = /^\/media\/([^/?]+)\/?([^?]*)(.*)$/.exec(url);
+    // "/media/<id>" was the public alias: /api/Media/<id>/public
+    if (m) { req.url = `/api/Media/${m[1]}/${m[2] || "public"}${m[3]}`; return next(); }
+    return next();
+  });
+
   app.use(express.json({ limit: "12mb" }));
   app.use(express.urlencoded({ extended: true, limit: "2mb" }));
   app.use((req, res, next) => {
