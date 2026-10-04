@@ -178,8 +178,11 @@ export const FamilyMembersView: React.FC<Props> = ({ tenant }) => {
                     {RELATION[m.relation] ? (ar ? RELATION[m.relation][0] : RELATION[m.relation][1]) : (m.relation || '—')}
                   </td>
                   <td className="px-3 py-2">
-                    <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 font-bold text-slate-700">
-                      <Users className="w-3 h-3" />{m.familyCount ?? members.length}
+                    <span
+                      className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 font-bold text-slate-700"
+                      title={ar ? '\u0639\u062f\u062f \u0627\u0644\u0633\u062c\u0644\u0627\u062a \u0627\u0644\u0638\u0627\u0647\u0631\u0629 \u0641\u064a \u0647\u0630\u0627 \u0627\u0644\u062c\u062f\u0648\u0644' : 'Number of rows listed here'}
+                    >
+                      <Users className="w-3 h-3" />{members.length}
                     </span>
                   </td>
                   <td className="px-3 py-2">

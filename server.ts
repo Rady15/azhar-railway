@@ -2012,16 +2012,40 @@ async function startServer() {
   });
 
   // 2. Tenants API
+  //
+  // "عدد أفراد الأسرة" is a typed-in number on the tenant form, but the family
+  // members table is the actual record. They drifted apart: a tenant could show
+  // 5 while holding a single member, or show 1 with no member rows at all. Serve
+  // an authoritative count alongside the raw field so the UI never has to
+  // infer it, and keep the two clearly distinguishable.
+  const activeFamilyMembers = (tenant:any): any[] =>
+    (Array.isArray(tenant?.familyMembers) ? tenant.familyMembers : []).filter((m:any) => m?.isActive !== false);
+  const withFamilyCount = (tenant:any) => {
+    if (!tenant || typeof tenant !== "object") return tenant;
+    const hasRecords = Array.isArray(tenant.familyMembers);
+    const members = activeFamilyMembers(tenant);
+    return {
+      ...tenant,
+      familyMembers: hasRecords ? tenant.familyMembers : [],
+      familyMemberCount: members.length,
+      // An array that exists is authoritative even when empty: it means somebody
+      // confirmed there are no members, so the count is 0 and the typed-in
+      // familyCount is known to be wrong. Only a missing array leaves the typed
+      // number unverified.
+      familyCountVerified: hasRecords,
+    };
+  };
+
   app.get("/api/Tenants", (req, res) => {
     const q = String(req.query.q || req.query.search || "");
     const filtered = tenantsStore.filter((t:any) => !t.isDeleted && matchesQuery(t, q));
-    res.json(paginated(filtered, req));
+    res.json(paginated(filtered.map(withFamilyCount), req));
   });
 
   app.get("/api/Tenants/:id", (req, res) => {
     const tenant = tenantsStore.find((t:any) => t.id === req.params.id && !t.isDeleted);
     if (!tenant) return res.status(404).json({ message: "Tenant not found" });
-    res.json(tenant);
+    res.json(withFamilyCount(tenant));
   });
 
   app.post("/api/Tenants", async (req:any, res:any) => {
@@ -2250,7 +2274,7 @@ async function startServer() {
     if (!scope) return res.status(403).json({ message: 'Forbidden' });
     const tenant = tenantsStore.find((t:any) => String(t.id) === String(scope.tenantId) && !t.isDeleted);
     if (!tenant) return res.status(404).json({ message: "Tenant not found" });
-    res.json(getFamilyMembers(tenant).filter((m:any) => m?.isActive !== false));
+    res.json(activeFamilyMembers(tenant));
   });
 
   app.post("/api/Tenants/family-members", async (req:any, res:any) => {

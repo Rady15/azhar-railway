@@ -391,22 +391,47 @@ export const TenantsList: React.FC<TenantsListProps> = ({
                     </td>
                     <td className="py-3 px-3 text-center border-l border-slate-100">
                       {(() => {
-                        // Prefer the live familyMembers list; fall back to the
-                        // familyCount field the tenant form stores.
-                        const liveCount = (tenantItem as any).familyMembers?.length;
-                        const fc = liveCount ?? tenantItem.familyCount;
-                        const n = Number(fc);
+                        // The server sends familyMemberCount (active member rows,
+                        // the same set the family-members screen lists) plus
+                        // familyCountVerified. Counting that is what makes this
+                        // column agree with what is actually inside. The tenant
+                        // form's familyCount is a typed-in number nobody keeps in
+                        // sync, so it is only shown - flagged with * - while no
+                        // member row has ever been recorded.
+                        const t = tenantItem as any;
+                        const declared = Number(t.familyCount);
+                        const verified = t.familyCountVerified !== false && Array.isArray(t.familyMembers);
+                        const live = typeof t.familyMemberCount === 'number'
+                          ? t.familyMemberCount
+                          : Array.isArray(t.familyMembers)
+                            ? t.familyMembers.filter((m: any) => m?.isActive !== false).length
+                            : null;
+                        const n = verified
+                          ? (live ?? 0)
+                          : (Number.isFinite(declared) ? declared : null);
+                        const flagged = !verified && n != null && n > 0;
                         return (
                           <span
                             className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md border text-[11px] font-bold ${
-                              n > 0
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              n && n > 0
+                                ? flagged
+                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                 : 'bg-slate-50 text-slate-400 border-slate-200'
                             }`}
-                            title={language === 'ar' ? 'عدد أفراد الأسرة المسجلين' : 'Registered family members'}
+                            title={
+                              flagged
+                                ? (language === 'ar'
+                                    ? 'لم يتم تسجيل أي فرد في جدول أفراد الأسرة — الرقم من البيانات الأساسية فقط'
+                                    : 'No family members registered yet — this number comes from the tenant record')
+                                : (language === 'ar'
+                                    ? 'عدد أفراد الأسرة المسجلين فعلياً'
+                                    : 'Actual number of registered family members')
+                            }
                           >
                             <Users className="w-3.5 h-3.5" />
-                            <span>{Number.isFinite(n) ? n : '—'}</span>
+                            <span>{n != null && Number.isFinite(n) ? n : '—'}</span>
+                            {flagged && <span className="font-normal opacity-70">*</span>}
                           </span>
                         );
                       })()}
@@ -503,7 +528,18 @@ export const TenantsList: React.FC<TenantsListProps> = ({
                           ['اسم المستخدم','Username',viewingTenant.username || '-'], ['البريد الإلكتروني','Email',viewingTenant.email || '-'],
                           ['الجوال','Mobile',viewingTenant.mobile || '-'], ['رقم الطوارئ','Emergency',viewingTenant.emergencyPhone || '-'],
                           ['واتساب','WhatsApp',viewingTenant.whatsapp || '-'], ['الجنسية','Nationality',viewingTenant.nationality || '-'],
-                          ['عدد أفراد الأسرة','Family Count',String(viewingTenant.familyCount || '-')], ['الحالة','Status',viewingTenant.archived ? 'Archived' : (viewingTenant.isActive === false ? 'Inactive' : 'Active')],
+                          ['عدد أفراد الأسرة','Family Count',(() => {
+                            const vt = viewingTenant as any;
+                            const declared = Number(vt.familyCount);
+                            const verified = vt.familyCountVerified !== false && Array.isArray(vt.familyMembers);
+                            const live = typeof vt.familyMemberCount === 'number'
+                              ? vt.familyMemberCount
+                              : Array.isArray(vt.familyMembers)
+                                ? vt.familyMembers.filter((m: any) => m?.isActive !== false).length
+                                : null;
+                            if (verified) return String(live ?? 0);
+                            return Number.isFinite(declared) && declared > 0 ? `${declared}*` : '0';
+                          })()], ['الحالة','Status',viewingTenant.archived ? 'Archived' : (viewingTenant.isActive === false ? 'Inactive' : 'Active')],
                           ['الشركة','Company',viewingTenant.companyName || viewingTenant.company || '-'], ['ملاحظات','Notes',viewingTenant.tenantRemarks || viewingTenant.workNotes || '-']
                         ].map(([ar,en,val])=><div key={en} className="bg-white rounded-xl border border-slate-200 p-2.5"><div className="text-slate-400 mb-1">{language === 'ar' ? ar : en}</div><div className="font-bold text-slate-900 break-words">{val}</div></div>)}
                       </div>
