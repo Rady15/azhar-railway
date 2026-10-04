@@ -6,10 +6,10 @@ import { useLanguage } from '../context/LanguageContext';
 type Compound = { id: string; name: string; code: string };
 type Note = { id:string; compoundId:string; compoundName:string; title?:string; content:string; createdAt?:string; updatedAt?:string };
 
+// Only Azhar Residence remains active. The Meadow Park Garden (id 2) and
+// Daar Residence (id 4) compounds were removed.
 const COMPOUNDS: Compound[] = [
   { id:'1', name:'Azhar Residence', code:'AZHAR' },
-  { id:'2', name:'Meadow Park Garden', code:'MEADOW' },
-  { id:'4', name:'Daar Residence', code:'DAAR' },
 ];
 
 export const CompoundNotesView: React.FC = () => {
@@ -24,7 +24,7 @@ export const CompoundNotesView: React.FC = () => {
   const [content, setContent] = useState('');
 
   const compound = COMPOUNDS.find(c => c.id === compoundId) || COMPOUNDS[0];
-  const compoundLabel = (c: Compound) => c.id==='1' ? 'كمباوند أزهار ريزيدنس' : c.id==='2' ? 'كمباوند ميدو بارك جاردن' : 'كمباوند دار ريزيدنس';
+  const compoundLabel = (_c: Compound) => 'كمباوند أزهار ريزيدنس';
 
   const loadNotes = async () => {
     setLoading(true);

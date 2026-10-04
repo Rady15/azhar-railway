@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Lock, User, Globe, ShieldCheck, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { User as UserType } from '../types';
 import { AzharLogo } from './AzharLogo';
+import { LoginBackdrop } from './LoginBackdrop';
 import { useLanguage } from '../context/LanguageContext';
 import { apiService } from '../services/api';
 
@@ -48,7 +49,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center relative bg-gradient-to-br from-slate-900 via-slate-800 to-[#1d2024] p-4 overflow-hidden" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+    <div className="min-h-screen w-full flex items-center justify-center relative bg-slate-950 p-4 overflow-hidden" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+      {/* animated photo backdrop (slow zoom + cross-fade) */}
+      <LoginBackdrop />
       <div className={`absolute top-4 ${language === 'ar' ? 'left-4' : 'right-4'} z-20`}>
         <button onClick={toggleLanguage} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-600 rounded-lg text-xs font-bold text-slate-200 shadow-md">
           <Globe className="w-4 h-4 text-[#29b4c4]" /> <span>{language === 'ar' ? 'English' : 'العربية'}</span>
@@ -57,18 +60,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       <div className="absolute inset-0 opacity-15 pointer-events-none" style={{backgroundImage:'radial-gradient(circle at 20% 30%, rgba(41,180,196,0.5) 0%, transparent 40%), radial-gradient(circle at 80% 70%, rgba(245,158,11,0.3) 0%, transparent 40%)'}} />
       <div className="w-full max-w-md z-10">
         <div className="text-center mb-6 flex flex-col items-center">
-          <div className="p-4 bg-slate-800/90 rounded-2xl border border-slate-700 shadow-2xl mb-3 inline-block"><AzharLogo variant="light" size="lg" /></div>
+          <div className="p-4 bg-slate-900/70 backdrop-blur-md rounded-2xl border border-white/20 shadow-2xl mb-3 inline-block"><AzharLogo variant="light" size="lg" /></div>
           <h1 className="text-xl sm:text-2xl font-bold text-white">{language === 'ar' ? 'منظومة إدارة مجمع أزهار السكني' : 'AZHAR RESIDENCE'}</h1>
           <p className="text-cyan-300 text-xs mt-1 font-medium">{language === 'ar' ? 'تسجيل دخول موحد لجميع المستخدمين' : 'Single sign-in for all users'}</p>
         </div>
-        <div className="bg-white/95 rounded-2xl shadow-2xl p-6 border border-white/40">
-          <div className="flex items-center gap-3 p-3 mb-5 rounded-xl bg-slate-50 border border-slate-200">
-            <div className="p-2 rounded-lg bg-slate-900 text-cyan-300"><ShieldCheck className="w-5 h-5" /></div>
-            <div>
-              <div className="text-sm font-bold text-slate-900">{language === 'ar' ? 'الدخول الذكي' : 'Smart Sign In'}</div>
-              <div className="text-[11px] text-slate-500">{language === 'ar' ? 'النظام يحدد صلاحية الحساب تلقائياً' : 'Your role is detected automatically'}</div>
-            </div>
-          </div>
+        <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-2xl p-6 border border-white/50 ring-1 ring-black/5">
           {error && <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">{error}</div>}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>

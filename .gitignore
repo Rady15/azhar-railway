@@ -14,3 +14,4 @@ server.log
 backups/
 *.sqlite
 *.db
+public/Azhar_V004_Images_Color/

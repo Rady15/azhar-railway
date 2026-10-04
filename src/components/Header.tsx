@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { avatarUrl } from './Avatar';
 import { 
   Search, 
   Bell, 
@@ -316,10 +317,10 @@ export const Header: React.FC<HeaderProps> = ({
               className="block focus:outline-none"
             >
               <img
-                src={user.profileImageUrl || user.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.name || user.username) + '&background=29b4c4&color=fff'}
+                src={user.profileImageUrl || user.avatar || avatarUrl(user.name || user.username)}
                 alt={user.name}
                 className="w-8 h-8 rounded-full object-cover border border-[#29b4c4] cursor-pointer hover:opacity-80 transition-opacity"
-                onError={(e) => { (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.name || user.username) + '&background=29b4c4&color=fff'; }}
+                onError={(e) => { (e.target as HTMLImageElement).src = avatarUrl(user.name || user.username); }}
               />
             </span>
             <div className="hidden lg:block">
@@ -339,10 +340,10 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <div className="relative max-w-sm w-full">
                 <img
-                  src={user.profileImageUrl || user.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.name || user.username) + '&background=29b4c4&color=fff'}
+                  src={user.profileImageUrl || user.avatar || avatarUrl(user.name || user.username)}
                   alt={user.name}
                   className="w-full rounded-2xl shadow-2xl border-4 border-white"
-                  onError={(e) => { (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.name || user.username) + '&background=29b4c4&color=fff'; }}
+                  onError={(e) => { (e.target as HTMLImageElement).src = avatarUrl(user.name || user.username); }}
                 />
                 <button
                   onClick={() => setShowAvatarPreview(false)}

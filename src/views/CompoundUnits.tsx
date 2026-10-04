@@ -171,11 +171,9 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
     });
   }, [filteredBuildings, sortConfig]);
 
-  const selectedCompound = compoundFilter === '2'
-    ? { id: '2', name: 'Meadow Park Garden' }
-    : compoundFilter === '4'
-      ? { id: '4', name: 'Daar Residence' }
-      : { id: selectedCompoundId || '1', name: selectedCompoundId === '2' ? 'Meadow Park Garden' : selectedCompoundId === '4' ? 'Daar Residence' : 'Azhar Residence' };
+  // Only Azhar Residence is active. The Meadow Park Garden and Daar
+  // Residence compounds were removed, so their ids no longer resolve.
+  const selectedCompound = { id: selectedCompoundId || '1', name: 'Azhar Residence' };
 
   const resetAddUnitForm = () => {
     setUnitNumber('');
@@ -310,8 +308,6 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
           >
             <option value="all">{language === 'ar' ? 'جميع المجمعات السكنية' : 'All Compounds'}</option>
             <option value="1">مجمع أزهار السكني (Azhar Residence)</option>
-            <option value="4">دار ريزيدنس (Daar Residence)</option>
-            <option value="2">ميدو بارك جاردن (Meadow Park Garden)</option>
           </select>
 
           <div className="relative flex-1">

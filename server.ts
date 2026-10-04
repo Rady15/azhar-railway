@@ -1,4 +1,5 @@
 import express from "express";
+import { execFile } from "child_process";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
@@ -1200,7 +1201,21 @@ async function startServer() {
     const r=await dbPool.query("SELECT username FROM app_users WHERE id=$1 AND is_active=TRUE",[req.user.sub]);
     if(!r.rowCount) return res.status(404).json({isSuccess:false,message:"User not found"});
     const user=await getUserWithRole(r.rows[0].username);
-    res.json({isSuccess:true,user:publicUser(user)});
+    const payload:any=publicUser(user);
+    // publicUser() never carried the avatar, so the client always fell back to
+    // an external placeholder and logged-out users showed a broken image.
+    // Resolve the real uploaded file from media_assets.
+    try{
+      const mr=await dbPool.query(
+        `SELECT id FROM media_assets
+          WHERE category='profile' AND entity_id=$1
+          ORDER BY created_at DESC LIMIT 1`,
+        [String(user.id)]
+      );
+      if(mr.rowCount) payload.profileImageUrl=publicUrl(req, `/api/Media/${mr.rows[0].id}/content`);
+      else if(user.profileImageUrl) payload.profileImageUrl=String(user.profileImageUrl);
+    }catch(e){ /* avatar is cosmetic — never fail the request over it */ }
+    res.json({isSuccess:true,user:payload});
   });
 
 
@@ -2518,7 +2533,8 @@ async function startServer() {
     const meters = electricityMetersStore;
     const enriched = housesStore.map((h:any) => {
       const compoundId = String(h.compoundId || h.data?.compoundId || '1');
-      const compoundName = compoundId === '2' ? 'Meadow Park Garden' : compoundId === '4' ? 'Daar Residence' : 'Azhar Residence';
+      // Only Azhar Residence is active; compounds 2 and 4 were removed.
+      const compoundName = 'Azhar Residence';
       const meter = meters.find((m:any) => String(m.unitId || m.houseId || '') === String(h.id)) || meters.find((m:any) => String(m.unitNumber || m.houseNumber || '') === String(h.houseNumber || h.unitNumber || '') && String(m.building || m.buildingNumber || '') === String(h.buildingNumber || ''));
       return { ...h, compoundId, compoundName, type: h.type || h.unitType || 'Apartment', isFurnished: Boolean(h.isFurnished), notes: h.notes || h.notesText || '', annualRent: Number(h.annualRent || 0), electricityMeterNumber: meter?.meterNumber || '' };
     });
@@ -2579,7 +2595,8 @@ async function startServer() {
       isFurnished: body.IsFurnished === "true" || body.isFurnished === true,
       notes: body.notes || "",
       compoundId: String(body.compoundId || '1'),
-      compoundName: String(body.compoundName || (String(body.compoundId || '1') === '2' ? 'Meadow Park Garden' : String(body.compoundId || '1') === '4' ? 'Daar Residence' : 'Azhar Residence')),
+      // Only Azhar Residence is active; compounds 2 and 4 were removed.
+      compoundName: String(body.compoundName || 'Azhar Residence'),
       isAvailable: true,
       imageUrl: String(body.imageUrl || body.image || '')
     };
@@ -3113,6 +3130,142 @@ async function startServer() {
     res.json({query:q,results});
   });
 
+// ─────────────────────────────────────────────────────────────
+  //  Backups — admin only. Wraps the pg_dump/pg_restore helpers that
+  //  /usr/local/bin/azhar-backup and azhar-restore use, so backups can
+  //  also be taken from the UI. Every route requires admin.manage.
+  // ─────────────────────────────────────────────────────────────
+  const BACKUP_DIR = process.env.BACKUP_DIR || "/var/backups/azhar";
+
+  const runCmd = (cmd: string, args: string[], timeoutMs = 600000) =>
+    new Promise<{ code: number; out: string }>((resolve) => {
+      execFile(cmd, args, { timeout: timeoutMs, maxBuffer: 8 * 1024 * 1024 },
+        (err: any, stdout: string, stderr: string) =>
+          resolve({ code: err ? (err.code ?? 1) : 0, out: `${stdout || ''}${stderr || ''}` }));
+    });
+
+  const backupRows = () => {
+    if (!fs.existsSync(BACKUP_DIR)) return [];
+    return fs.readdirSync(BACKUP_DIR)
+      .filter((f: string) => /^azhar-\d{8}-\d{6}\.dump$/.test(f))
+      .map((f: string) => {
+        const full = path.join(BACKUP_DIR, f);
+        const st = fs.statSync(full);
+        const base = f.replace(/\.dump$/, "");
+        let counts: Record<string, number> = {};
+        const cf = path.join(BACKUP_DIR, `${base}.counts.txt`);
+        if (fs.existsSync(cf)) {
+          for (const line of fs.readFileSync(cf, "utf8").split("\n")) {
+            const m = line.match(/^(\w+)\s*=\s*(\d+)$/);
+            if (m) counts[m[1] as string] = Number(m[2]);
+          }
+        }
+        return {
+          id: base,
+          file: f,
+          createdAt: st.mtime.toISOString(),
+          sizeBytes: st.size,
+          tables: Object.keys(counts).length,
+          rowTotal: Object.values(counts).reduce((a, b) => a + b, 0),
+        };
+      })
+      .sort((a: any, b: any) => (a.createdAt < b.createdAt ? 1 : -1));
+  };
+
+  app.get("/api/admin/backups", requirePermission("admin.manage"), (_req, res) => {
+    try {
+      res.json({ isSuccess: true, backupDir: BACKUP_DIR, backups: backupRows() });
+    } catch (e: any) {
+      res.status(500).json({ isSuccess: false, message: e?.message || 'تعذر قراءة النسخ الاحتياطية' });
+    }
+  });
+
+  // take a new backup
+  app.post("/api/admin/backups", requirePermission("admin.manage"),
+    rateLimit("create-backup", 5, 30 * 60 * 1000),
+    async (_req, res) => {
+      try {
+        fs.mkdirSync(BACKUP_DIR, { recursive: true });
+        const r = await runCmd("/usr/local/bin/azhar-backup", [], 900000);
+        if (r.code !== 0) {
+          return res.status(500).json({
+            isSuccess: false,
+            message: 'فشل إنشاء النسخة الاحتياطية',
+            detail: String(r.out).slice(-800),
+          });
+        }
+        res.json({ isSuccess: true, backups: backupRows() });
+      } catch (e: any) {
+        res.status(500).json({ isSuccess: false, message: e?.message || 'خطأ غير متوقع' });
+      }
+    });
+
+  // preview a backup's contents before restoring
+  app.get("/api/admin/backups/:id", requirePermission("admin.manage"), (req, res) => {
+    const file = String(req.params.id || "");
+    if (!/^azhar-\d{8}-\d{6}$/.test(file)) return res.status(400).json({ isSuccess: false, message: 'اسم غير صالح' });
+    const cf = path.join(BACKUP_DIR, `${file}.counts.txt`);
+    if (!fs.existsSync(cf)) return res.status(404).json({ isSuccess: false, message: 'لا توجد بيانات لهذه النسخة' });
+    const counts: Record<string, number> = {};
+    for (const line of fs.readFileSync(cf, "utf8").split("\n")) {
+      const m = line.match(/^(\w+)\s*=\s*(\d+)$/);
+      if (m) counts[m[1] as string] = Number(m[2]);
+    }
+    res.json({ isSuccess: true, id: file, counts });
+  });
+
+  // restore — destructive, so it is explicit and rate limited
+  // download a backup file straight to the browser / any device
+  app.get("/api/admin/backups/:id/download", requirePermission("admin.manage"), (req, res) => {
+    const id = String(req.params.id || "");
+    if (!/^azhar-\d{8}-\d{6}$/.test(id)) return res.status(400).json({ isSuccess: false, message: 'اسم غير صالح' });
+    const dump = path.join(BACKUP_DIR, `${id}.dump`);
+    if (!fs.existsSync(dump)) return res.status(404).json({ isSuccess: false, message: 'النسخة غير موجودة' });
+    res.setHeader("Content-Type", "application/octet-stream");
+    res.setHeader("Content-Disposition", `attachment; filename="${id}.dump"`);
+    res.setHeader("Content-Length", String(fs.statSync(dump).size));
+    fs.createReadStream(dump).pipe(res);
+  });
+
+  // human-readable SQL, for anyone who wants to read the data
+  app.get("/api/admin/backups/:id/download.sql", requirePermission("admin.manage"), (req, res) => {
+    const id = String(req.params.id || "");
+    if (!/^azhar-\d{8}-\d{6}$/.test(id)) return res.status(400).json({ isSuccess: false, message: 'اسم غير صالح' });
+    const f = path.join(BACKUP_DIR, `${id}.sql`);
+    if (!fs.existsSync(f)) return res.status(404).json({ isSuccess: false, message: 'الملف غير موجود' });
+    res.setHeader("Content-Type", "application/sql");
+    res.setHeader("Content-Disposition", `attachment; filename="${id}.sql"`);
+    fs.createReadStream(f).pipe(res);
+  });
+
+  app.post("/api/admin/backups/:id/restore", requirePermission("admin.manage"),
+    rateLimit("restore-db", 3, 60 * 60 * 1000),
+    async (req, res) => {
+      const id = String(req.params.id || "");
+      if (!/^azhar-\d{8}-\d{6}$/.test(id)) return res.status(400).json({ isSuccess: false, message: 'اسم غير صالح' });
+      if (req.body?.confirm !== 'RESTORE') {
+        return res.status(400).json({ isSuccess: false, message: 'يلزم تأكيد صريح' });
+      }
+      const dump = path.join(BACKUP_DIR, `${id}.dump`);
+      if (!fs.existsSync(dump)) return res.status(404).json({ isSuccess: false, message: 'النسخة غير موجودة' });
+      try {
+        const r = await runCmd("/usr/local/bin/azhar-restore-auto", [dump], 1800000);
+        if (r.code !== 0) {
+          return res.status(500).json({
+            isSuccess: false,
+            message: 'فشل الاسترجاع',
+            detail: String(r.out).slice(-800),
+          });
+        }
+        res.json({
+          isSuccess: true,
+          message: 'تم الاسترجاع بنجاح — أعد تشغيل التطبيق لتطبيق البيانات',
+          output: String(r.out).slice(-1200),
+        });
+      } catch (e: any) {
+        res.status(500).json({ isSuccess: false, message: e?.message || 'خطأ غير متوقع' });
+      }
+    });
   app.get("/api/admin/dashboard-stats", requirePermission("dashboard.read"), async (_req,res)=>{
     const now=Date.now(); const activeTenants=tenantsStore.filter((x:any)=>x.isActive!==false).length; const activeContracts=contractsStore.filter((x:any)=>String(x.status||"Active").toLowerCase()!=="archived").length;
     const openMaintenance=maintenanceStore.filter((x:any)=>!["completed","closed","resolved","done"].includes(String(x.status||"").toLowerCase())).length; const openComplaints=complaintsStore.filter((x:any)=>!["closed","resolved"].includes(String(x.status||"").toLowerCase())).length;

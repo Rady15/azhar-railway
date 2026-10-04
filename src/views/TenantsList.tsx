@@ -330,6 +330,12 @@ export const TenantsList: React.FC<TenantsListProps> = ({
                 <th className="py-3 px-3 border-r border-blue-600/40 font-mono">
                   <span>{t('whatsapp')}</span>
                 </th>
+                <th className="py-3 px-3 border-r border-blue-600/40 text-center" onClick={() => handleSort('familyCount')}>
+                  <div className="flex items-center gap-1 cursor-pointer select-none justify-center hover:text-cyan-200">
+                    <span>{language === 'ar' ? 'عدد أفراد الأسرة' : 'Family Count'}</span>
+                    <ArrowUpDown className="w-3 h-3 text-white/70" />
+                  </div>
+                </th>
                 <th className="py-3 px-3 border-r border-blue-600/40 text-center">
                   <span>{language === 'ar' ? 'المرفقات' : 'Attachments'}</span>
                 </th>
@@ -341,7 +347,7 @@ export const TenantsList: React.FC<TenantsListProps> = ({
             <tbody className="divide-y divide-slate-100 font-medium bg-white">
               {sortedTenants.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-slate-400">
+                  <td colSpan={10} className="py-8 text-center text-slate-400">
                     {language === 'ar' ? 'لا يوجد مستأجرون مطابقون للبحث.' : 'No tenants match search query.'}
                   </td>
                 </tr>
@@ -382,6 +388,28 @@ export const TenantsList: React.FC<TenantsListProps> = ({
                         <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
                         {tenantItem.whatsapp || tenantItem.mobile}
                       </button>
+                    </td>
+                    <td className="py-3 px-3 text-center border-l border-slate-100">
+                      {(() => {
+                        // Prefer the live familyMembers list; fall back to the
+                        // familyCount field the tenant form stores.
+                        const liveCount = (tenantItem as any).familyMembers?.length;
+                        const fc = liveCount ?? tenantItem.familyCount;
+                        const n = Number(fc);
+                        return (
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md border text-[11px] font-bold ${
+                              n > 0
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-slate-50 text-slate-400 border-slate-200'
+                            }`}
+                            title={language === 'ar' ? 'عدد أفراد الأسرة المسجلين' : 'Registered family members'}
+                          >
+                            <Users className="w-3.5 h-3.5" />
+                            <span>{Number.isFinite(n) ? n : '—'}</span>
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="py-3 px-3 text-center border-l border-slate-100">
                       {(() => {

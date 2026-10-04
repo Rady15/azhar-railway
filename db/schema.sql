@@ -323,10 +323,10 @@ CREATE TABLE IF NOT EXISTS compounds (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- Only Azhar Residence is active. The Meadow Park Garden (id 2) and
+-- Daar Residence (id 4) compounds were removed.
 INSERT INTO compounds(id,name,code) VALUES
-  ('1','Azhar Residence','AZHAR'),
-  ('2','Meadow Park Garden','MEADOW'),
-  ('4','Daar Residence','DAAR')
+  ('1','Azhar Residence','AZHAR')
 ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name, code=EXCLUDED.code, updated_at=NOW();
 
 -- Private admin notes for each compound.
@@ -349,7 +349,7 @@ ALTER TABLE houses ADD COLUMN IF NOT EXISTS annual_rent NUMERIC(14,2);
 
 UPDATE houses
 SET compound_id = COALESCE(NULLIF(data->>'compoundId',''), '1'),
-    compound_name = COALESCE(NULLIF(data->>'compoundName',''), CASE COALESCE(NULLIF(data->>'compoundId',''),'1') WHEN '2' THEN 'Meadow Park Garden' WHEN '4' THEN 'Daar Residence' ELSE 'Azhar Residence' END),
+    compound_name = COALESCE(NULLIF(data->>'compoundName',''), 'Azhar Residence'),
     unit_type = COALESCE(NULLIF(data->>'type',''), 'Apartment'),
     is_furnished = COALESCE((data->>'isFurnished')::boolean, false),
     notes_text = COALESCE(data->>'notes',''),

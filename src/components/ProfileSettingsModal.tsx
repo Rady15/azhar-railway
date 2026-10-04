@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { avatarUrl } from './Avatar';
 import { X, User, Mail, UserCircle, ShieldCheck, Lock, Save, Camera, Upload, Loader2 } from 'lucide-react';
 import { User as UserType } from '../types';
 import { useLanguage } from '../context/LanguageContext';
@@ -85,10 +86,10 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
          <div className="flex flex-col items-center gap-3">
            <div className="relative group">
              <img
-               src={profileImage || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.name || user.username) + '&background=29b4c4&color=fff'}
+               src={profileImage || avatarUrl(user.name || user.username)}
                alt={user.name}
                className="w-24 h-24 rounded-full object-cover border-4 border-[#29b4c4] shadow-lg"
-               onError={(e) => { (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.name || user.username) + '&background=29b4c4&color=fff'; }}
+               onError={(e) => { (e.target as HTMLImageElement).src = avatarUrl(user.name || user.username); }}
              />
              {isUploading && (
                <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full">

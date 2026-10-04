@@ -543,7 +543,8 @@ export const apiService = {
       return {
         id: h.id,
         compoundId: h.compoundId || '1',
-        compoundName: h.compoundName || (h.compoundId === '2' ? 'Meadow Park Garden' : h.compoundId === '4' ? 'Daar Residence' : 'Azhar Residence'),
+        // Only Azhar Residence is active; ids 2 and 4 were removed.
+        compoundName: h.compoundName || 'Azhar Residence',
         buildingNumber: h.buildingNumber || (h.houseNumber || '').split('-')[0] || '',
         unitNumber: h.houseNumber || h.unitNumber || '',
         rooms: Number(h.roomsCount || 0),
@@ -1384,14 +1385,17 @@ export const apiService = {
   // https://host/api/Media/<id>/content. Reduce any absolute or relative form to the
   // API-relative path so the file is always fetched from the current deployment.
   mediaPath(url: string): string {
-    // authedFetch re-adds API_BASE ("/api"), so the returned path must NOT keep
-    // the "api/" segment. The old code used url.slice(4) on "/api/..." which cut
-    // only 4 characters and left "apiMedia/...", producing a request for
-    // /apiMedia/<id>/content which 404s. Strip the segment properly.
-    const raw = String(url).split('?')[0].split('#')[0];
-    const m = raw.match(/(?:^|\/)api\/Media\/[^/]+/i);
-    // strip the leading slash first, THEN the "api/" segment — doing it in one
-    // pass left the slash behind ("/apiMedia/<id>") which nginx 404s.
+    // authedFetch re-adds API_BASE ("/api"), so this must return the path with
+    // the "api/" segment removed but EVERYTHING after it kept — including the
+    // trailing "/content" and any query string.
+    //
+    // Two bugs lived here before:
+    //   1. url.slice(4) on "/api/..." cut 4 chars, left "apiMedia/<id>"
+    //   2. matching /api\/Media\/[^/]+/ stopped at the next slash and DROPPED
+    //      "/content", so the app requested /apiMedia/<id>
+    // Take the whole "/api/..." tail instead of a fixed-width match.
+    const raw = String(url).split('#')[0];
+    const m = raw.match(/\/api\/[^?#]*/i);
     if (m) return m[0].replace(/^\//, '').replace(/^api\//i, '');
     if (/^api\//i.test(raw)) return raw.replace(/^api\//i, '');
     return raw.replace(/^\//, '');
@@ -1405,6 +1409,66 @@ export const apiService = {
     const q = qs.toString();
     const res = await authedFetch('/Media' + (q ? '?' + q : ''));
     if (!res.ok) { const raw = await res.text(); throw new Error(friendlyApiError(res.status, raw, '/Media').ar); }
+    return res.json();
+  },
+
+  // ── Backups (admin only) ──────────────────────────────────────
+  async listBackups(): Promise<{ backupDir: string; backups: any[] }> {
+    const res = await authedFetch('/admin/backups');
+    if (!res.ok) { const raw = await res.text(); throw new Error(friendlyApiError(res.status, raw, '/admin/backups').ar); }
+    return res.json();
+  },
+
+  /** Direct link that streams the dump to the browser (works with a plain <a>). */
+  backupDownloadUrl(id: string, kind: 'dump' | 'sql' = 'dump'): string {
+    const suffix = kind === 'sql' ? '.sql' : '';
+    return `${API_BASE}/admin/backups/${encodeURIComponent(id)}/download${suffix}`;
+  },
+
+  async createBackup(): Promise<{ backups: any[] }> {
+    const res = await authedFetch('/admin/backups', { method: 'POST' });
+    if (!res.ok) { const raw = await res.text(); throw new Error(friendlyApiError(res.status, raw, '/admin/backups').ar); }
+    return res.json();
+  },
+
+  async inspectBackup(id: string): Promise<{ counts: Record<string, number> }> {
+    const res = await authedFetch(`/admin/backups/${encodeURIComponent(id)}`);
+    if (!res.ok) { const raw = await res.text(); throw new Error(friendlyApiError(res.status, raw, '/admin/backups').ar); }
+    return res.json();
+  },
+
+  /**
+   * Download a backup to this device.
+   * Fetched with the auth header (a plain <a href> cannot send one) and then
+   * saved through a blob URL, so it works on any phone or laptop.
+   */
+  async downloadBackup(id: string, kind: 'dump' | 'sql' = 'dump'): Promise<void> {
+    await ensureAuth();
+    const suffix = kind === 'sql' ? '.sql' : '';
+    const path = `/admin/backups/${encodeURIComponent(id)}/download${suffix}`;
+    const res = await fetch(`${API_BASE}${path}`, {
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+      credentials: 'include',
+    });
+    if (!res.ok) { const raw = await res.text(); throw new Error(friendlyApiError(res.status, raw, '/admin/backups').ar); }
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = `${id}.${kind === 'sql' ? 'sql' : 'dump'}`;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+  },
+
+  async restoreBackup(id: string): Promise<{ message: string; output?: string }> {
+    const res = await authedFetch(`/admin/backups/${encodeURIComponent(id)}/restore`, {
+      method: 'POST',
+      body: JSON.stringify({ confirm: 'RESTORE' }),
+    });
+    if (!res.ok) { const raw = await res.text(); throw new Error(friendlyApiError(res.status, raw, '/admin/backups').ar); }
     return res.json();
   },
 

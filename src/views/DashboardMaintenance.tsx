@@ -110,8 +110,9 @@ export const DashboardMaintenance: React.FC<DashboardMaintenanceProps> = ({
     const assignedStaff = staffMembers.find(s => s.id === newAssignedStaffId);
     onAddRequest({
       rvNo: `MNT-2026-00${maintenanceRequests.length + 1}`,
-      compoundId: compoundFilter === '2' ? '2' : '1',
-      compoundName: compoundFilter === '2' ? 'Meadow Park Garden' : 'Azhar Residence',
+      // Only Azhar Residence is active; the '2' filter was removed.
+      compoundId: '1',
+      compoundName: 'Azhar Residence',
       buildingNumber: newBuilding,
       unitNumber: newUnit,
       responsibleName: newResponsible,

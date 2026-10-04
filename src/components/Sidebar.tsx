@@ -20,7 +20,7 @@ import {
   Mail,
   PartyPopper,
   Calendar,
-  StickyNote, Paperclip } from 'lucide-react';
+  StickyNote, Paperclip, DatabaseBackup } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
 export type ActiveTab = 
@@ -41,6 +41,7 @@ export type ActiveTab =
   | 'azhar_expenses'
   | 'azhar_letters'
   | 'azhar_media'
+  | 'azhar_backups'
   | 'azhar_facilities'
   | 'azhar_facility_bookings'
   | 'water_meters'
@@ -327,6 +328,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <Paperclip className="w-3.5 h-3.5 text-cyan-300" />
                   <span>{t('media_library')}</span>
+                </button>
+
+                <button
+                  onClick={() => handleSelect('azhar_backups')}
+                  className={`w-full text-start px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-2 ${
+                    activeTab === 'azhar_backups' ? 'bg-[#29b4c4] text-white font-semibold' : 'hover:bg-slate-800/80 text-slate-300'
+                  }`}
+                >
+                  <DatabaseBackup className="w-3.5 h-3.5 text-cyan-300" />
+                  <span>{t('backups')}</span>
                 </button>
               </div>
             )}

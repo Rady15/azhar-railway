@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { avatarUrl } from '../components/Avatar';
 import {
   Home, FileText, Wrench, MessageSquareWarning, Key, CheckCircle2, Clock,
   DollarSign, Building, Send, User, ShieldCheck,
@@ -218,7 +219,7 @@ export const TenantPortalView: React.FC<TenantPortalViewProps> = ({
           {/* Profile */}
           <div className="relative">
             <button onClick={() => setShowProfileMenu(!showProfileMenu)} className="flex items-center gap-2 p-1.5 hover:bg-slate-700/60 rounded-xl transition-colors">
-              <img src={currentUser.profileImageUrl || currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || 'U')}&background=29b4c4&color=fff`} alt="" className="w-8 h-8 rounded-full object-cover border border-[#29b4c4]" onError={(e) => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || 'U')}&background=29b4c4&color=fff`; }} />
+              <img src={currentUser.profileImageUrl || currentUser.avatar || avatarUrl(encodeURIComponent(currentUser.name || 'U'))} alt="" className="w-8 h-8 rounded-full object-cover border border-[#29b4c4]" onError={(e) => { (e.target as HTMLImageElement).src = avatarUrl(encodeURIComponent(currentUser.name || 'U')); }} />
               <div className="hidden lg:block">
                 <div className="text-xs font-semibold text-white leading-tight">{tenantName}</div>
                 <div className="text-[10px] text-slate-400">{t('مستأجر', 'Tenant')}</div>
@@ -1093,7 +1094,7 @@ const ProfileTab: React.FC<any> = ({ currentUser, currentTenant, documents, lang
         <form onSubmit={handleSave} className="space-y-6">
           <div className="flex flex-col items-center gap-3">
             <div className="relative group">
-              <img src={mediaSrc(profileImage) || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || 'U')}&background=29b4c4&color=fff`} alt="" className="w-24 h-24 rounded-full object-cover border-4 border-[#29b4c4] shadow-lg" onError={(e) => { (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || 'U')}&background=29b4c4&color=fff`; }} />
+              <img src={mediaSrc(profileImage) || avatarUrl(encodeURIComponent(currentUser.name || 'U'))} alt="" className="w-24 h-24 rounded-full object-cover border-4 border-[#29b4c4] shadow-lg" onError={(e) => { (e.target as HTMLImageElement).src = avatarUrl(encodeURIComponent(currentUser.name || 'U')); }} />
               {isUploading && <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full"><Loader2 className="w-8 h-8 text-white animate-spin" /></div>}
               {!isUploading && <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Camera className="w-8 h-8 text-white" /></button>}
             </div>
