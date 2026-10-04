@@ -1485,45 +1485,123 @@ export const apiService = {
     return res.blob();
   },
 
-  async openMedia(url: string): Promise<void> {
+async openMedia(url: string): Promise<void> {
     if (!url) return;
-    // Open the tab synchronously: after the first await the browser no longer treats
-    // window.open as user-initiated and blocks it as a popup.
+    const ar = (() => {
+      try { return document.documentElement.dir === 'rtl'; } catch { return false; }
+    })();
+
+    // Open the tab synchronously: after the first await the browser no longer
+    // treats window.open as user-initiated and blocks it as a popup.
     const viewer = window.open('', '_blank');
     if (viewer) {
-      viewer.opener = null;
+      try { viewer.opener = null; } catch { /* cross-origin, ignore */ }
       try {
-        viewer.document.write('<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>جارٍ التحميل…</title><style>body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:Arial,Tahoma,sans-serif;color:#64748b;background:#f8fafc}</style></head><body>جارٍ تحميل الملف…</body></html>');
+        viewer.document.write(
+          `<!doctype html><html dir="${ar ? 'rtl' : 'ltr'}"><head><meta charset="utf-8">` +
+          `<title>جارٍ التحميل…</title><style>html,body{margin:0;height:100%;background:#0b1120;color:#94a3b8;` +
+          `display:grid;place-items:center;font-family:system-ui,Tahoma,sans-serif;font-size:14px}</style></head>` +
+          `<body><div><div style="width:34px;height:34px;margin:0 auto 14px;border:3px solid #1e293b;` +
+          `border-top-color:#29b4c4;border-radius:50%;animation:sp 0.9s linear infinite"></div>` +
+          `${ar ? 'جارٍ تحميل الملف…' : 'Loading file…'}` +
+          `<style>@keyframes sp{to{transform:rotate(360deg)}}</style></div></body></html>`
+        );
         viewer.document.close();
       } catch { /* about:blank is fine as a placeholder */ }
     }
+
+    let objectUrl = '';
     try {
-      const blob = await this.getMediaBlob(url);
-      const objectUrl = URL.createObjectURL(blob);
-      if (!viewer) {
-        // No tab could be opened synchronously (popup blocked); fall back to a download.
-        const a = document.createElement('a'); a.href = objectUrl; a.download = 'file'; document.body.appendChild(a); a.click(); a.remove();
+      const blob: Blob = await this.getMediaBlob(url);
+      objectUrl = URL.createObjectURL(blob);
+      const isPdf = /pdf/i.test(blob.type || '');
+      const isImg = (blob.type || '').startsWith('image/');
+
+      // If the popup was blocked, hand the file over as a download instead.
+      if (!viewer || viewer.closed) {
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = isPdf ? 'document.pdf' : (isImg ? 'image' : 'file');
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
         setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
         return;
       }
-      viewer.location.href = objectUrl;
+
+      // Render inside the tab we already opened instead of navigating it.
+      // Assigning location.href to a blob leaves the browser's own viewer,
+      // which is fine for images but shows nothing useful for PDFs — and
+      // document.write after navigation silently fails, which is what produced
+      // the blank screen.
+      const target: Window | null = viewer;
+      try {
+        const doc = target.document;
+        if (!doc) throw new Error('no document');
+        doc.open();
+        doc.write(
+          `<!doctype html><html dir="${ar ? 'rtl' : 'ltr'}"><head><meta charset="utf-8">` +
+          `<title>${isPdf ? 'PDF' : isImg ? (ar ? 'صورة' : 'Image') : (ar ? 'ملف' : 'File')}</title>` +
+          `<style>html,body{margin:0;height:100%;background:#0b1120}` +
+          `body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px;box-sizing:border-box;` +
+          `font-family:system-ui,Tahoma,sans-serif;color:#cbd5e1}` +
+          `img,embed{max-width:100%;max-height:calc(100vh - 72px);object-fit:contain;border-radius:8px;` +
+          `box-shadow:0 12px 40px rgba(0,0,0,.6);background:#0f172a}` +
+          `.bar{position:fixed;inset-block-end:0;inset-inline:0;display:flex;gap:10px;justify-content:center;` +
+          `padding:12px;background:rgba(2,6,23,.85);border-top:1px solid #1e293b}` +
+          `a,button{background:#29b4c4;color:#04121f;border:0;border-radius:9px;padding:9px 18px;` +
+          `font:600 13px system-ui,Tahoma,sans-serif;cursor:pointer;text-decoration:none}` +
+          `a.g{background:#334155;color:#e2e8f0}` +
+          `p{color:#64748b;font-size:12px;margin:0}</style></head><body>` +
+          (isPdf ? `<embed src="${objectUrl}" type="application/pdf">`
+                : isImg ? `<img src="${objectUrl}" alt="">`
+                        : `<p>${ar ? 'نوع الملف غير مدع للعرض المباشر — نزّله من الزر بالأسفل' : 'This file type cannot be previewed — download it below'}</p>`) +
+          `<div class="bar">` +
+          `<button id="dl">${ar ? 'تنزيل' : 'Download'}</button>` +
+          (isPdf ? `<button id="op">${ar ? 'فتح في تبويب جديد' : 'Open in new tab'}</button>` : '') +
+          `<button class="g" id="pr">${ar ? 'طباعة' : 'Print'}</button>` +
+          `</div></body></html>`
+        );
+        doc.close();
+        const el = doc.getElementById('dl') as HTMLButtonElement | null;
+        if (el) el.onclick = () => this.downloadMedia(url, isPdf ? 'document.pdf' : 'file');
+        const op = doc.getElementById('op') as HTMLButtonElement | null;
+        if (op) op.onclick = () => window.open(objectUrl, '_blank');
+        const pr = doc.getElementById('pr') as HTMLButtonElement | null;
+        if (pr) pr.onclick = () => doc.defaultView?.print();
+      } catch {
+        // document became cross-origin (e.g. the user navigated it manually)
+        target.location.href = objectUrl;
+      }
+
       // Keep the blob alive while the tab is open, then release it.
       const poll = window.setInterval(() => {
         if (viewer.closed) { window.clearInterval(poll); URL.revokeObjectURL(objectUrl); }
       }, 5000);
-      setTimeout(() => { window.clearInterval(poll); URL.revokeObjectURL(objectUrl); }, 10 * 60_000);
+      setTimeout(() => { window.clearInterval(poll); URL.revokeObjectURL(objectUrl); }, 30 * 60_000);
     } catch (err) {
-      if (viewer) {
+      const why = err?.message || '';
+      if (viewer && !viewer.closed) {
         try {
-          viewer.document.write('<!doctype html><html dir="rtl"><head><meta charset="utf-8"><title>تعذر العرض</title><style>body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:Arial,Tahoma,sans-serif;color:#b91c1c;background:#fef2f2}</style></head><body>تعذر عرض الملف. تأكد من تسجيل الدخول ثم حاول مرة أخرى.</body></html>');
+          viewer.location.href = 'about:blank';
+          viewer.document.write(
+            `<!doctype html><html dir="${ar ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><title>${ar ? 'تعذر العرض' : 'Cannot display'}</title>` +
+            `<style>html,body{margin:0;height:100%;display:flex;align-items:center;justify-content:center;` +
+            `font-family:system-ui,Tahoma,sans-serif;color:#fca5a5;background:#fef2f2;text-align:center;padding:20px}</style>` +
+            `</head><body><div><div style="font-size:40px;margin-bottom:10px">⚠️</div>` +
+            `<div style="font-size:15px;font-weight:600">${ar ? 'تعذر عرض الملف' : 'Could not display the file'}</div>` +
+            `<div style="font-size:12px;color:#991b1b;margin-top:6px">${why}</div></div></body></html>`
+          );
           viewer.document.close();
-        } catch { viewer.close(); }
+        } catch { try { viewer.close(); } catch { /* ignore */ } }
       }
-      throw err;
+      notifyUser({
+        kind: 'error',
+        ar: `تعذر عرض الملف: ${why}`,
+        en: `Could not open the file: ${why}`,
+      });
     }
-  },
-
-  async downloadMedia(url: string, fileName = 'download'): Promise<void> {
+  },async downloadMedia(url: string, fileName = 'download'): Promise<void> {
     const blob = await this.getMediaBlob(url);
     const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = objectUrl; a.download = fileName || 'download'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove();
