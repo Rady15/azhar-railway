@@ -51,6 +51,15 @@ function signalSessionExpired() {
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT));
 }
 
+/** Pull the filename out of a Content-Disposition header, if the server set one. */
+function filenameFromDisposition(header: string | null): string {
+  if (!header) return '';
+  const star = /filename\*=UTF-8''([^;]+)/i.exec(header);
+  if (star) { try { return decodeURIComponent(star[1].trim()); } catch { return star[1].trim(); } }
+  const plain = /filename="?([^";]+)"?/i.exec(header);
+  return plain ? plain[1].trim() : '';
+}
+
 async function refreshAccessToken(): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE}/Account/refresh`, {
@@ -1420,6 +1429,31 @@ export const apiService = {
     return res.json();
   },
 
+  /**
+   * Fetch an authenticated URL and save it as a file. A plain <a href> cannot
+   * carry the Authorization header, so the bytes go through fetch and a blob URL.
+   * `filename` lets the caller override the name the server suggested.
+   */
+  async downloadAuthedFile(path: string, filename?: string): Promise<number> {
+    await ensureAuth();
+    const res = await fetch(`${API_BASE}${path}`, {
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+      credentials: 'include',
+    });
+    if (!res.ok) { const raw = await res.text(); throw new Error(friendlyApiError(res.status, raw, path).ar); }
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename || filenameFromDisposition(res.headers.get('Content-Disposition')) || 'backup.sql';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    return blob.size;
+  },
+
   // ── Backups (admin only) ──────────────────────────────────────
   async listBackups(): Promise<{ backupDir: string; backups: any[] }> {
     const res = await authedFetch('/admin/backups');
@@ -1433,10 +1467,25 @@ export const apiService = {
     return `${API_BASE}/admin/backups/${encodeURIComponent(id)}/download${suffix}`;
   },
 
-  async createBackup(): Promise<{ backups: any[] }> {
+  /**
+   * Ask the server for a backup. On a normal host this writes a .dump next to the
+   * existing backups. On a serverless host there is no disk and no pg_dump, so the
+   * server streams a complete logical export instead; triggerBlobDownload picks
+   * that up so the user still ends up with a real file.
+   */
+  async createBackup(): Promise<{ mode?: string; bytes?: number; message?: string; backups?: any[] }> {
     const res = await authedFetch('/admin/backups', { method: 'POST' });
     if (!res.ok) { const raw = await res.text(); throw new Error(friendlyApiError(res.status, raw, '/admin/backups').ar); }
-    return res.json();
+    const data = await res.json();
+    if (data?.mode === 'export') {
+      await this.downloadAuthedFile('/admin/backups/export.sql');
+    }
+    return data;
+  },
+
+  /** Direct link to the full logical export; works on every host. */
+  backupExportUrl(): string {
+    return `${API_BASE}/admin/backups/export.sql`;
   },
 
   async inspectBackup(id: string): Promise<{ counts: Record<string, number> }> {

@@ -26,6 +26,11 @@ export function BackupsView() {
 
   const [rows, setRows] = useState<any[]>([]);
   const [dir, setDir] = useState('');
+  // What this deployment can actually do. A serverless host has no disk and no
+  // pg_dump, so it offers a logical export instead of the file-based flow.
+  const [caps, setCaps] = useState<{ canCreate: boolean; canRestore: boolean; mode: string; note: string }>(
+    { canCreate: true, canRestore: true, mode: 'file', note: '' },
+  );
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState<{ kind: 'ok' | 'bad' | 'info'; text: string } | null>(null);
@@ -34,9 +39,15 @@ export function BackupsView() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await apiService.listBackups();
+      const r = await apiService.listBackups() as any;
       setRows(r.backups || []);
       setDir(r.backupDir || '');
+      setCaps({
+        canCreate: r.canCreate !== false,
+        canRestore: r.canRestore !== false,
+        mode: r.mode || 'file',
+        note: r.note || '',
+      });
     } catch (e: any) {
       setMsg({ kind: 'bad', text: e?.message || t('تعذر تحميل النسخ', 'Could not load backups') });
     } finally { setLoading(false); }
@@ -47,11 +58,27 @@ export function BackupsView() {
   const takeBackup = async () => {
     setBusy('create'); setMsg(null);
     try {
-      await apiService.createBackup();
-      setMsg({ kind: 'ok', text: t('تم إنشاء نسخة احتياطية بنجاح', 'Backup created successfully') });
+      const r = await apiService.createBackup() as any;
+      setMsg(r?.mode === 'export'
+        ? { kind: 'ok', text: t(
+            `تم إنشاء نسخة SQL كاملة (${fmtSize(r.bytes)}) ونزّلها على جهازك.`,
+            `Full SQL export created (${fmtSize(r.bytes)}) and downloaded to this device.`) }
+        : { kind: 'ok', text: t('تم إنشاء نسخة احتياطية بنجاح', 'Backup created successfully') });
       await load();
     } catch (e: any) {
       setMsg({ kind: 'bad', text: `${t('فشل إنشاء النسخة', 'Backup failed')}: ${e?.message || ''}` });
+    } finally { setBusy(''); }
+  };
+
+  const exportSql = async () => {
+    setBusy('export'); setMsg(null);
+    try {
+      const size = await apiService.downloadAuthedFile('/admin/backups/export.sql');
+      setMsg({ kind: 'ok', text: t(
+        `تم تنزيل نسخة SQL كاملة (${fmtSize(size)})`,
+        `Full SQL export downloaded (${fmtSize(size)})`) });
+    } catch (e: any) {
+      setMsg({ kind: 'bad', text: `${t('فشل إنشاء النسخة', 'Export failed')}: ${e?.message || ''}` });
     } finally { setBusy(''); }
   };
 
@@ -125,6 +152,15 @@ export function BackupsView() {
               : <HardDriveDownload className="w-4 h-4" />}
             {t('نسخة احتياطية الآن', 'Back up now')}
           </button>
+          <button
+            onClick={exportSql} disabled={busy === 'export'}
+            className="flex items-center gap-2 text-sm font-bold text-cyan-800 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 rounded-xl px-4 py-2 disabled:opacity-60"
+          >
+            {busy === 'export'
+              ? <Loader2 className="w-4 h-4 animate-spin" />
+              : <FileCode2 className="w-4 h-4" />}
+            {t('تنزيل نسخة SQL', 'Download SQL export')}
+          </button>
         </div>
       </div>
 
@@ -155,7 +191,21 @@ export function BackupsView() {
       ) : rows.length === 0 ? (
         <div className="bg-white border rounded-xl p-12 text-center text-slate-500">
           <DatabaseBackup className="w-10 h-10 mx-auto mb-3 opacity-40" />
-          <p className="text-sm">{t('لا توجد نسخ احتياطية بعد', 'No backups yet')}</p>
+          {caps.mode === 'export' ? (
+            <>
+              <p className="text-sm font-bold text-slate-700">
+                {t('هذه المنصة لا تدعم النسخ الملفاتية', 'This platform has no file-based backups')}
+              </p>
+              <p className="text-xs mt-2 max-w-lg mx-auto leading-relaxed">
+                {t(
+                  'لا يوجد قرص دائم على الاستضافة الحالية، لذلك لا تُحفظ النسخ هنا. زر «تنزيل نسخة SQL» يبني نسخة كاملة من قاعدة البيانات في الذاكرة ويحفظها على جهازك مباشرة.',
+                  'This host has no persistent disk, so backups are not stored here. "Download SQL export" builds a complete database dump in memory and saves it straight to your device.'
+                )}
+              </p>
+            </>
+          ) : (
+            <p className="text-sm">{t('لا توجد نسخ احتياطية بعد', 'No backups yet')}</p>
+          )}
         </div>
       ) : (
         <div className="bg-white border rounded-2xl overflow-hidden">
@@ -203,7 +253,7 @@ export function BackupsView() {
                         title={t('تحميل SQL للقراءة', 'Download readable SQL')}>
                         <FileCode2 className="w-4 h-4" />
                       </button>
-                      <button onClick={() => restore(r)} disabled={busy === r.id}
+                      <button onClick={() => restore(r)} disabled={busy === r.id || !caps.canRestore}
                         className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 text-[11px] font-bold disabled:opacity-50"
                         title={t('استرجاع', 'Restore')}>
                         <RotateCcw className="w-3.5 h-3.5" />

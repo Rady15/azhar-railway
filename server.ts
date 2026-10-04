@@ -1,5 +1,5 @@
 import express from "express";
-import { execFile } from "child_process";
+import { execFile, spawnSync } from "child_process";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
@@ -3179,6 +3179,143 @@ async function startServer() {
   // ─────────────────────────────────────────────────────────────
   const BACKUP_DIR = process.env.BACKUP_DIR || "/var/backups/azhar";
 
+  // Serverless platforms have no writable filesystem and ship no pg_dump, so the
+  // file-based backup that the self-hosted server performs cannot run there.
+  // Probe once and cache it, so a misconfigured host fails with an explanation
+  // instead of ENOENT from mkdirSync.
+  //
+  // The web service runs as www-data while /var/backups/azhar is root-owned, so
+  // the scripts are invoked through the narrow sudo rule in
+  // /etc/sudoers.d/azhar-backup rather than by making the directory writable.
+  const BACKUP_SCRIPT = "/usr/local/bin/azhar-backup";
+  const RESTORE_SCRIPT = "/usr/local/bin/azhar-restore-auto";
+  const isRoot = typeof process.getuid === "function" && process.getuid() === 0;
+
+  // Prefix the helper scripts with sudo when we are not root already. sudo -n
+  // never prompts, so a missing rule fails fast instead of hanging the request.
+  const privileged = (script: string) => (isRoot ? [script] : ["/usr/bin/sudo", "-n", script]);
+
+  let backupProbe: { create: boolean; restore: boolean } | null = null;
+  const probeBackupCapability = () => {
+    if (backupProbe) return backupProbe;
+    const no = { create: false, restore: false };
+    try {
+      // A serverless host has neither a persistent disk nor pg_dump.
+      if (process.env.VERCEL) { backupProbe = no; return backupProbe; }
+      if (!fs.existsSync(BACKUP_SCRIPT)) { backupProbe = no; return backupProbe; }
+      if (!isRoot) {
+        // www-data cannot write the root-owned backup directory, so the scripts
+        // run through the narrow sudo rule in /etc/sudoers.d/azhar-backup.
+        // Verify that rule before advertising the feature, otherwise the button
+        // fails later with a permission error the user cannot act on.
+        const check = spawnSync("/usr/bin/sudo", ["-n", "-l", BACKUP_SCRIPT], { timeout: 10000 });
+        if (check.status !== 0) { backupProbe = no; return backupProbe; }
+      } else {
+        fs.mkdirSync(BACKUP_DIR, { recursive: true });
+      }
+      backupProbe = { create: true, restore: fs.existsSync(RESTORE_SCRIPT) };
+      return backupProbe;
+    } catch {
+      backupProbe = no;
+      return backupProbe;
+    }
+  };
+  const fileBackupsAvailable = () => probeBackupCapability().create;
+  const canRestoreBackup = () => probeBackupCapability().restore;
+
+  const NO_FILE_BACKUP_MSG =
+    "النسخ الملفاتية تحتاج سيرفر مستضاف ( systemd + pg_dump ). "
+    + "على منصة Serverless مثل Vercel لا يوجد قرص قابل للكتابة ولا أداة pg_dump، "
+    + "استخدم زر «تنزيل نسخة SQL» الذي يبني نسخة كاملة في الذاكرة بدل ذلك. "
+    + "النسخ المجدولة تعمل على السيرفر المستضاف عبر azhar-backup.timer.";
+
+  // Full logical export built in memory from the live database. This is the
+  // serverless-safe path: it needs no filesystem and no pg_dump, so the backup
+  // button produces a genuine, restorable file on any host.
+  const buildSqlExport = async (): Promise<string> => {
+    if (!dbPool) throw new Error("Database unavailable");
+    // azhar_audit_log is an append-only operational log, not business data: it
+    // held 25038 of the 25312 rows here and made the export 9.4 MB, which is
+    // over the response ceiling on serverless. Excluding it is recorded in the
+    // file header so a restore is never silently incomplete.
+    const EXCLUDE = new Set(["azhar_audit_log"]);
+    const allTables = (await dbPool.query(
+      `SELECT table_name FROM information_schema.tables
+        WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name`
+    )).rows.map((r: any) => r.table_name as string);
+    const tables = allTables.filter((t: string) => !EXCLUDE.has(t));
+    const skipped = allTables.filter((t: string) => EXCLUDE.has(t));
+
+    const lit = (v: any): string => {
+      if (v === null || v === undefined) return "NULL";
+      if (typeof v === "number") return Number.isFinite(v) ? String(v) : "NULL";
+      if (typeof v === "boolean") return v ? "TRUE" : "FALSE";
+      if (v instanceof Date) return `'${v.toISOString()}'`;
+      if (Buffer.isBuffer(v)) return `'\\x${v.toString("hex")}'`;
+      if (typeof v === "object") return `'${JSON.stringify(v).replace(/'/g, "''")}'`;
+      return `'${String(v).replace(/'/g, "''")}'`;
+    };
+
+    const out: string[] = [
+      "-- Azhar System — logical SQL export",
+      `-- generated ${new Date().toISOString()}`,
+      "-- Restore: psql \"$DATABASE_URL\" -f this-file.sql",
+      ...(skipped.length
+        ? [`-- NOTE: intentionally excluded (operational log, not business data): ${skipped.join(", ")}`]
+        : []),
+      "SET client_encoding = 'UTF8';",
+      "BEGIN;",
+      "",
+    ];
+    for (const table of tables) {
+      const cols = (await dbPool.query(
+        `SELECT column_name, data_type, is_nullable, column_default
+           FROM information_schema.columns WHERE table_schema='public' AND table_name=$1
+          ORDER BY ordinal_position`, [table]
+      )).rows;
+      if (!cols.length) continue;
+
+      const colList = cols.map((c: any) => `"${c.column_name}"`).join(", ");
+      const ddl = cols.map((c: any) => {
+        const type = /int/i.test(c.data_type) ? "bigint"
+          : /numeric|decimal|real|double/i.test(c.data_type) ? "numeric"
+          : /bool/i.test(c.data_type) ? "boolean"
+          : /timestamp/i.test(c.data_type) ? "timestamptz"
+          : /date/i.test(c.data_type) ? "date"
+          : /json/i.test(c.data_type) ? "jsonb"
+          : /uuid/i.test(c.data_type) ? "uuid"
+          : /bytea/i.test(c.data_type) ? "bytea"
+          : "text";
+        // A default like nextval('rent_events_id_seq'::regclass) references a
+        // sequence this export never creates, so the CREATE TABLE fails and the
+        // whole restore aborts. Every column is inserted with an explicit value
+        // below, so dropping such defaults costs nothing and makes the file
+        // self-contained.
+        const unsafeDefault = /nextval\(|::regclass/i.test(String(c.column_default || ""));
+        const def = c.column_default && !unsafeDefault ? ` DEFAULT ${c.column_default}` : "";
+        return `  "${c.column_name}" ${type}${c.is_nullable === 'NO' ? ' NOT NULL' : ''}${def}`;
+      }).join(",\n");
+      // pg_dump's plain format drops first so a restore actually replaces the
+      // existing contents; matching that keeps the two backup kinds equivalent.
+      out.push(`DROP TABLE IF EXISTS "${table}" CASCADE;`);
+      out.push(`CREATE TABLE "${table}" (\n${ddl}\n);`);
+
+      const rows = (await dbPool.query(`SELECT ${colList} FROM "${table}"`)).rows;
+      if (rows.length) {
+        const values = rows
+          .map((r: any) => `INSERT INTO "${table}" (${colList}) VALUES (${cols.map((c: any) => lit(r[c.column_name])).join(", ")});`)
+          .join("\n");
+        out.push(values);
+      }
+      out.push("");
+    }
+    out.push("COMMIT;", "");
+    return out.join("\n");
+  };
+
+  const sqlExportFilename = () =>
+    `azhar-${new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "")}-export.sql`;
+
   const runCmd = (cmd: string, args: string[], timeoutMs = 600000) =>
     new Promise<{ code: number; out: string }>((resolve) => {
       execFile(cmd, args, { timeout: timeoutMs, maxBuffer: 8 * 1024 * 1024 },
@@ -3216,9 +3353,33 @@ async function startServer() {
 
   app.get("/api/admin/backups", requirePermission("admin.manage"), (_req, res) => {
     try {
-      res.json({ isSuccess: true, backupDir: BACKUP_DIR, backups: backupRows() });
+      const available = fileBackupsAvailable();
+      res.json({
+        isSuccess: true,
+        backupDir: available ? BACKUP_DIR : "",
+        // The UI needs to know up front which of its buttons can work here.
+        canCreate: available || !!dbPool,
+        canRestore: canRestoreBackup(),
+        mode: available ? "file" : "export",
+        note: available ? "" : NO_FILE_BACKUP_MSG,
+        backups: available ? backupRows() : [],
+      });
     } catch (e: any) {
       res.status(500).json({ isSuccess: false, message: e?.message || 'تعذر قراءة النسخ الاحتياطية' });
+    }
+  });
+
+  // Download a complete logical export. Works on every host, including
+  // serverless where the file-based backup above is impossible.
+  app.get("/api/admin/backups/export.sql", requirePermission("admin.manage"), async (_req, res) => {
+    try {
+      const sql = await buildSqlExport();
+      res.setHeader("Content-Type", "application/sql; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${sqlExportFilename()}"`);
+      res.setHeader("Cache-Control", "no-store");
+      res.send(sql);
+    } catch (e: any) {
+      res.status(500).json({ isSuccess: false, message: e?.message || 'تعذر إنشاء نسخة SQL' });
     }
   });
 
@@ -3227,8 +3388,21 @@ async function startServer() {
     rateLimit("create-backup", 5, 30 * 60 * 1000),
     async (_req, res) => {
       try {
-        fs.mkdirSync(BACKUP_DIR, { recursive: true });
-        const r = await runCmd("/usr/local/bin/azhar-backup", [], 900000);
+        if (!fileBackupsAvailable()) {
+          // No disk and no pg_dump: produce the export directly and hand it over
+          // as a download so the button still yields a real backup.
+          const sql = await buildSqlExport();
+          res.setHeader("Content-Type", "application/json; charset=utf-8");
+          res.setHeader("Content-Disposition", `attachment; filename="${sqlExportFilename()}"`);
+          res.setHeader("Cache-Control", "no-store");
+          return res.json({
+            isSuccess: true,
+            mode: "export",
+            bytes: Buffer.byteLength(sql, "utf8"),
+            message: "تم إنشاء نسخة SQL كاملة — تم تنزيلها على جهازك.",
+          });
+        }
+        const r = await runCmd(privileged(BACKUP_SCRIPT)[0], privileged(BACKUP_SCRIPT).slice(1), 900000);
         if (r.code !== 0) {
           return res.status(500).json({
             isSuccess: false,
@@ -3244,6 +3418,9 @@ async function startServer() {
 
   // preview a backup's contents before restoring
   app.get("/api/admin/backups/:id", requirePermission("admin.manage"), (req, res) => {
+    if (!fileBackupsAvailable()) {
+      return res.status(409).json({ isSuccess: false, message: NO_FILE_BACKUP_MSG });
+    }
     const file = String(req.params.id || "");
     if (!/^azhar-\d{8}-\d{6}$/.test(file)) return res.status(400).json({ isSuccess: false, message: 'اسم غير صالح' });
     const cf = path.join(BACKUP_DIR, `${file}.counts.txt`);
@@ -3259,6 +3436,9 @@ async function startServer() {
   // restore — destructive, so it is explicit and rate limited
   // download a backup file straight to the browser / any device
   app.get("/api/admin/backups/:id/download", requirePermission("admin.manage"), (req, res) => {
+    if (!fileBackupsAvailable()) {
+      return res.status(409).json({ isSuccess: false, message: NO_FILE_BACKUP_MSG });
+    }
     const id = String(req.params.id || "");
     if (!/^azhar-\d{8}-\d{6}$/.test(id)) return res.status(400).json({ isSuccess: false, message: 'اسم غير صالح' });
     const dump = path.join(BACKUP_DIR, `${id}.dump`);
@@ -3271,6 +3451,9 @@ async function startServer() {
 
   // human-readable SQL, for anyone who wants to read the data
   app.get("/api/admin/backups/:id/download.sql", requirePermission("admin.manage"), (req, res) => {
+    if (!fileBackupsAvailable()) {
+      return res.status(409).json({ isSuccess: false, message: NO_FILE_BACKUP_MSG });
+    }
     const id = String(req.params.id || "");
     if (!/^azhar-\d{8}-\d{6}$/.test(id)) return res.status(400).json({ isSuccess: false, message: 'اسم غير صالح' });
     const f = path.join(BACKUP_DIR, `${id}.sql`);
@@ -3283,6 +3466,9 @@ async function startServer() {
   app.post("/api/admin/backups/:id/restore", requirePermission("admin.manage"),
     rateLimit("restore-db", 3, 60 * 60 * 1000),
     async (req, res) => {
+      if (!fileBackupsAvailable()) {
+        return res.status(409).json({ isSuccess: false, message: NO_FILE_BACKUP_MSG });
+      }
       const id = String(req.params.id || "");
       if (!/^azhar-\d{8}-\d{6}$/.test(id)) return res.status(400).json({ isSuccess: false, message: 'اسم غير صالح' });
       if (req.body?.confirm !== 'RESTORE') {
@@ -3291,7 +3477,7 @@ async function startServer() {
       const dump = path.join(BACKUP_DIR, `${id}.dump`);
       if (!fs.existsSync(dump)) return res.status(404).json({ isSuccess: false, message: 'النسخة غير موجودة' });
       try {
-        const r = await runCmd("/usr/local/bin/azhar-restore-auto", [dump], 1800000);
+        const r = await runCmd(privileged(RESTORE_SCRIPT)[0], privileged(RESTORE_SCRIPT).slice(1).concat([dump]), 1800000);
         if (r.code !== 0) {
           return res.status(500).json({
             isSuccess: false,
