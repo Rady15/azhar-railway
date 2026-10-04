@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+/* Tailwind v4 scans for class names in plain files by default. Point it at the
+   dashboard markup and script so the utility classes that only appear there —
+   accent colours, tag pills — actually end up in the built CSS. */
+@source "./index.html";
+@source "./app.js";
+
+@theme {
+  --color-ink-950: #070b16;
+  --color-ink-900: #0b1120;
+  --color-ink-850: #0f172a;
+  --color-ink-800: #131c30;
+  --color-ink-700: #1c2942;
+  --color-ink-600: #27385a;
+  --color-brand-500: #29b4c4;
+  --color-brand-400: #4ad0de;
+  --font-sans: "Noto Naskh Arabic", "Segoe UI", system-ui, sans-serif;
+}
+
+/* The accent swatches are data-driven on the card, so they cannot be literal
+   class names in the markup. One rule per accent keeps that working. */
+.accent-cyan    { --accent: 41 180 196; }
+.accent-emerald { --accent: 52 211 153; }
+.accent-violet  { --accent: 167 139 250; }
+.accent-amber   { --accent: 251 191 36; }
+.accent-rose    { --accent: 251 113 133; }
+.accent-sky     { --accent: 56 189 248; }
+
+.card-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(140deg, rgb(var(--accent) / .55), transparent 55%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.rise { animation: rise .28s ease-out both; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin .9s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rise, .spin { animation: none; }
+}

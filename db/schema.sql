@@ -461,3 +461,29 @@ CREATE INDEX IF NOT EXISTS idx_user_devices_user ON user_devices(user_id);
 -- publicDisplay is enforced by the /media/:id route in server.ts.
 INSERT INTO schema_migrations(version) VALUES ('2026-09-11-media-fcm-v2') ON CONFLICT DO NOTHING;
 INSERT INTO schema_migrations(version) VALUES ('2026-08-15-full-audit-v1') ON CONFLICT DO NOTHING;
+
+-- ── Projects dashboard ────────────────────────────────────────────────────
+-- The portfolio shown on /projects/. Kept as its own table rather than one of
+-- the generic JSON stores because it needs stable ordering, tags and a soft
+-- delete: removing a card from the dashboard must not throw away the record.
+CREATE TABLE IF NOT EXISTS projects (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug         text NOT NULL UNIQUE,
+  name         text NOT NULL,
+  description  text NOT NULL DEFAULT '',
+  url          text NOT NULL DEFAULT '',
+  repo_url     text NOT NULL DEFAULT '',
+  kind         text NOT NULL DEFAULT 'static',
+  root         text NOT NULL DEFAULT '',
+  entry        text NOT NULL DEFAULT '',
+  served       boolean NOT NULL DEFAULT false,
+  tags         text[] NOT NULL DEFAULT '{}',
+  accent       text NOT NULL DEFAULT 'cyan',
+  featured     boolean NOT NULL DEFAULT false,
+  sort_order   integer NOT NULL DEFAULT 100,
+  is_deleted   boolean NOT NULL DEFAULT false,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_projects_live ON projects(is_deleted, sort_order);
+INSERT INTO schema_migrations(version) VALUES ('2026-10-05-projects-v1') ON CONFLICT DO NOTHING;

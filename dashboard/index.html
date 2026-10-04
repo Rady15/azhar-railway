@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>لوحة المشاريع — Projects Dashboard</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="stylesheet" href="/dashboard/dashboard.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🗂️</text></svg>">
+</head>
+<body class="min-h-screen bg-ink-950 text-slate-200 font-sans antialiased">
+
+<!-- ══════════════════════════ login ══════════════════════════ -->
+<div id="gate" class="min-h-screen grid place-items-center px-4">
+  <div class="w-full max-w-sm">
+    <div class="text-center mb-7">
+      <div class="text-5xl mb-3">🗂️</div>
+      <h1 class="text-2xl font-bold text-white">لوحة المشاريع</h1>
+      <p class="text-sm text-slate-400 mt-1">سجّل دخولك لإدارة مشاريعك</p>
+    </div>
+
+    <form id="loginForm" class="rounded-2xl bg-ink-900 border border-ink-700 p-6 space-y-4 shadow-2xl">
+      <label class="block">
+        <span class="block text-xs font-semibold text-slate-400 mb-1.5">البريد الإلكتروني</span>
+        <input id="email" type="email" autocomplete="username" required
+               class="w-full rounded-xl bg-ink-850 border border-ink-700 px-4 py-2.5 text-sm text-white
+                      outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25 transition">
+      </label>
+      <label class="block">
+        <span class="block text-xs font-semibold text-slate-400 mb-1.5">كلمة المرور</span>
+        <input id="password" type="password" autocomplete="current-password" required
+               class="w-full rounded-xl bg-ink-850 border border-ink-700 px-4 py-2.5 text-sm text-white
+                      outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25 transition">
+      </label>
+      <p id="loginErr" class="hidden rounded-xl bg-rose-500/10 border border-rose-500/30 px-3 py-2 text-xs text-rose-300"></p>
+      <button id="loginBtn" type="submit"
+              class="w-full rounded-xl bg-brand-500 hover:bg-brand-400 disabled:opacity-60 text-ink-950
+                     font-bold py-2.5 transition flex items-center justify-center gap-2">
+        <span>دخول</span>
+      </button>
+      <p class="text-[11px] text-slate-500 text-center leading-relaxed">
+        نفس حساب نظام أزهار — <span class="font-mono" dir="ltr">admin@azhar.com</span>
+      </p>
+    </form>
+  </div>
+</div>
+
+<!-- ══════════════════════════ dashboard ══════════════════════════ -->
+<div id="app" class="hidden min-h-screen">
+
+  <header class="sticky top-0 z-20 bg-ink-950/85 backdrop-blur border-b border-ink-700">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center gap-3">
+      <div class="flex items-center gap-2.5 me-auto">
+        <span class="text-2xl">🗂️</span>
+        <div>
+          <h1 class="font-bold text-white leading-tight">لوحة المشاريع</h1>
+          <p class="text-[11px] text-slate-400" id="whoami">—</p>
+        </div>
+      </div>
+
+      <div class="relative">
+        <input id="search" type="search" placeholder="ابحث…"
+               class="w-40 sm:w-56 rounded-xl bg-ink-850 border border-ink-700 px-4 py-2 text-sm
+                      outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25 transition">
+      </div>
+
+      <select id="filter"
+              class="rounded-xl bg-ink-850 border border-ink-700 px-3 py-2 text-sm outline-none focus:border-brand-500">
+        <option value="all">الكل</option>
+        <option value="live">منشور</option>
+        <option value="draft">غير منشور</option>
+        <option value="featured">المميزة</option>
+        <option value="deleted">المحذوفة</option>
+      </select>
+
+      <button id="addBtn"
+              class="inline-flex items-center gap-1.5 rounded-xl bg-brand-500 hover:bg-brand-400
+                     text-ink-950 font-bold px-4 py-2 text-sm transition">
+        <span class="text-lg leading-none">＋</span> مشروع جديد
+      </button>
+
+      <button id="logoutBtn" title="تسجيل الخروج"
+              class="rounded-xl border border-ink-700 px-3 py-2 text-sm hover:bg-ink-850 transition">خروج</button>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+    <div id="stats" class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6"></div>
+    <div id="grid" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+    <div id="empty" class="hidden text-center py-20 text-slate-500">
+      <div class="text-5xl mb-3 opacity-40">📦</div>
+      <p class="text-sm">لا توجد مشاريع مطابقة</p>
+    </div>
+  </main>
+</div>
+
+<!-- ══════════════════════════ editor ══════════════════════════ -->
+<div id="modal" class="hidden fixed inset-0 z-30 bg-black/70 backdrop-blur-sm grid place-items-center p-4 overflow-y-auto">
+  <div class="w-full max-w-lg rounded-2xl bg-ink-900 border border-ink-700 shadow-2xl my-8">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-ink-700">
+      <h2 id="mTitle" class="font-bold text-white">مشروع جديد</h2>
+      <button id="mClose" class="text-slate-400 hover:text-white text-xl leading-none">×</button>
+    </div>
+
+    <form id="mForm" class="p-5 space-y-4">
+      <input id="fId" type="hidden">
+
+      <label class="block">
+        <span class="block text-xs font-semibold text-slate-400 mb-1.5">اسم المشروع *</span>
+        <input id="fName" required maxlength="80"
+               class="w-full rounded-xl bg-ink-850 border border-ink-700 px-4 py-2.5 text-sm text-white
+                      outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25">
+      </label>
+
+      <label class="block">
+        <span class="block text-xs font-semibold text-slate-400 mb-1.5">وصف مختصر</span>
+        <textarea id="fDesc" rows="2" maxlength="240"
+                  class="w-full rounded-xl bg-ink-850 border border-ink-700 px-4 py-2.5 text-sm text-white
+                         outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25 resize-y"></textarea>
+      </label>
+
+      <div class="grid sm:grid-cols-2 gap-4">
+        <label class="block">
+          <span class="block text-xs font-semibold text-slate-400 mb-1.5">رابط المشروع</span>
+          <input id="fUrl" dir="ltr" placeholder="/repos/my-app/"
+                 class="w-full rounded-xl bg-ink-850 border border-ink-700 px-4 py-2.5 text-sm text-white
+                        outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25">
+        </label>
+        <label class="block">
+          <span class="block text-xs font-semibold text-slate-400 mb-1.5">رابط GitHub</span>
+          <input id="fRepo" dir="ltr" placeholder="https://github.com/Rady15/…"
+                 class="w-full rounded-xl bg-ink-850 border border-ink-700 px-4 py-2.5 text-sm text-white
+                        outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25">
+        </label>
+      </div>
+
+      <div class="grid sm:grid-cols-3 gap-4">
+        <label class="block">
+          <span class="block text-xs font-semibold text-slate-400 mb-1.5">النوع</span>
+          <select id="fKind" class="w-full rounded-xl bg-ink-850 border border-ink-700 px-3 py-2.5 text-sm text-white outline-none focus:border-brand-500">
+            <option value="static">static</option>
+            <option value="node">node</option>
+            <option value="next">next</option>
+            <option value="python">python</option>
+          </select>
+        </label>
+        <label class="block">
+          <span class="block text-xs font-semibold text-slate-400 mb-1.5">اللون</span>
+          <select id="fAccent" class="w-full rounded-xl bg-ink-850 border border-ink-700 px-3 py-2.5 text-sm text-white outline-none focus:border-brand-500">
+            <option value="cyan">سماوي</option>
+            <option value="emerald">أخضر</option>
+            <option value="violet">بنفسجي</option>
+            <option value="amber">كهرماني</option>
+            <option value="rose">وردي</option>
+            <option value="sky">سماوي فاتح</option>
+          </select>
+        </label>
+        <label class="block">
+          <span class="block text-xs font-semibold text-slate-400 mb-1.5">الترتيب</span>
+          <input id="fSort" type="number" step="10"
+                 class="w-full rounded-xl bg-ink-850 border border-ink-700 px-4 py-2.5 text-sm text-white
+                        outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25">
+        </label>
+      </div>
+
+      <label class="block">
+        <span class="block text-xs font-semibold text-slate-400 mb-1.5">وسوم (افصلهم بفاصلة)</span>
+        <input id="fTags" placeholder="live, v2, ui"
+               class="w-full rounded-xl bg-ink-850 border border-ink-700 px-4 py-2.5 text-sm text-white
+                      outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/25">
+      </label>
+
+      <div class="flex flex-wrap gap-5 pt-1">
+        <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+          <input id="fServed" type="checkbox" class="w-4 h-4 accent-brand-500"> منشور
+        </label>
+        <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+          <input id="fFeatured" type="checkbox" class="w-4 h-4 accent-brand-500"> مميّز
+        </label>
+      </div>
+
+      <p id="mErr" class="hidden rounded-xl bg-rose-500/10 border border-rose-500/30 px-3 py-2 text-xs text-rose-300"></p>
+
+      <div class="flex gap-2 pt-2">
+        <button id="mSave" type="submit"
+                class="flex-1 rounded-xl bg-brand-500 hover:bg-brand-400 disabled:opacity-60 text-ink-950
+                       font-bold py-2.5 transition flex items-center justify-center gap-2">حفظ</button>
+        <button id="mCancel" type="button"
+                class="rounded-xl border border-ink-700 px-5 py-2.5 hover:bg-ink-850 transition">إلغاء</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="hidden fixed bottom-5 start-1/2 -translate-x-1/2 z-40 rounded-xl px-4 py-2.5 text-sm font-semibold shadow-2xl"></div>
+
+<script src="/dashboard/app.js"></script>
+</body>
+</html>
