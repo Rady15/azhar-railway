@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   DatabaseBackup, Loader2, RefreshCw, HardDriveDownload,
   AlertTriangle, CheckCircle2, Info, RotateCcw, Eye,
-  Download, FileCode2, Upload,
+  Download, FileCode2, Upload, FolderOpen,
 } from 'lucide-react';
 import { apiService } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
@@ -185,9 +185,17 @@ export function BackupsView() {
       </div>
 
       {dir && (
-        <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-          <Info className="w-4 h-4 mt-0.5 shrink-0" />
-          <span>{t('مجلد الحفظ:', 'Backup folder:')} <code className="font-mono">{dir}</code></span>
+        <div className="flex items-start gap-2 rounded-xl border border-cyan-200 bg-cyan-50/60 p-3 text-xs text-slate-700">
+          <FolderOpen className="w-4 h-4 mt-0.5 shrink-0 text-cyan-700" />
+          <span>
+            {t('مجلد الأرشيف:', 'Archive folder:')} <code className="font-mono text-cyan-900">{dir}</code>
+            <span className="block mt-1 text-slate-500">
+              {t(
+                  'كل النسخ محفوظة هنا: المجدولة، والمرفوعة، ونسخ الأمان التلقائية قبل الاسترجاع.',
+                'Every backup lives here: scheduled, uploaded, and the automatic pre-restore snapshots.'
+              )}
+            </span>
+          </span>
         </div>
       )}
 
@@ -250,6 +258,15 @@ export function BackupsView() {
                         {t('الأحدث', 'latest')}
                       </span>
                     )}
+                    <span className={`ms-2 text-[10px] font-bold rounded px-1.5 py-0.5 border ${
+                      r.id.startsWith('upload-') ? 'bg-sky-50 text-sky-700 border-sky-200'
+                        : r.id.startsWith('pre-restore-') ? 'bg-slate-100 text-slate-600 border-slate-200'
+                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    }`}>
+                      {r.id.startsWith('upload-') ? t('مرفوعة', 'uploaded')
+                        : r.id.startsWith('pre-restore-') ? t('نسخة أمان', 'safety')
+                        : t('مجدولة', 'scheduled')}
+                    </span>
                   </td>
                   <td className="px-3 py-2 text-slate-600">{fmtDate(r.createdAt)}</td>
                   <td className="px-3 py-2 text-center font-mono">{fmtSize(r.sizeBytes)}</td>
@@ -274,8 +291,8 @@ export function BackupsView() {
                         <FileCode2 className="w-4 h-4" />
                       </button>
                       <button onClick={() => restore(r)} disabled={busy === r.id || !caps.canRestore}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 text-[11px] font-bold disabled:opacity-50"
-                        title={t('استرجاع', 'Restore')}>
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold disabled:opacity-40 disabled:bg-slate-300"
+                        title={t('استرجاع هذه النسخة — يستبدل كل البيانات الحالية', 'Restore this backup — replaces all current data')}>
                         <RotateCcw className="w-3.5 h-3.5" />
                         {t('استرجاع', 'Restore')}
                       </button>

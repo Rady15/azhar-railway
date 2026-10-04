@@ -11,6 +11,11 @@ server.log
 !.env.example
 
 # local data / backups
-backups/
 *.sqlite
 *.db
+
+# Backup archive: dumps are binary artefacts that would bloat the repository.
+# Keep the folder and its explanation, ignore the files themselves.
+backups/*
+!backups/.gitkeep
+!backups/README.md

@@ -3177,7 +3177,17 @@ async function startServer() {
   //  /usr/local/bin/azhar-backup and azhar-restore use, so backups can
   //  also be taken from the UI. Every route requires admin.manage.
   // ─────────────────────────────────────────────────────────────
-  const BACKUP_DIR = process.env.BACKUP_DIR || "/var/backups/azhar";
+  // Inside the project on purpose: one visible folder holds every backup the app
+  // creates and every file an admin uploads, instead of scattering them across
+  // /var/backups and /var/lib where they are easy to miss and easy to lose.
+  // A backup id is a file name without its extension. Four kinds share the folder,
+  // so the pattern lives here once instead of being repeated per route - which is
+  // how the lister and the restore route drifted apart before.
+  const BACKUP_ID_RE = /^(?:azhar|pre-restore)-\d{8}-\d{6}$|^upload-\d{8}T\d{6}$/;
+  const BACKUP_FILE_RE = /^(?:azhar|pre-restore)-\d{8}-\d{6}\.(?:dump|sql)$|^upload-\d{8}T\d{6}\.(?:dump|sql)$/;
+
+  const PROJECT_BACKUPS = path.join(process.cwd(), "backups");
+  const BACKUP_DIR = process.env.BACKUP_DIR || PROJECT_BACKUPS;
 
   // Serverless platforms have no writable filesystem and ship no pg_dump, so the
   // file-based backup that the self-hosted server performs cannot run there.
@@ -3400,7 +3410,7 @@ async function startServer() {
     return out.join("\n");
   };
 
-  const UPLOAD_DIR = process.env.UPLOAD_DIR || "/var/lib/azhar-restore";
+  const UPLOAD_DIR = process.env.UPLOAD_DIR || PROJECT_BACKUPS;
   const UPLOAD_SCRIPT = "/usr/local/bin/azhar-restore-upload";
   const MAX_UPLOAD_BYTES = 120 * 1024 * 1024;
 
@@ -3495,7 +3505,10 @@ async function startServer() {
   const backupRows = () => {
     if (!fs.existsSync(BACKUP_DIR)) return [];
     return fs.readdirSync(BACKUP_DIR)
-      .filter((f: string) => /^azhar-\d{8}-\d{6}\.dump$/.test(f))
+      // Scheduled dumps, uploaded files and the automatic pre-restore snapshots
+      // all live in the same folder, so all of them are listed here and each row
+      // gets a working Restore button.
+      .filter((f: string) => BACKUP_FILE_RE.test(f))
       .map((f: string) => {
         const full = path.join(BACKUP_DIR, f);
         const st = fs.statSync(full);
@@ -3600,7 +3613,7 @@ async function startServer() {
       return res.status(409).json({ isSuccess: false, message: NO_FILE_BACKUP_MSG });
     }
     const file = String(req.params.id || "");
-    if (!/^azhar-\d{8}-\d{6}$/.test(file)) return res.status(400).json({ isSuccess: false, message: 'اسم غير صالح' });
+    if (!BACKUP_ID_RE.test(file)) return res.status(400).json({ isSuccess: false, message: 'اسم غير صالح' });
     const cf = path.join(BACKUP_DIR, `${file}.counts.txt`);
     if (!fs.existsSync(cf)) return res.status(404).json({ isSuccess: false, message: 'لا توجد بيانات لهذه النسخة' });
     const counts: Record<string, number> = {};
@@ -3618,7 +3631,7 @@ async function startServer() {
       return res.status(409).json({ isSuccess: false, message: NO_FILE_BACKUP_MSG });
     }
     const id = String(req.params.id || "");
-    if (!/^azhar-\d{8}-\d{6}$/.test(id)) return res.status(400).json({ isSuccess: false, message: 'اسم غير صالح' });
+    if (!BACKUP_ID_RE.test(id)) return res.status(400).json({ isSuccess: false, message: 'اسم غير صالح' });
     const dump = path.join(BACKUP_DIR, `${id}.dump`);
     if (!fs.existsSync(dump)) return res.status(404).json({ isSuccess: false, message: 'النسخة غير موجودة' });
     res.setHeader("Content-Type", "application/octet-stream");
@@ -3633,7 +3646,7 @@ async function startServer() {
       return res.status(409).json({ isSuccess: false, message: NO_FILE_BACKUP_MSG });
     }
     const id = String(req.params.id || "");
-    if (!/^azhar-\d{8}-\d{6}$/.test(id)) return res.status(400).json({ isSuccess: false, message: 'اسم غير صالح' });
+    if (!BACKUP_ID_RE.test(id)) return res.status(400).json({ isSuccess: false, message: 'اسم غير صالح' });
     const f = path.join(BACKUP_DIR, `${id}.sql`);
     if (!fs.existsSync(f)) return res.status(404).json({ isSuccess: false, message: 'الملف غير موجود' });
     res.setHeader("Content-Type", "application/sql");
@@ -3648,14 +3661,29 @@ async function startServer() {
         return res.status(409).json({ isSuccess: false, message: NO_FILE_BACKUP_MSG });
       }
       const id = String(req.params.id || "");
-      if (!/^azhar-\d{8}-\d{6}$/.test(id)) return res.status(400).json({ isSuccess: false, message: 'اسم غير صالح' });
+      if (!BACKUP_ID_RE.test(id)) return res.status(400).json({ isSuccess: false, message: 'اسم غير صالح' });
       if (req.body?.confirm !== 'RESTORE') {
         return res.status(400).json({ isSuccess: false, message: 'يلزم تأكيد صريح' });
       }
-      const dump = path.join(BACKUP_DIR, `${id}.dump`);
-      if (!fs.existsSync(dump)) return res.status(404).json({ isSuccess: false, message: 'النسخة غير موجودة' });
+      // Either extension may sit in the folder, so pick whichever actually exists.
+      // .dump is a faithful full restore; .sql replaces data and keeps the schema.
+      const dump = [".dump", ".sql"]
+        .map((ext) => path.join(BACKUP_DIR, `${id}${ext}`))
+        .find((f) => fs.existsSync(f));
+      if (!dump) return res.status(404).json({ isSuccess: false, message: 'النسخة غير موجودة' });
       try {
-        const r = await runCmd(privileged(RESTORE_SCRIPT)[0], privileged(RESTORE_SCRIPT).slice(1).concat([dump]), 1800000);
+        // azhar-restore-upload handles both formats, and unlike azhar-restore-auto
+        // it leaves a .sql restore's schema intact. It accepts a bare filename
+        // only, which is also why this stays safe to expose through sudo: the
+        // wrapper resolves the name inside the project's backups/ folder itself.
+        if (!fs.existsSync(UPLOAD_SCRIPT)) {
+          return res.status(409).json({ isSuccess: false, message: `البرنامج المطلوب غير موجود: ${path.basename(UPLOAD_SCRIPT)}` });
+        }
+        const r = await runCmd(
+          privileged(UPLOAD_SCRIPT)[0],
+          privileged(UPLOAD_SCRIPT).slice(1).concat([path.basename(dump)]),
+          1800000
+        );
         if (r.code !== 0) {
           return res.status(500).json({
             isSuccess: false,
