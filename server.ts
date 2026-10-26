@@ -3330,10 +3330,37 @@ async function startServer() {
         if(entityType==='tenant' && req.body?.phoneNumber!==undefined)e.phoneNumber=req.body.phoneNumber;
         if(entityType==='staff' && req.body?.phoneNumber!==undefined)e.phoneNumber=req.body.phoneNumber;
         if(dbPool) await saveState(entityType==='tenant'?'tenants':'staff',entityType==='tenant'?tenantsStore:staffStore);
-        if(dbPool && (req.body?.email!==undefined || req.body?.displayName!==undefined)){
-          try { await dbPool.query("UPDATE app_users SET email=COALESCE(NULLIF($2,''),email),full_name=COALESCE(NULLIF($3,''),full_name),updated_at=NOW() WHERE id=$1",[req.user.sub,String(req.body.email||''),String(req.body.displayName||'')]); }
-          catch(e:any){ return res.status(409).json({message:'تعذر تحديث البريد الإلكتروني؛ قد يكون مستخدماً بالفعل'}); }
+      }
+    }
+    if(dbPool){
+      const userId=req.user.sub;
+      const sets: string[] = [];
+      const vals: any[] = [];
+      if(req.body?.email!==undefined){
+        const emailVal=String(req.body.email||'');
+        const collision=await dbPool.query("SELECT id FROM app_users WHERE lower(email)=lower($1) AND id<>$2 LIMIT 1",[emailVal,userId]);
+        if(collision.rows[0]) return res.status(409).json({message:'تعذر تحديث البريد الإلكتروني؛ قد يكون مستخدماً بالفعل'});
+        sets.push(`email=$${vals.length+1}`); vals.push(emailVal);
+      }
+      if(req.body?.displayName!==undefined){
+        sets.push(`full_name=$${vals.length+1}`); vals.push(String(req.body.displayName||''));
+      }
+      if(req.body?.username!==undefined){
+        const usernameVal=String(req.body.username||'').trim();
+        if(usernameVal){
+          const collision=await dbPool.query("SELECT id FROM app_users WHERE lower(username)=lower($1) AND id<>$2 LIMIT 1",[usernameVal,userId]);
+          if(collision.rows[0]) return res.status(409).json({message:'اسم المستخدم مستخدم بالفعل'});
+          sets.push(`username=$${vals.length+1}`); vals.push(usernameVal);
         }
+      }
+      if(sets.length){
+        vals.push(userId);
+        try { await dbPool.query(`UPDATE app_users SET ${sets.join(',')},updated_at=NOW() WHERE id=$${vals.length}`, vals); }
+        catch(e:any){ return res.status(409).json({message:'تعذر تحديث بيانات الحساب'}); }
+      }
+      if(req.body?.password){
+        try { await dbPool.query("UPDATE app_users SET password_hash=$2,updated_at=NOW() WHERE id=$1",[userId,hashPassword(req.body.password)]); }
+        catch(e:any){ return res.status(400).json({message:'تعذر تحديث كلمة المرور'}); }
       }
     }
     if(dbPool)await dbPool.query("INSERT INTO azhar_profiles(user_id,data,updated_at) VALUES($1,$2::jsonb,NOW()) ON CONFLICT(user_id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()",[req.user.sub,JSON.stringify(profileStore)]);

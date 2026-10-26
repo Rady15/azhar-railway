@@ -255,7 +255,9 @@ function MainApp() {
     try {
       await apiService.updateProfile({
         displayName: updatedUser.name,
+        username: updatedUser.username,
         email: updatedUser.email,
+        password: updatedUser.password,
         profileImageUrl: updatedUser.profileImageUrl || updatedUser.avatar || ''
       });
     } catch (err) {

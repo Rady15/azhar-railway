@@ -20,6 +20,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   const { language } = useLanguage();
 
   const [name, setName] = useState(user.name || '');
+  const [username, setUsername] = useState(user.username || '');
   const [email, setEmail] = useState(user.email || '');
   const [password, setPassword] = useState('');
   const [profileImage, setProfileImage] = useState<string>(user.profileImageUrl || user.avatar || '');
@@ -31,6 +32,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
     onSave({
       ...user,
       name,
+      username,
       email,
       profileImageUrl: profileImage,
       ...(password ? { password } : {})
@@ -171,6 +173,23 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
               onChange={(e) => setName(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#29b4c4]"
             />
+          </div>
+
+          {/* Username */}
+          <div>
+            <label className="block font-semibold text-slate-700 mb-1">
+              {language === 'ar' ? 'اسم المستخدم' : 'Username'}
+            </label>
+            <div className="relative">
+              <User className="w-4 h-4 text-slate-400 absolute top-2.5 left-3" />
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value.trim())}
+                placeholder="username"
+                className="w-full px-3 py-2 pl-10 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#29b4c4]"
+              />
+            </div>
           </div>
 
           {/* Email */}

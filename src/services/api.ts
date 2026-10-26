@@ -1346,7 +1346,7 @@ export const apiService = {
     if (!res.ok) throw new Error('Failed to register FCM token');
   },
 
-  async updateProfile(data: { displayName?: string; email?: string; profileImageUrl?: string }): Promise<void> {
+  async updateProfile(data: { displayName?: string; username?: string; email?: string; password?: string; profileImageUrl?: string }): Promise<void> {
     const res = await authedFetch('/Profile', {
       method: 'PUT',
       body: JSON.stringify(data)

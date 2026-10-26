@@ -110,7 +110,10 @@ export const TenantsList: React.FC<TenantsListProps> = ({
   const [manualContractDocumentUrl, setManualContractDocumentUrl] = useState('');
   const [manualContractDocumentName, setManualContractDocumentName] = useState('');
   const [formError, setFormError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
+
+  const clearField = (field: string) => setFieldErrors(prev => { const next = { ...prev }; delete next[field]; return next; });
 
   const filteredTenants = tenants.filter(t => {
     const isArchived = Boolean(t.archived);
@@ -189,12 +192,35 @@ export const TenantsList: React.FC<TenantsListProps> = ({
     setManualContractDocumentUrl(t.manualContractDocumentUrl || ''); setManualContractDocumentName(t.manualContractDocumentName || '');
   };
 
-  const validateTenantForm = () => {
-    const errors:string[] = [];
-    if (!name.trim()) errors.push(language === 'ar' ? 'اسم المستأجر مطلوب.' : 'Tenant name is required.');
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errors.push(language === 'ar' ? 'أدخل بريدًا إلكترونيًا صحيحًا.' : 'Enter a valid email address.');
-    if (!mobile.trim() || !/^[0-9+\s()-]{7,20}$/.test(mobile.trim())) errors.push(language === 'ar' ? 'أدخل رقم جوال صحيح.' : 'Enter a valid mobile number.');
-    if (password && password.length < 8) errors.push(language === 'ar' ? 'كلمة المرور يجب ألا تقل عن 8 أحرف.' : 'Password must be at least 8 characters.');
+  const validateTenantForm = (): Record<string, string> => {
+    const errors: Record<string, string> = {};
+    const required = (field: string, value: string, arMsg: string, enMsg: string) => {
+      if (!value || !value.trim()) errors[field] = language === 'ar' ? arMsg : enMsg;
+    };
+    required('name', name, 'اسم المستأجر مطلوب.', 'Tenant name is required.');
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      errors.email = language === 'ar' ? 'أدخل بريدًا إلكترونيًا صحيحًا.' : 'Enter a valid email address.';
+    }
+    if (!mobile.trim() || !/^[0-9+\s()-]{7,20}$/.test(mobile.trim())) {
+      errors.mobile = language === 'ar' ? 'أدخل رقم جوال صحيح.' : 'Enter a valid mobile number.';
+    }
+    if (!emergencyPhone.trim()) {
+      errors.emergencyPhone = language === 'ar' ? 'أدخل هاتف الطوارئ.' : 'Enter emergency phone.';
+    }
+    if (!nationality.trim()) {
+      errors.nationality = language === 'ar' ? 'أدخل الجنسية.' : 'Enter nationality.';
+    }
+    if (!familyCount || Number(familyCount) < 1) {
+      errors.familyCount = language === 'ar' ? 'أدخل عدد أفراد الأسرة.' : 'Enter family count.';
+    }
+    if (!whatsapp.trim()) {
+      errors.whatsapp = language === 'ar' ? 'أدخل رقم الواتساب.' : 'Enter WhatsApp number.';
+    }
+    if (!editingTenant && !password.trim()) {
+      errors.password = language === 'ar' ? 'كلمة المرور مطلوبة.' : 'Password is required.';
+    } else if (password && password.length < 8) {
+      errors.password = language === 'ar' ? 'كلمة المرور يجب ألا تقل عن 8 أحرف.' : 'Password must be at least 8 characters.';
+    }
     return errors;
   };
 
@@ -206,9 +232,9 @@ export const TenantsList: React.FC<TenantsListProps> = ({
   });
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setFormError('');
+    e.preventDefault(); setFormError(''); setFieldErrors({});
     const errors = validateTenantForm();
-    if (errors.length) { setFormError(errors.join(' ')); return; }
+    if (Object.keys(errors).length) { setFieldErrors(errors); return; }
     setIsSaving(true);
     try { await onAddTenant(tenantPayload()); setShowAddModal(false); resetForm(); }
     catch (err:any) { setFormError(err?.userMessage || err?.message || (language === 'ar' ? 'تعذر حفظ المستأجر.' : 'Unable to save tenant.')); }
@@ -218,9 +244,9 @@ export const TenantsList: React.FC<TenantsListProps> = ({
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingTenant || !onUpdateTenant) return;
-    setFormError('');
+    setFormError(''); setFieldErrors({});
     const errors = validateTenantForm();
-    if (errors.length) { setFormError(errors.join(' ')); return; }
+    if (Object.keys(errors).length) { setFieldErrors(errors); return; }
     setIsSaving(true);
     try { await onUpdateTenant({ ...editingTenant, ...tenantPayload() }); setEditingTenant(null); resetForm(); }
     catch (err:any) { setFormError(err?.userMessage || err?.message || (language === 'ar' ? 'تعذر تحديث المستأجر.' : 'Unable to update tenant.')); }
@@ -634,9 +660,10 @@ export const TenantsList: React.FC<TenantsListProps> = ({
                     required
                     placeholder="Full name"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
+                    onChange={(e) => { setName(e.target.value); clearField('name'); }}
+                    className={`w-full px-3 py-2 bg-slate-50 rounded-xl border ${fieldErrors.name ? 'border-rose-500' : 'border-slate-300'}`}
                   />
+                  {fieldErrors.name && <p className="text-[10px] text-rose-600 mt-1 text-left">{fieldErrors.name}</p>}
                 </div>
 
                 <div>
@@ -668,9 +695,10 @@ export const TenantsList: React.FC<TenantsListProps> = ({
                     required
                     placeholder="name@example.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
+                    onChange={(e) => { setEmail(e.target.value); clearField('email'); }}
+                    className={`w-full px-3 py-2 bg-slate-50 rounded-xl border ${fieldErrors.email ? 'border-rose-500' : 'border-slate-300'}`}
                   />
+                  {fieldErrors.email && <p className="text-[10px] text-rose-600 mt-1 text-left">{fieldErrors.email}</p>}
                 </div>
 
                 <div>
@@ -680,9 +708,10 @@ export const TenantsList: React.FC<TenantsListProps> = ({
                     required
                     placeholder="05xxxxxxxx"
                     value={mobile}
-                    onChange={(e) => setMobile(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono"
+                    onChange={(e) => { setMobile(e.target.value); clearField('mobile'); }}
+                    className={`w-full px-3 py-2 bg-slate-50 rounded-xl border ${fieldErrors.mobile ? 'border-rose-500' : 'border-slate-300'} font-mono`}
                   />
+                  {fieldErrors.mobile && <p className="text-[10px] text-rose-600 mt-1 text-left">{fieldErrors.mobile}</p>}
                 </div>
 
                 <div>
@@ -691,9 +720,10 @@ export const TenantsList: React.FC<TenantsListProps> = ({
                     type="text"
                     placeholder="05xxxxxxxx"
                     value={emergencyPhone}
-                    onChange={(e) => setEmergencyPhone(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono"
+                    onChange={(e) => { setEmergencyPhone(e.target.value); clearField('emergencyPhone'); }}
+                    className={`w-full px-3 py-2 bg-slate-50 rounded-xl border ${fieldErrors.emergencyPhone ? 'border-rose-500' : 'border-slate-300'} font-mono`}
                   />
+                  {fieldErrors.emergencyPhone && <p className="text-[10px] text-rose-600 mt-1 text-left">{fieldErrors.emergencyPhone}</p>}
                 </div>
 
                 <div>
@@ -702,9 +732,10 @@ export const TenantsList: React.FC<TenantsListProps> = ({
                     type="text"
                     placeholder="Sudan / Saudi / Egyptian"
                     value={nationality}
-                    onChange={(e) => setNationality(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
+                    onChange={(e) => { setNationality(e.target.value); clearField('nationality'); }}
+                    className={`w-full px-3 py-2 bg-slate-50 rounded-xl border ${fieldErrors.nationality ? 'border-rose-500' : 'border-slate-300'}`}
                   />
+                  {fieldErrors.nationality && <p className="text-[10px] text-rose-600 mt-1 text-left">{fieldErrors.nationality}</p>}
                 </div>
 
                 <div>
@@ -713,9 +744,10 @@ export const TenantsList: React.FC<TenantsListProps> = ({
                     type="number"
                     min="1"
                     value={familyCount}
-                    onChange={(e) => setFamilyCount(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"
+                    onChange={(e) => { setFamilyCount(e.target.value); clearField('familyCount'); }}
+                    className={`w-full px-3 py-2 bg-slate-50 rounded-xl border ${fieldErrors.familyCount ? 'border-rose-500' : 'border-slate-300'}`}
                   />
+                  {fieldErrors.familyCount && <p className="text-[10px] text-rose-600 mt-1 text-left">{fieldErrors.familyCount}</p>}
                 </div>
 
                 <div>
@@ -724,9 +756,10 @@ export const TenantsList: React.FC<TenantsListProps> = ({
                     type="text"
                     placeholder="9665xxxxxxxx"
                     value={whatsapp}
-                    onChange={(e) => setWhatsapp(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono"
+                    onChange={(e) => { setWhatsapp(e.target.value); clearField('whatsapp'); }}
+                    className={`w-full px-3 py-2 bg-slate-50 rounded-xl border ${fieldErrors.whatsapp ? 'border-rose-500' : 'border-slate-300'} font-mono`}
                   />
+                  {fieldErrors.whatsapp && <p className="text-[10px] text-rose-600 mt-1 text-left">{fieldErrors.whatsapp}</p>}
                 </div>
 
                 
@@ -741,9 +774,10 @@ export const TenantsList: React.FC<TenantsListProps> = ({
                     required={!editingTenant}
                     placeholder={editingTenant ? (language === 'ar' ? 'اتركها فارغة للإبقاء على كلمة المرور الحالية' : 'Leave blank to keep current password') : (language === 'ar' ? '8 أحرف على الأقل' : 'At least 8 characters')}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-amber-300 rounded-xl font-mono font-bold"
+                    onChange={(e) => { setPassword(e.target.value); clearField('password'); }}
+                    className={`w-full px-3 py-2 bg-slate-50 rounded-xl border ${fieldErrors.password ? 'border-rose-500' : 'border-amber-300'} font-mono font-bold`}
                   />
+                  {fieldErrors.password && <p className="text-[10px] text-rose-600 mt-1 text-left">{fieldErrors.password}</p>}
                 </div>
               </div>
 
