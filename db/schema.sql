@@ -260,6 +260,9 @@ CREATE TABLE IF NOT EXISTS rental_payments (
   reversed_at TIMESTAMPTZ,
   reversed_by UUID REFERENCES app_users(id) ON DELETE SET NULL,
   reversal_reason TEXT,
+  attachment_media_id UUID REFERENCES media_assets(id) ON DELETE SET NULL,
+  attachment_file_name TEXT,
+  attachment_mime_type TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_rental_payments_tenant ON rental_payments(tenant_id, payment_date DESC);

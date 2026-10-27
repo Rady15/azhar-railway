@@ -3000,13 +3000,27 @@ async function startServer() {
   });
 
   // 6. Payments & Expenses API
-  app.get("/api/Payment", (req, res) => {
+  app.get("/api/Payment", async (req, res) => {
     const q = String(req.query.q || req.query.search || "");
-    res.json(paginated(paymentsStore.filter(p => matchesQuery(p, q)), req));
+    if (dbPool) {
+      const where = q ? `WHERE rp.legacy_id ILIKE $1 OR rp.receipt_no ILIKE $1 OR rp.tenant_id ILIKE $1` : '';
+      const vals = q ? [`%${q}%`] : [];
+      const r = await dbPool.query(`SELECT rp.*, tm.id AS "attachmentMediaId", tm.file_name AS "attachmentFileName", tm.mime_type AS "attachmentMimeType" FROM rental_payments rp LEFT JOIN media_assets tm ON rp.attachment_media_id = tm.id ${where} ORDER BY rp.payment_date DESC, rp.created_at DESC`, vals);
+      return res.json(paginated(r.rows, req));
+    }
+    const filtered = paymentsStore.filter(p => matchesQuery(p, q));
+    res.json(paginated(filtered, req));
   });
-  app.get("/api/payment", (req, res) => {
+  app.get("/api/payment", async (req, res) => {
     const q = String(req.query.q || req.query.search || "");
-    res.json(paginated(paymentsStore.filter(p => matchesQuery(p, q)), req));
+    if (dbPool) {
+      const where = q ? `WHERE rp.legacy_id ILIKE $1 OR rp.receipt_no ILIKE $1 OR rp.tenant_id ILIKE $1` : '';
+      const vals = q ? [`%${q}%`] : [];
+      const r = await dbPool.query(`SELECT rp.*, tm.id AS "attachmentMediaId", tm.file_name AS "attachmentFileName", tm.mime_type AS "attachmentMimeType" FROM rental_payments rp LEFT JOIN media_assets tm ON rp.attachment_media_id = tm.id ${where} ORDER BY rp.payment_date DESC, rp.created_at DESC`, vals);
+      return res.json(paginated(r.rows, req));
+    }
+    const filtered = paymentsStore.filter(p => matchesQuery(p, q));
+    res.json(paginated(filtered, req));
   });
 
   app.post("/api/Payment", async (req:any, res) => {
@@ -3032,7 +3046,7 @@ async function startServer() {
           await c.query('ROLLBACK');
           return res.status(409).json({message:`المبلغ المدخل (${amount.toFixed(2)}) أكبر من المتبقي على العقد (${outstanding.toFixed(2)}). أدخل مبلغًا لا يتجاوز المتبقي.`});
         }
-        const pr=await c.query(`INSERT INTO rental_payments(legacy_id,receipt_no,tenant_id,contract_id,amount,payment_method,reference_no,payment_date,notes,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,[legacyId,receiptNo,tenantId||contract.tenantId||null,String(contract.id),amount,req.body.paymentMethod||'Cash',req.body.referenceNo||null,paymentDate,req.body.notes||'',req.user?.sub||null]);
+        const pr=await c.query(`INSERT INTO rental_payments(legacy_id,receipt_no,tenant_id,contract_id,amount,payment_method,reference_no,payment_date,notes,created_by,attachment_media_id,attachment_file_name,attachment_mime_type) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,[legacyId,receiptNo,tenantId||contract.tenantId||null,String(contract.id),amount,req.body.paymentMethod||'Cash',req.body.referenceNo||null,paymentDate,req.body.notes||'',req.user?.sub||null,req.body.attachmentMediaId||null,req.body.attachmentFileName||null,req.body.attachmentMimeType||null]);
         let remaining=amount;
         const inst=await c.query(`SELECT id,installment_no,due_date,original_amount::float8,paid_amount::float8 FROM rent_installments WHERE contract_id=$1 AND status<>'Cancelled' AND paid_amount<original_amount ORDER BY due_date,installment_no FOR UPDATE`,[String(contract.id)]);
         for(const row of inst.rows){ if(remaining<=0) break; const open=Number(row.original_amount)-Number(row.paid_amount); const alloc=Math.min(open,remaining); if(alloc<=0)continue; await c.query(`INSERT INTO payment_allocations(payment_id,installment_id,amount) VALUES($1,$2,$3)`,[pr.rows[0].id,row.id,alloc]); await c.query(`UPDATE rent_installments SET paid_amount=paid_amount+$2,updated_at=NOW() WHERE id=$1`,[row.id,alloc]); allocations.push({installmentId:row.id,installmentNo:row.installment_no,dueDate:row.due_date,amount:alloc}); remaining=Math.round((remaining-alloc)*100)/100; }
@@ -3043,7 +3057,7 @@ async function startServer() {
         await c.query('COMMIT');
       }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
     }
-    const newPayment={id:legacyId,tenantId:tenantId||contract.tenantId||'',tenantName:req.body.tenantName||contract.tenantName||'',unitNumber:req.body.unitNumber||contract.unitNumber||contract.houseNumber||'',contractId:String(contract.id),receiptNo,amount,paymentMethod:req.body.paymentMethod||'Cash',referenceNo:req.body.referenceNo||'',status:'Paid',paymentDate,unappliedAmount:unapplied,allocations};
+    const newPayment={id:legacyId,tenantId:tenantId||contract.tenantId||'',tenantName:req.body.tenantName||contract.tenantName||'',unitNumber:req.body.unitNumber||contract.unitNumber||contract.houseNumber||'',contractId:String(contract.id),receiptNo,amount,paymentMethod:req.body.paymentMethod||'Cash',referenceNo:req.body.referenceNo||'',status:'Paid',paymentDate,unappliedAmount:unapplied,allocations,attachmentMediaId:req.body.attachmentMediaId||null,attachmentFileName:req.body.attachmentFileName||null,attachmentMimeType:req.body.attachmentMimeType||null};
     await refreshEmbeddedSchedule(contract);
     paymentsStore.push(newPayment); if(dbPool) await saveState('payments',paymentsStore);
     res.status(201).json(newPayment);
