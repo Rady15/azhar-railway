@@ -1775,7 +1775,8 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
             const matchedPayment = contractPayments.find(p =>
               p.receiptNo && p.receiptNo === i.receiptNo ||
               p.referenceNo && p.referenceNo === i.referenceNo ||
-              (p.amount === i.amount && String(p.paymentDate || '').slice(0, 10) === normInvDate)
+              (p.amount === i.amount && String(p.paymentDate || '').slice(0, 10) === normInvDate) ||
+              (p.amount === i.amount && p.status !== 'Reversed')
             );
             return {
               id: i.receiptNo || `E-${10000 + idx}`,
