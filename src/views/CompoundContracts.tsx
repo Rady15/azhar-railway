@@ -146,6 +146,9 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
   const [paymentStatus, setPaymentStatus] = useState('Paid');
   const [paymentReference, setPaymentReference] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
+  const [paymentAttachmentId, setPaymentAttachmentId] = useState<string | null>(null);
+  const [paymentAttachmentUrl, setPaymentAttachmentUrl] = useState('');
+  const [paymentAttachmentName, setPaymentAttachmentName] = useState('');
 
   // Contract payments list
   const [contractPayments, setContractPayments] = useState<PaymentRecord[]>([]);
@@ -354,10 +357,14 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
         paymentMethod,
         referenceNo: paymentReference,
         notes: paymentNotes,
-        status: paymentStatus
+        status: paymentStatus,
+        attachmentMediaId: paymentAttachmentId || null,
+        attachmentFileName: paymentAttachmentName || null,
+        attachmentMimeType: null
       });
       setContractPayments(prev => [...prev, newPayment]);
       setPaymentAmount(0); setPaymentReference(''); setPaymentNotes('');
+      setPaymentAttachmentId(null); setPaymentAttachmentUrl(''); setPaymentAttachmentName('');
       const freshLedger = await apiService.getRentLedger(activeModal.contract.id);
       setLedgerData(freshLedger);
       const nextDueDate = freshLedger.finance?.next_due_date ? String(freshLedger.finance.next_due_date).slice(0, 10) : '';
@@ -1811,9 +1818,20 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
                 <div className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-200 space-y-2">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                     <input type="number" min="0.01" step="0.01" max={Number(ledgerData?.finance?.remaining ?? activeModal.contract?.remainingAmount ?? 0)} value={paymentAmount||''} onChange={e=>setPaymentAmount(Number(e.target.value))} placeholder={language==='ar'?'المبلغ':'Amount'} className="border rounded-lg px-3 py-2" />
-                    <select value={paymentMethod} onChange={e=>setPaymentMethod(e.target.value)} className="border rounded-lg px-3 py-2"><option>Cash</option><option>Card</option><option>BankTransfer</option><option>Check</option></select>
+                    <select key={paymentMethod} value={paymentMethod} onChange={e=>setPaymentMethod(e.target.value)} className="border rounded-lg px-3 py-2"><option>Cash</option><option>Card</option><option>BankTransfer</option><option>Check</option></select>
                     <input value={paymentReference} onChange={e=>setPaymentReference(e.target.value)} placeholder={language==='ar'?'المرجع':'Reference'} className="border rounded-lg px-3 py-2" />
                     <input value={paymentNotes} onChange={e=>setPaymentNotes(e.target.value)} placeholder={language==='ar'?'ملاحظات':'Notes'} className="border rounded-lg px-3 py-2" />
+                    <MediaUploadField
+                      label={language === 'ar' ? 'إرفاق إيصال الدفعة' : 'Attach Payment Receipt'}
+                      category="payment-receipt"
+                      entityType="payment"
+                      entityId={activeModal.contract?.id || ''}
+                      value={paymentAttachmentUrl}
+                      fileName={paymentAttachmentName}
+                      accept="image/jpeg,image/png,image/webp,application/pdf"
+                      onUploaded={({url,fileName,id}) => { setPaymentAttachmentUrl(url); setPaymentAttachmentName(fileName); setPaymentAttachmentId(id); }}
+                      onClear={() => { setPaymentAttachmentUrl(''); setPaymentAttachmentName(''); setPaymentAttachmentId(null); }}
+                    />
                   </div>
                   <button onClick={handleRecordPayment} disabled={paymentAmount<=0} className="w-full py-2.5 bg-[#29b4c4] hover:bg-[#229ca9] disabled:bg-slate-300 text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2"><CreditCard className="w-4 h-4" />{language === 'ar' ? 'تسجيل دفعة جديدة' : 'Record New Payment'}</button>
                 </div>
