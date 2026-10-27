@@ -1217,12 +1217,18 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
                   <input
                     type="number"
                     min="1" step="1" inputMode="numeric"
+                    list="duration-options"
                     required
                     value={durationMonths || ''}
                     onChange={(e) => setDurationMonths(Number(e.target.value))}
                     placeholder="أدخل عدد الشهور"
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold"
                   />
+                  <datalist id="duration-options">
+                    <option value={6}>6 شهور</option>
+                    <option value={12}>12 شهر (سنة واحدة)</option>
+                    <option value={24}>24 شهر (سنتين)</option>
+                  </datalist>
                 </div>
               </div>
 
