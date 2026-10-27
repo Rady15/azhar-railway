@@ -346,24 +346,31 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
       notifyUser({ kind: 'warning', ar: `المبلغ لا يمكن أن يتجاوز المتبقي (${currentRemaining.toLocaleString()} SAR)`, en: `Amount cannot exceed remaining balance (${currentRemaining.toLocaleString()} SAR)` });
       return;
     }
-    try {
-      const newPayment = await apiService.addPayment({
-        contractId: activeModal.contract.id,
-        tenantId: activeModal.contract.tenantId,
-        tenantName: activeModal.contract.tenantName,
-        unitNumber: activeModal.contract.unitNumber,
-        amount: normalizedAmount,
-        month: paymentMonth,
-        year: paymentYear,
-        paymentMethod,
-        referenceNo: paymentReference,
-        notes: paymentNotes,
-        status: paymentStatus,
-        attachmentMediaId: paymentAttachmentId || null,
-        attachmentFileName: paymentAttachmentName || null,
-        attachmentMimeType: null
-      });
-      setContractPayments(prev => [...prev, newPayment]);
+try {
+        const newPayment = await apiService.addPayment({
+          contractId: activeModal.contract.id,
+          tenantId: activeModal.contract.tenantId,
+          tenantName: activeModal.contract.tenantName,
+          unitNumber: activeModal.contract.unitNumber,
+          amount: normalizedAmount,
+          month: paymentMonth,
+          year: paymentYear,
+          paymentMethod,
+          referenceNo: paymentReference,
+          notes: paymentNotes,
+          status: paymentStatus,
+          attachmentMediaId: paymentAttachmentId || null,
+          attachmentFileName: paymentAttachmentName || null,
+          attachmentMimeType: null
+        });
+        // Ensure attachment info from upload state is included in the payment record
+        const paymentWithAttachment = {
+          ...newPayment,
+          attachmentUrl: newPayment.attachmentUrl || paymentAttachmentUrl,
+          attachmentMediaId: newPayment.attachmentMediaId || paymentAttachmentId,
+          attachmentFileName: newPayment.attachmentFileName || paymentAttachmentName
+        };
+        setContractPayments(prev => [...prev, paymentWithAttachment]);
       setPaymentAmount(0); setPaymentReference(''); setPaymentNotes('');
       setPaymentAttachmentId(null); setPaymentAttachmentUrl(''); setPaymentAttachmentName('');
       const freshLedger = await apiService.getRentLedger(activeModal.contract.id);
