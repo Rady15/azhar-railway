@@ -682,6 +682,13 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
                   </div>
                 </th>
 
+                <th className="py-3 px-3 border-r border-blue-600/40 font-mono" onClick={() => handleSort('leaseEndDate')}>
+                  <div className="flex items-center gap-1 cursor-pointer select-none hover:text-cyan-200">
+                    <span>{language === 'ar' ? 'تاريخ النهاية' : 'End Date'}</span>
+                    <ArrowUpDown className="w-3 h-3 text-white/70" />
+                  </div>
+                </th>
+
                 <th className="py-3 px-3 border-r border-blue-600/40 text-center" onClick={() => handleSort('leaseDurationMonths')}>
                   <div className="flex items-center justify-center gap-1 cursor-pointer select-none hover:text-cyan-200">
                     <span>{language === 'ar' ? 'المدة (شهر)' : 'Duration'}</span>
@@ -697,7 +704,7 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
             <tbody className="divide-y divide-slate-200 font-medium bg-white">
               {sortedContracts.length === 0 ? (
                 <tr>
-                  <td colSpan={18} className="py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={19} className="py-12 text-center text-slate-400 font-medium">
                     {language === 'ar' ? 'لا توجد عقود مطابقة للبحث حالياً في مجمع أزهار السكني.' : 'No contracts match search criteria.'}
                   </td>
                 </tr>
@@ -805,6 +812,11 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
                         {/* Start Date */}
                         <td className="py-2.5 px-3 font-mono text-slate-700 border-l border-slate-100 whitespace-nowrap">
                           {c.leaseStartDate}
+                        </td>
+
+                        {/* End Date */}
+                        <td className="py-2.5 px-3 font-mono text-slate-700 border-l border-slate-100 whitespace-nowrap">
+                          {c.leaseEndDate || '-'}
                         </td>
 
                         {/* Duration */}
@@ -1635,6 +1647,10 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
                   <span className="text-slate-500">تاريخ البداية والمدة:</span>
                   <span>{activeModal.contract.leaseStartDate} ({activeModal.contract.leaseDurationMonths} شهر)</span>
                 </div>
+                <div className="flex justify-between border-b border-slate-200 pb-2">
+                  <span className="text-slate-500">تاريخ النهاية:</span>
+                  <span className="font-bold text-slate-900">{activeModal.contract.leaseEndDate || '-'}</span>
+                </div>
               </div>
 
               <div className="bg-cyan-50/50 p-4 rounded-xl border border-cyan-200 grid grid-cols-2 md:grid-cols-5 gap-2 text-center">
@@ -1662,9 +1678,18 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
             </div>
 
             <div className="pt-2">
+              {activeModal.contract.contractDocumentUrl && (
+                <button
+                  onClick={() => apiService.openMedia(activeModal.contract.contractDocumentUrl)}
+                  className="w-full py-2 border border-[#29b4c4] text-[#29b4c4] font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-[#29b4c4]/10 transition-colors"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>{language === 'ar' ? 'عرض العقد المرفق' : 'View Attached Contract'}</span>
+                </button>
+              )}
               <button
                 onClick={() => setActiveModal({ type: null, contract: null })}
-                className="w-full py-2 bg-slate-800 text-white font-bold rounded-xl"
+                className="w-full py-2 bg-slate-800 text-white font-bold rounded-xl mt-2"
               >
                 إغلاق النافذة
               </button>
