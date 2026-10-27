@@ -292,7 +292,8 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
     try {
       const allPayments = await apiService.getPayments();
       const filtered = allPayments.filter(p => (p.contractId && p.contractId === contract.id) || (!p.contractId && (p.tenantId === contract.tenantId || p.unitNumber === contract.unitNumber)));
-      setContractPayments(filtered);
+      // Filter out reversed payments
+      setContractPayments(filtered.filter(p => p.status !== 'Reversed'));
     } catch (err) {
       console.error('Failed to load payments', err);
       setContractPayments([]);
