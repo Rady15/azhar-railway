@@ -1750,12 +1750,12 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
           }));
           return (
             <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-              <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full p-6 border border-slate-200 space-y-4 my-6">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-4 border border-slate-200 space-y-2 my-4">
 
                 {/* Header like attachment */}
                 <div className="flex items-start justify-between border-b border-slate-100 pb-3">
                   <div>
-                    <h3 className="text-2xl font-extrabold text-slate-900">Payment</h3>
+                    <h3 className="text-lg font-bold text-slate-900">Payment</h3>
                     <p className="text-xs text-slate-500 font-semibold mt-0.5">{todayLabel}</p>
                   </div>
                   <button
@@ -1767,27 +1767,27 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
                 </div>
 
                 {/* Tenant summary like attachment */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                  <div className="bg-slate-50 p-2 rounded-xl border border-slate-200">
                     <span className="text-slate-500 block text-[10px] font-bold uppercase tracking-wide">Tenant Name</span>
                     <span className="font-bold text-slate-900">{c.tenantName}</span>
                   </div>
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <div className="bg-slate-50 p-2 rounded-xl border border-slate-200">
                     <span className="text-slate-500 block text-[10px] font-bold uppercase tracking-wide">Building Number</span>
                     <span className="font-bold text-slate-900">{buildingNo}</span>
                   </div>
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <div className="bg-slate-50 p-2 rounded-xl border border-slate-200">
                     <span className="text-slate-500 block text-[10px] font-bold uppercase tracking-wide">Unit Number</span>
                     <span className="font-bold text-slate-900">{c.unitNumber}</span>
                   </div>
-                  <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200">
+                  <div className="bg-emerald-50 p-2 rounded-xl border border-emerald-200">
                     <span className="text-emerald-600 block text-[10px] font-bold uppercase tracking-wide">Total Payments</span>
                     <span className="font-bold text-emerald-800 font-mono">{totalPaid.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
                   </div>
                 </div>
 
                 {/* Record Payment */}
-                <div className="bg-emerald-50/70 p-4 rounded-xl border border-emerald-200 space-y-3">
+                <div className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-200 space-y-2">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                     <input type="number" min="0.01" step="0.01" max={Number(ledgerData?.finance?.remaining ?? activeModal.contract?.remainingAmount ?? 0)} value={paymentAmount||''} onChange={e=>setPaymentAmount(Number(e.target.value))} placeholder={language==='ar'?'المبلغ':'Amount'} className="border rounded-lg px-3 py-2" />
                     <select value={paymentMethod} onChange={e=>setPaymentMethod(e.target.value)} className="border rounded-lg px-3 py-2"><option>Cash</option><option>Card</option><option>BankTransfer</option><option>Check</option></select>
@@ -1799,7 +1799,7 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
 
                 {/* Due Payments Table like attachment */}
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                  <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2 text-xs">
                       <span className="text-slate-500 font-semibold">Show</span>
                       <select
@@ -1826,20 +1826,20 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="bg-slate-100 text-slate-600 uppercase">
-                        <th className="py-2 px-3 text-start font-bold">#</th>
-                        <th className="py-2 px-3 text-start font-bold">Due Date</th>
-                        <th className="py-2 px-3 text-start font-bold">Amount</th>
-                        <th className="py-2 px-3 text-start font-bold">Remaining Amount</th>
-                        <th className="py-2 px-3 text-start font-bold">Paid Amount</th>
-                        <th className="py-2 px-3 text-start font-bold">Last payment Date</th>
-                        <th className="py-2 px-3 text-start font-bold">User</th>
-                        <th className="py-2 px-3 text-start font-bold">Comments</th>
+                        <th className="py-1.5 px-2 text-start font-bold">#</th>
+                        <th className="py-1.5 px-2 text-start font-bold">Due Date</th>
+                        <th className="py-1.5 px-2 text-start font-bold">Amount</th>
+                        <th className="py-1.5 px-2 text-start font-bold">Remaining Amount</th>
+                        <th className="py-1.5 px-2 text-start font-bold">Paid Amount</th>
+                        <th className="py-1.5 px-2 text-start font-bold">Last payment Date</th>
+                        <th className="py-1.5 px-2 text-start font-bold">User</th>
+                        <th className="py-1.5 px-2 text-start font-bold">Comments</th>
                       </tr>
                     </thead>
                     <tbody>
                       {pageRows.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="py-10 text-center text-slate-400 italic">No data available in table</td>
+                          <td colSpan={8} className="py-6 text-center text-slate-400 italic">No data available in table</td>
                         </tr>
                       ) : (
                         pageRows.map((inst, i) => {
@@ -1847,21 +1847,21 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
                           const rem = Math.max(0, Number(inst.amount||0) - paid);
                           return (
                             <tr key={inst.id || i} className="border-t border-slate-100 hover:bg-slate-50">
-                              <td className="py-2 px-3 text-slate-500">{(safePage - 1) * paymentEntries + i + 1}</td>
-                              <td className="py-2 px-3 font-mono">{inst.dueDate}</td>
-                              <td className="py-2 px-3 font-mono">{Number(inst.amount||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-                              <td className="py-2 px-3 font-mono text-amber-600">{Number(rem||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-                              <td className="py-2 px-3 font-mono text-emerald-600">{Number(paid||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-                              <td className="py-2 px-3 font-mono">{inst.paidDate || '-'}</td>
-                              <td className="py-2 px-3">{inst.user || '-'}</td>
-                              <td className="py-2 px-3 text-slate-500">{inst.comments || '-'}</td>
+                              <td className="py-1.5 px-2 text-slate-500">{(safePage - 1) * paymentEntries + i + 1}</td>
+                              <td className="py-1.5 px-2 font-mono">{inst.dueDate}</td>
+                              <td className="py-1.5 px-2 font-mono">{Number(inst.amount||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                              <td className="py-1.5 px-2 font-mono text-amber-600">{Number(rem||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                              <td className="py-1.5 px-2 font-mono text-emerald-600">{Number(paid||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                              <td className="py-1.5 px-2 font-mono">{inst.paidDate || '-'}</td>
+                              <td className="py-1.5 px-2">{inst.user || '-'}</td>
+                              <td className="py-1.5 px-2 text-slate-500">{inst.comments || '-'}</td>
                             </tr>
                           );
                         })
                       )}
                     </tbody>
                   </table>
-                  <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
+                  <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
                     <span className="text-slate-500">
                       Showing {from} to {to} of {filteredInst.length} entries
                     </span>
@@ -1887,33 +1887,33 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
 
                 {/* Posted Payments / Receipts */}
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="px-4 py-2 bg-slate-50 border-b border-slate-200"><h4 className="font-bold text-slate-800 text-sm">{language==='ar'?'إيصالات الدفعات الفعلية':'Posted Payment Receipts'}</h4></div>
+                  <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200"><h4 className="font-bold text-slate-800 text-xs">{language==='ar'?'إيصالات الدفعات الفعلية':'Posted Payment Receipts'}</h4></div>
                   <div className="divide-y">{contractPayments.length===0?<div className="p-6 text-center text-slate-400">No payments</div>:contractPayments.map(p=><div key={p.id} className="p-3 flex items-center justify-between gap-3"><div><div className="font-bold">{p.receiptNo||p.id}</div><div className="text-xs text-slate-500">{p.paymentDate} · {p.paymentMethod} · {p.status}</div></div><div className="flex items-center gap-2"><b>{Number(p.amount||0).toLocaleString()} SAR</b>{p.status!=='Reversed'&&<button onClick={()=>handleReversePayment(p)} className="px-2 py-1 rounded bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold">{language==='ar'?'عكس':'Reverse'}</button>}</div></div>)}</div>
                 </div>
 
                 {/* Other Payments Table like attachment */}
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="px-4 py-2 bg-slate-50 border-b border-slate-200">
-                    <h4 className="font-bold text-slate-800 text-sm">Other Payments</h4>
+                  <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200">
+                    <h4 className="font-bold text-slate-800 text-xs">Other Payments</h4>
                   </div>
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="bg-slate-100 text-slate-600 uppercase">
-                        <th className="py-2 px-3 text-start font-bold">#</th>
-                        <th className="py-2 px-3 text-start font-bold">Insurence</th>
-                        <th className="py-2 px-3 text-start font-bold">Commession</th>
-                        <th className="py-2 px-3 text-start font-bold">Other</th>
-                        <th className="py-2 px-3 text-start font-bold">Total Paid</th>
-                        <th className="py-2 px-3 text-start font-bold">MonyFlow</th>
-                        <th className="py-2 px-3 text-start font-bold">Payment Date</th>
-                        <th className="py-2 px-3 text-start font-bold">User</th>
-                        <th className="py-2 px-3 text-start font-bold">Comments</th>
-                        <th className="py-2 px-3 text-start font-bold">Operations</th>
+                        <th className="py-1.5 px-2 text-start font-bold">#</th>
+                        <th className="py-1.5 px-2 text-start font-bold">Insurence</th>
+                        <th className="py-1.5 px-2 text-start font-bold">Commession</th>
+                        <th className="py-1.5 px-2 text-start font-bold">Other</th>
+                        <th className="py-1.5 px-2 text-start font-bold">Total Paid</th>
+                        <th className="py-1.5 px-2 text-start font-bold">MonyFlow</th>
+                        <th className="py-1.5 px-2 text-start font-bold">Payment Date</th>
+                        <th className="py-1.5 px-2 text-start font-bold">User</th>
+                        <th className="py-1.5 px-2 text-start font-bold">Comments</th>
+                        <th className="py-1.5 px-2 text-start font-bold">Operations</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
-                        <td colSpan={10} className="py-10 text-center text-slate-400 italic">No data available in table</td>
+                        <td colSpan={10} className="py-6 text-center text-slate-400 italic">No data available in table</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1921,34 +1921,34 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
 
                 {/* Invoices Table like attachment */}
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="px-4 py-2 bg-slate-50 border-b border-slate-200">
-                    <h4 className="font-bold text-slate-800 text-sm">Invoices</h4>
+                  <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200">
+                    <h4 className="font-bold text-slate-800 text-xs">Invoices</h4>
                   </div>
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="bg-slate-100 text-slate-600 uppercase">
-                        <th className="py-2 px-3 text-start font-bold">#</th>
-                        <th className="py-2 px-3 text-start font-bold">Invoice Id</th>
-                        <th className="py-2 px-3 text-start font-bold">Payment Date</th>
-                        <th className="py-2 px-3 text-start font-bold">Paid Amount</th>
-                        <th className="py-2 px-3 text-start font-bold">Payment Method</th>
-                        <th className="py-2 px-3 text-start font-bold">Type</th>
+                        <th className="py-1.5 px-2 text-start font-bold">#</th>
+                        <th className="py-1.5 px-2 text-start font-bold">Invoice Id</th>
+                        <th className="py-1.5 px-2 text-start font-bold">Payment Date</th>
+                        <th className="py-1.5 px-2 text-start font-bold">Paid Amount</th>
+                        <th className="py-1.5 px-2 text-start font-bold">Payment Method</th>
+                        <th className="py-1.5 px-2 text-start font-bold">Type</th>
                       </tr>
                     </thead>
                     <tbody>
                       {invoices.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="py-10 text-center text-slate-400 italic">No data available in table</td>
+                          <td colSpan={6} className="py-6 text-center text-slate-400 italic">No data available in table</td>
                         </tr>
                       ) : (
                         invoices.map((inv, i) => (
                           <tr key={inv.id} className="border-t border-slate-100 hover:bg-slate-50">
-                            <td className="py-2 px-3 text-slate-500">{i + 1}</td>
-                            <td className="py-2 px-3 font-mono text-cyan-700 font-bold">{inv.id}</td>
-                            <td className="py-2 px-3 font-mono">{inv.date}</td>
-                            <td className="py-2 px-3 font-mono font-bold">{inv.amount.toLocaleString()}٫00</td>
-                            <td className="py-2 px-3">{inv.method}</td>
-                            <td className="py-2 px-3 text-slate-500">{inv.type}</td>
+                            <td className="py-1.5 px-2 text-slate-500">{i + 1}</td>
+                            <td className="py-1.5 px-2 font-mono text-cyan-700 font-bold">{inv.id}</td>
+                            <td className="py-1.5 px-2 font-mono">{inv.date}</td>
+                            <td className="py-1.5 px-2 font-mono font-bold">{inv.amount.toLocaleString()}٫00</td>
+                            <td className="py-1.5 px-2">{inv.method}</td>
+                            <td className="py-1.5 px-2 text-slate-500">{inv.type}</td>
                           </tr>
                         ))
                       )}
