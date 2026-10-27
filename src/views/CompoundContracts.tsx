@@ -1214,17 +1214,15 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
 
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">مدة العقد (شهور)</label>
-                  <select
+                  <input
+                    type="number"
+                    min="1" step="1" inputMode="numeric"
                     required
                     value={durationMonths || ''}
                     onChange={(e) => setDurationMonths(Number(e.target.value))}
+                    placeholder="أدخل عدد الشهور"
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold"
-                  >
-                    <option value="" disabled>اختر مدة العقد</option>
-                    <option value={6}>6 شهور</option>
-                    <option value={12}>12 شهر (سنة واحدة)</option>
-                    <option value={24}>24 شهر (سنتين)</option>
-                  </select>
+                  />
                 </div>
               </div>
 
