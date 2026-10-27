@@ -1765,6 +1765,31 @@ try {
           const totalPaid = ledgerData?.contractId === c.id
             ? Number(ledgerData.finance?.paid || 0)
             : installments.reduce((sum:number, i:any) => sum + Number(i.paidAmount ?? (i.status === 'Paid' ? i.amount : 0) ?? 0), 0);
+          // Merge contractPayments (from /Payment API, has attachment info) with ledgerData.payments (has correct contract filter)
+          const ledgerPayments: any[] = Array.isArray(ledgerData?.payments) ? ledgerData.payments : [];
+          const existingReceipts = new Set(contractPayments.map(p => p.receiptNo));
+          const allPayments = [...contractPayments];
+          for (const lp of ledgerPayments) {
+            if (!existingReceipts.has(lp.receiptNo)) {
+              allPayments.push({
+                id: lp.id || lp.legacyId || '',
+                receiptNo: lp.receiptNo || '',
+                amount: Number(lp.amount || 0),
+                paymentMethod: lp.paymentMethod || 'Cash',
+                status: lp.status || 'Paid',
+                paymentDate: lp.paymentDate || '',
+                referenceNo: lp.referenceNo || '',
+                contractId: ledgerData?.contractId || c.id,
+                tenantId: c.tenantId || '',
+                unitNumber: c.unitNumber || '',
+                tenantName: c.tenantName || '',
+                attachmentUrl: null,
+                attachmentMediaId: null,
+                attachmentFileName: null
+              });
+              existingReceipts.add(lp.receiptNo);
+            }
+          }
           const searchQ = paymentSearch.toLowerCase();
           const filteredInst = installments.filter(inst =>
             !searchQ ||
@@ -1780,7 +1805,7 @@ try {
           const to = Math.min(safePage * paymentEntries, filteredInst.length);
           const invoices = installments.filter(i => i.status === 'Paid').map((i, idx) => {
             const normInvDate = String(i.paidDate || i.dueDate || '').slice(0, 10);
-            const matchedPayment = contractPayments.find(p =>
+            const matchedPayment = allPayments.find(p =>
               p.receiptNo && p.receiptNo === i.receiptNo ||
               p.referenceNo && p.referenceNo === i.referenceNo ||
               (p.amount === i.amount && String(p.paymentDate || '').slice(0, 10) === normInvDate) ||
@@ -1948,7 +1973,7 @@ try {
                 {/* Posted Payments / Receipts */}
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                   <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200"><h4 className="font-bold text-slate-800 text-xs">{language==='ar'?'إيصالات الدفعات الفعلية':'Posted Payment Receipts'}</h4></div>
-                  <div className="divide-y">{contractPayments.length===0?<div className="p-6 text-center text-slate-400">No payments</div>:contractPayments.map(p=><div key={p.id} className="p-3 flex items-center justify-between gap-3"><div><div className="font-bold">{p.receiptNo||p.id}</div><div className="text-xs text-slate-500">{p.paymentDate} · {p.paymentMethod} · {p.status}</div></div><div className="flex items-center gap-2"><b>{Number(p.amount||0).toLocaleString()} SAR</b>{p.status!=='Reversed'&&<button onClick={()=>handleReversePayment(p)} className="px-2 py-1 rounded bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold">{language==='ar'?'عكس':'Reverse'}</button>}{(p.attachmentUrl||p.attachmentMediaId)&&<button onClick={()=>apiService.openMedia(p.attachmentUrl||String(p.attachmentMediaId)).catch(()=>notifyUser({kind:'error',ar:'تعذر فتح المرفق',en:'Could not open attachment'}))} className="px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold" title={language==='ar'?'عرض المرفق':'View Attachment'}><ExternalLink className="w-3 h-3"/></button>}</div></div>)}</div>
+                  <div className="divide-y">{allPayments.length===0?<div className="p-6 text-center text-slate-400">No payments</div>:allPayments.map(p=><div key={p.id} className="p-3 flex items-center justify-between gap-3"><div><div className="font-bold">{p.receiptNo||p.id}</div><div className="text-xs text-slate-500">{p.paymentDate} · {p.paymentMethod} · {p.status}</div></div><div className="flex items-center gap-2"><b>{Number(p.amount||0).toLocaleString()} SAR</b>{p.status!=='Reversed'&&<button onClick={()=>handleReversePayment(p)} className="px-2 py-1 rounded bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold">{language==='ar'?'عكس':'Reverse'}</button>}{(p.attachmentUrl||p.attachmentMediaId)&&<button onClick={()=>apiService.openMedia(p.attachmentUrl||String(p.attachmentMediaId)).catch(()=>notifyUser({kind:'error',ar:'تعذر فتح المرفق',en:'Could not open attachment'}))} className="px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold" title={language==='ar'?'عرض المرفق':'View Attachment'}><ExternalLink className="w-3 h-3"/></button>}</div></div>)}</div>
                 </div>
 
                 {/* Other Payments Table like attachment */}
