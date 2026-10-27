@@ -3002,24 +3002,34 @@ async function startServer() {
   // 6. Payments & Expenses API
   app.get("/api/Payment", async (req, res) => {
     const q = String(req.query.q || req.query.search || "");
+    const contractId = String(req.query.contractId || "");
     if (dbPool) {
-      const where = q ? `WHERE rp.legacy_id ILIKE $1 OR rp.receipt_no ILIKE $1 OR rp.tenant_id ILIKE $1` : '';
-      const vals = q ? [`%${q}%`] : [];
+      const conditions = [];
+      const vals: any[] = [];
+      let paramNum = 1;
+      if (q) { conditions.push(`rp.legacy_id ILIKE $${paramNum} OR rp.receipt_no ILIKE $${paramNum} OR rp.tenant_id ILIKE $${paramNum}`); vals.push(`%${q}%`); paramNum++; }
+      if (contractId) { conditions.push(`rp.contract_id = $${paramNum}`); vals.push(contractId); paramNum++; }
+      const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
       const r = await dbPool.query(`SELECT rp.*, tm.id AS "attachmentMediaId", tm.file_name AS "attachmentFileName", tm.mime_type AS "attachmentMimeType" FROM rental_payments rp LEFT JOIN media_assets tm ON rp.attachment_media_id = tm.id ${where} ORDER BY rp.payment_date DESC, rp.created_at DESC`, vals);
       return res.json(paginated(r.rows, req));
     }
-    const filtered = paymentsStore.filter(p => matchesQuery(p, q));
+    const filtered = paymentsStore.filter(p => matchesQuery(p, q) && (!contractId || p.contractId === contractId));
     res.json(paginated(filtered, req));
   });
   app.get("/api/payment", async (req, res) => {
     const q = String(req.query.q || req.query.search || "");
+    const contractId = String(req.query.contractId || "");
     if (dbPool) {
-      const where = q ? `WHERE rp.legacy_id ILIKE $1 OR rp.receipt_no ILIKE $1 OR rp.tenant_id ILIKE $1` : '';
-      const vals = q ? [`%${q}%`] : [];
+      const conditions = [];
+      const vals: any[] = [];
+      let paramNum = 1;
+      if (q) { conditions.push(`rp.legacy_id ILIKE $${paramNum} OR rp.receipt_no ILIKE $${paramNum} OR rp.tenant_id ILIKE $${paramNum}`); vals.push(`%${q}%`); paramNum++; }
+      if (contractId) { conditions.push(`rp.contract_id = $${paramNum}`); vals.push(contractId); paramNum++; }
+      const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
       const r = await dbPool.query(`SELECT rp.*, tm.id AS "attachmentMediaId", tm.file_name AS "attachmentFileName", tm.mime_type AS "attachmentMimeType" FROM rental_payments rp LEFT JOIN media_assets tm ON rp.attachment_media_id = tm.id ${where} ORDER BY rp.payment_date DESC, rp.created_at DESC`, vals);
       return res.json(paginated(r.rows, req));
     }
-    const filtered = paymentsStore.filter(p => matchesQuery(p, q));
+    const filtered = paymentsStore.filter(p => matchesQuery(p, q) && (!contractId || p.contractId === contractId));
     res.json(paginated(filtered, req));
   });
 
