@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { 
+  ExternalLink,
   FileText, 
   Plus, 
   Search, 
@@ -1769,13 +1770,19 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
           const pageRows = filteredInst.slice((safePage - 1) * paymentEntries, safePage * paymentEntries);
           const from = filteredInst.length === 0 ? 0 : (safePage - 1) * paymentEntries + 1;
           const to = Math.min(safePage * paymentEntries, filteredInst.length);
-          const invoices = installments.filter(i => i.status === 'Paid').map((i, idx) => ({
-            id: i.receiptNo || `E-${10000 + idx}`,
-            date: i.paidDate || i.dueDate,
-            amount: i.amount,
-            method: i.paymentMethod || 'Cash',
-            type: 'installments'
-          }));
+          const invoices = installments.filter(i => i.status === 'Paid').map((i, idx) => {
+            const matchedPayment = contractPayments.find(p =>
+              p.receiptNo === i.receiptNo ||
+              (p.amount === i.amount && String(p.paymentDate || '').slice(0, 10) === String(i.paidDate || i.dueDate || '').slice(0, 10))
+            );
+            return {
+              id: i.receiptNo || `E-${10000 + idx}`,
+              date: i.paidDate || i.dueDate,
+              amount: i.amount,
+              method: matchedPayment?.paymentMethod || i.paymentMethod || 'Cash',
+              type: 'installments'
+            };
+          });
           return (
             <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
               <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-4 border border-slate-200 space-y-2 my-4">
@@ -1927,7 +1934,7 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
                 {/* Posted Payments / Receipts */}
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                   <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200"><h4 className="font-bold text-slate-800 text-xs">{language==='ar'?'إيصالات الدفعات الفعلية':'Posted Payment Receipts'}</h4></div>
-                  <div className="divide-y">{contractPayments.length===0?<div className="p-6 text-center text-slate-400">No payments</div>:contractPayments.map(p=><div key={p.id} className="p-3 flex items-center justify-between gap-3"><div><div className="font-bold">{p.receiptNo||p.id}</div><div className="text-xs text-slate-500">{p.paymentDate} · {p.paymentMethod} · {p.status}</div></div><div className="flex items-center gap-2"><b>{Number(p.amount||0).toLocaleString()} SAR</b>{p.status!=='Reversed'&&<button onClick={()=>handleReversePayment(p)} className="px-2 py-1 rounded bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold">{language==='ar'?'عكس':'Reverse'}</button>}</div></div>)}</div>
+                  <div className="divide-y">{contractPayments.length===0?<div className="p-6 text-center text-slate-400">No payments</div>:contractPayments.map(p=><div key={p.id} className="p-3 flex items-center justify-between gap-3"><div><div className="font-bold">{p.receiptNo||p.id}</div><div className="text-xs text-slate-500">{p.paymentDate} · {p.paymentMethod} · {p.status}</div></div><div className="flex items-center gap-2"><b>{Number(p.amount||0).toLocaleString()} SAR</b>{p.status!=='Reversed'&&<button onClick={()=>handleReversePayment(p)} className="px-2 py-1 rounded bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold">{language==='ar'?'عكس':'Reverse'}</button>}{p.attachmentUrl||p.attachmentMediaId&&<button onClick={()=>apiService.openMedia(p.attachmentUrl||String(p.attachmentMediaId)).catch(()=>notifyUser({kind:'error',ar:'تعذر فتح المرفق',en:'Could not open attachment'}))} className="px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold" title={language==='ar'?'عرض المرفق':'View Attachment'}><ExternalLink className="w-3 h-3"/></button>}</div></div>)}</div>
                 </div>
 
                 {/* Other Payments Table like attachment */}
