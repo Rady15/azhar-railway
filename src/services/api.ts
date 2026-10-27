@@ -1000,9 +1000,8 @@ export const apiService = {
   async deleteWaterMeter(id:string):Promise<void>{const res=await authedFetch(`/WaterMeter/${id}`,{method:'DELETE'});if(!res.ok)throw new Error('Failed to delete water meter');},
 
   // Payments
-  async getPayments(contractId?: string): Promise<PaymentRecord[]> {
-    const qs = contractId ? `?contractId=${encodeURIComponent(contractId)}` : '';
-    const res = await authedFetch(`/Payment${qs}`);
+  async getPayments(): Promise<PaymentRecord[]> {
+    const res = await authedFetch('/Payment');
     if (!res.ok) throw new Error('Failed to fetch payments');
     const data = await res.json();
     const list = Array.isArray(data) ? data : (data?.value || data?.data || []);
