@@ -1463,6 +1463,23 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <label className="block font-semibold text-slate-700 mb-1">مرفق العقد / Contract Attachment</label>
+                    <MediaUploadField
+                      label="مرفق العقد"
+                      category="contract-document"
+                      entityType="contract"
+                      entityId={activeModal.contract?.id || ''}
+                      value={editForm.contractDocumentUrl || ''}
+                      fileName={editForm.contractDocumentName || ''}
+                      accept="image/jpeg,image/png,image/webp,application/pdf"
+                      onUploaded={({ url, fileName }) => setEditForm({ ...editForm, contractDocumentUrl: url, contractDocumentName: fileName })}
+                      onClear={() => setEditForm({ ...editForm, contractDocumentUrl: '', contractDocumentName: '' })}
+                    />
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">Duration (Months)</label>
