@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { avatarUrl } from './Avatar';
+import { mediaSrc } from '../services/api';
 import { X, User, Mail, UserCircle, ShieldCheck, Lock, Save, Camera, Upload, Loader2 } from 'lucide-react';
 import { User as UserType } from '../types';
 import { useLanguage } from '../context/LanguageContext';
@@ -19,7 +20,6 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
 }) => {
   const { language } = useLanguage();
 
-  const [name, setName] = useState(user.name || '');
   const [username, setUsername] = useState(user.username || '');
   const [email, setEmail] = useState(user.email || '');
   const [password, setPassword] = useState('');
@@ -31,7 +31,6 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
     e.preventDefault();
     onSave({
       ...user,
-      name,
       username,
       email,
       profileImageUrl: profileImage,
@@ -87,12 +86,12 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
          {/* Profile Picture */}
          <div className="flex flex-col items-center gap-3">
            <div className="relative group">
-             <img
-               src={profileImage || avatarUrl(user.name || user.username)}
-               alt={user.name}
-               className="w-24 h-24 rounded-full object-cover border-4 border-[#29b4c4] shadow-lg"
-               onError={(e) => { (e.target as HTMLImageElement).src = avatarUrl(user.name || user.username); }}
-             />
+              <img
+                src={mediaSrc(profileImage) || avatarUrl(user.name || user.username)}
+                alt={user.name}
+                className="w-24 h-24 rounded-full object-cover border-4 border-[#29b4c4] shadow-lg"
+                onError={(e) => { (e.target as HTMLImageElement).src = avatarUrl(user.name || user.username); }}
+              />
              {isUploading && (
                <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full">
                  <Loader2 className="w-8 h-8 text-white animate-spin" />
@@ -160,20 +159,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                  {user.role}
                </span>
              </div>
-           </div>
-
-          {/* Display Name */}
-          <div>
-            <label className="block font-semibold text-slate-700 mb-1">
-              {language === 'ar' ? 'الاسم المعروض' : 'Display Name'}
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#29b4c4]"
-            />
-          </div>
+            </div>
 
           {/* Username */}
           <div>

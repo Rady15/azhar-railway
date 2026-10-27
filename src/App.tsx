@@ -254,7 +254,6 @@ function MainApp() {
     setCurrentUser(updatedUser);
     try {
       await apiService.updateProfile({
-        displayName: updatedUser.name,
         username: updatedUser.username,
         email: updatedUser.email,
         password: updatedUser.password,

@@ -41,10 +41,26 @@ function safeContentDisposition(fileName: unknown, disposition: "inline" | "atta
 // Absolute URL for a path, so native mobile apps (no relative resolution)
 // can load it directly. Falls back to the relative path when host is unknown.
 function publicUrl(req: any, path: string) {
-  const host = String(req?.get?.("host") || "").trim();
-  if (!host) return path;
-  const proto = String(req?.protocol || "https").split(",")[0].trim() || "https";
-  return `${proto}://${host}${path}`;
+  if (typeof path === 'string' && (path.startsWith('http://') || path.startsWith('https://'))) {
+    try {
+      const url = new URL(path);
+      const envUrl = String(process.env.PUBLIC_URL || process.env.APP_URL || "").trim();
+      const forwardedHost = String(req?.headers?.["x-forwarded-host"] || "").trim();
+      const host = forwardedHost || String(req?.get?.("host") || "").trim();
+      const proto = String(req?.headers?.["x-forwarded-proto"] || req?.protocol || "https").split(",")[0].trim() || "https";
+      const baseHost = envUrl || host;
+      if (baseHost) url.host = baseHost;
+      url.protocol = proto + ':';
+      return url.toString();
+    } catch { return path; }
+  }
+  const envUrl = String(process.env.PUBLIC_URL || process.env.APP_URL || "").trim();
+  const forwardedHost = String(req?.headers?.["x-forwarded-host"] || "").trim();
+  const host = forwardedHost || String(req?.get?.("host") || "").trim();
+  if (!host && !envUrl) return path;
+  const proto = String(req?.headers?.["x-forwarded-proto"] || req?.protocol || "https").split(",")[0].trim() || "https";
+  const baseHost = envUrl || host;
+  return `${proto}://${baseHost}${path}`;
 }
 function paginated<T>(items: T[], req: any) {
   const pageRaw = Number(req.query.page || 0), pageSizeRaw = Number(req.query.pageSize || req.query.limit || 0);
