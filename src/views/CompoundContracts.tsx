@@ -1771,16 +1771,21 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
           const from = filteredInst.length === 0 ? 0 : (safePage - 1) * paymentEntries + 1;
           const to = Math.min(safePage * paymentEntries, filteredInst.length);
           const invoices = installments.filter(i => i.status === 'Paid').map((i, idx) => {
+            const normInvDate = String(i.paidDate || i.dueDate || '').slice(0, 10);
             const matchedPayment = contractPayments.find(p =>
-              p.receiptNo === i.receiptNo ||
-              (p.amount === i.amount && String(p.paymentDate || '').slice(0, 10) === String(i.paidDate || i.dueDate || '').slice(0, 10))
+              p.receiptNo && p.receiptNo === i.receiptNo ||
+              p.referenceNo && p.referenceNo === i.referenceNo ||
+              (p.amount === i.amount && String(p.paymentDate || '').slice(0, 10) === normInvDate)
             );
             return {
               id: i.receiptNo || `E-${10000 + idx}`,
               date: i.paidDate || i.dueDate,
               amount: i.amount,
               method: matchedPayment?.paymentMethod || i.paymentMethod || 'Cash',
-              type: 'installments'
+              type: 'installments',
+              attachmentUrl: matchedPayment?.attachmentUrl || null,
+              attachmentMediaId: matchedPayment?.attachmentMediaId || null,
+              attachmentFileName: matchedPayment?.attachmentFileName || null
             };
           });
           return (
@@ -1979,12 +1984,13 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
                         <th className="py-1.5 px-2 text-start font-bold">Paid Amount</th>
                         <th className="py-1.5 px-2 text-start font-bold">Payment Method</th>
                         <th className="py-1.5 px-2 text-start font-bold">Type</th>
+                        <th className="py-1.5 px-2 text-start font-bold">مرفقات</th>
                       </tr>
                     </thead>
                     <tbody>
                       {invoices.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="py-6 text-center text-slate-400 italic">No data available in table</td>
+                          <td colSpan={7} className="py-6 text-center text-slate-400 italic">No data available in table</td>
                         </tr>
                       ) : (
                         invoices.map((inv, i) => (
@@ -1995,6 +2001,7 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
                             <td className="py-1.5 px-2 font-mono font-bold">{inv.amount.toLocaleString()}٫00</td>
                             <td className="py-1.5 px-2">{inv.method}</td>
                             <td className="py-1.5 px-2 text-slate-500">{inv.type}</td>
+                            <td className="py-1.5 px-2 text-center">{inv.attachmentUrl || inv.attachmentMediaId ? <button onClick={()=>apiService.openMedia(inv.attachmentUrl || String(inv.attachmentMediaId)).catch(()=>notifyUser({kind:'error',ar:'تعذر فتح المرفق',en:'Could not open attachment'}))} className="px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold" title={language==='ar'?'عرض المرفق':'View Attachment'}><ExternalLink className="w-3 h-3"/></button> : <span className="text-[10px] text-slate-400">-</span>}</td>
                           </tr>
                         ))
                       )}

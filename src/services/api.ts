@@ -1015,7 +1015,7 @@ export const apiService = {
       year: p.year,
       paymentMethod: p.paymentMethod || '',
       status: p.status || 'Paid',
-      paymentDate: p.paymentDate ? String(p.paymentDate).slice(0, 10) : '', contractId:p.contractId, receiptNo:p.receiptNo, referenceNo:p.referenceNo, unappliedAmount:Number(p.unappliedAmount||0), allocations:p.allocations||[]
+      paymentDate: p.paymentDate ? String(p.paymentDate).slice(0, 10) : '', contractId:p.contractId, receiptNo:p.receiptNo, referenceNo:p.referenceNo, unappliedAmount:Number(p.unappliedAmount||0), allocations:p.allocations||[], attachmentMediaId: p.attachmentMediaId || null, attachmentFileName: p.attachmentFileName || null, attachmentUrl: p.attachmentUrl || null
     }));
   },
 
@@ -1026,18 +1026,18 @@ export const apiService = {
     });
     if (!res.ok) throw new Error('Failed to create payment');
     const data = await res.json();
-      return {
-        id: data.id,
-        tenantId: data.tenantId || '',
-        tenantName: data.tenantName || '',
-        unitNumber: data.unitNumber || '',
-        amount: Number(data.amount || 0),
-        month: data.month,
-        year: data.year,
-        paymentMethod: data.paymentMethod || '',
-        status: data.status || 'Paid',
-        paymentDate: data.paymentDate ? String(data.paymentDate).slice(0, 10) : '', contractId:data.contractId, receiptNo:data.receiptNo, referenceNo:data.referenceNo, unappliedAmount:Number(data.unappliedAmount||0), allocations:data.allocations||[], attachmentMediaId: data.attachmentMediaId || null, attachmentFileName: data.attachmentFileName || null
-      };
+    return {
+      id: data.id,
+      tenantId: data.tenantId || '',
+      tenantName: data.tenantName || '',
+      unitNumber: data.unitNumber || '',
+      amount: Number(data.amount || 0),
+      month: data.month,
+      year: data.year,
+      paymentMethod: data.paymentMethod || '',
+      status: data.status || 'Paid',
+      paymentDate: data.paymentDate ? String(data.paymentDate).slice(0, 10) : '', contractId:data.contractId, receiptNo:data.receiptNo, referenceNo:data.referenceNo, unappliedAmount:Number(data.unappliedAmount||0), allocations:data.allocations||[], attachmentMediaId: data.attachmentMediaId || null, attachmentFileName: data.attachmentFileName || null, attachmentUrl: data.attachmentUrl || null
+    };
   },
   async reversePayment(id:string,reason:string):Promise<void>{const res=await authedFetch(`/Payment/${id}/reverse`,{method:'POST',body:JSON.stringify({reason})});if(!res.ok)throw new Error('Failed to reverse payment');},
   async getRentLedger(contractId:string):Promise<any>{const res=await authedFetch(`/Rental/ledger/${contractId}`);if(!res.ok)throw new Error('Failed to fetch rent ledger');return res.json();},
