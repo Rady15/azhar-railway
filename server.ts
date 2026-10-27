@@ -188,6 +188,12 @@ async function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_water_meters_unit_id ON water_meters(unit_id);
     CREATE INDEX IF NOT EXISTS idx_water_meters_unit ON water_meters(building, unit_number);
   `);
+  // Self-healing: add payment attachment columns to older production databases.
+  await dbPool.query(`
+    ALTER TABLE rental_payments ADD COLUMN IF NOT EXISTS attachment_media_id UUID;
+    ALTER TABLE rental_payments ADD COLUMN IF NOT EXISTS attachment_file_name TEXT;
+    ALTER TABLE rental_payments ADD COLUMN IF NOT EXISTS attachment_mime_type TEXT;
+  `);
   // The projects table arrived after some databases were created, so make it
   // self-healing the same way the water_meters columns are.
   await dbPool.query(`
