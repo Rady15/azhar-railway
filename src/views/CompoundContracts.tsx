@@ -1768,8 +1768,9 @@ try {
           // Merge contractPayments (from /Payment API, has attachment info) with ledgerData.payments (has correct contract filter)
           const ledgerPayments: any[] = Array.isArray(ledgerData?.payments) ? ledgerData.payments : [];
           const existingReceipts = new Set(contractPayments.map(p => p.receiptNo));
-          const allPayments = [...contractPayments];
+          const allPayments: any[] = contractPayments.filter(p => p.status !== 'Reversed');
           for (const lp of ledgerPayments) {
+            if (lp.status === 'Reversed') continue;
             if (!existingReceipts.has(lp.receiptNo)) {
               allPayments.push({
                 id: lp.id || lp.legacyId || '',
