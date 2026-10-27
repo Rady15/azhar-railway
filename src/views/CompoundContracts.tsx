@@ -728,7 +728,7 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
 
                         {/* Row Number */}
                         <td className="py-2.5 px-3 text-center font-mono text-slate-500 border-l border-slate-100">
-                          {idx + 3}
+                          {idx + 1}
                         </td>
 
                         {/* Contract No */}
