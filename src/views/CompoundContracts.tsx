@@ -1784,9 +1784,9 @@ try {
                 tenantId: c.tenantId || '',
                 unitNumber: c.unitNumber || '',
                 tenantName: c.tenantName || '',
-                attachmentUrl: null,
-                attachmentMediaId: null,
-                attachmentFileName: null
+                attachmentUrl: lp.attachmentMediaId ? `/api/Media/${lp.attachmentMediaId}/content` : null,
+                attachmentMediaId: lp.attachmentMediaId || null,
+                attachmentFileName: lp.attachmentFileName || null
               });
               existingReceipts.add(lp.receiptNo);
             }

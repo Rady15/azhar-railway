@@ -1005,18 +1005,21 @@ export const apiService = {
     if (!res.ok) throw new Error('Failed to fetch payments');
     const data = await res.json();
     const list = Array.isArray(data) ? data : (data?.value || data?.data || []);
-    return list.map((p: any) => ({
-      id: p.id,
-      tenantId: p.tenantId || '',
-      tenantName: p.tenantName || '',
-      unitNumber: p.unitNumber || '',
-      amount: Number(p.amount || 0),
-      month: p.month,
-      year: p.year,
-      paymentMethod: p.paymentMethod || '',
-      status: p.status || 'Paid',
-      paymentDate: p.paymentDate ? String(p.paymentDate).slice(0, 10) : '', contractId:p.contractId, receiptNo:p.receiptNo, referenceNo:p.referenceNo, unappliedAmount:Number(p.unappliedAmount||0), allocations:p.allocations||[], attachmentMediaId: p.attachmentMediaId || null, attachmentFileName: p.attachmentFileName || null, attachmentUrl: p.attachmentUrl || null
-    }));
+    return list.map((p: any) => {
+      const mediaId = p.attachment_media_id || p.attachmentMediaId || null;
+      return {
+        id: p.id,
+        tenantId: p.tenant_id || p.tenantId || '',
+        tenantName: p.tenantName || '',
+        unitNumber: p.unit_number || p.unitNumber || '',
+        amount: Number(p.amount || 0),
+        month: p.month,
+        year: p.year,
+        paymentMethod: p.paymentMethod || '',
+        status: p.status || 'Paid',
+        paymentDate: p.paymentDate ? String(p.paymentDate).slice(0, 10) : '', contractId:p.contract_id || p.contractId || null, receiptNo:p.receiptNo, referenceNo:p.referenceNo, unappliedAmount:Number(p.unappliedAmount||0), allocations:p.allocations||[], attachmentMediaId: mediaId, attachmentFileName: p.attachment_file_name || p.attachmentFileName || null, attachmentUrl: p.attachment_url || p.attachmentUrl || (mediaId ? `/api/Media/${mediaId}/content` : null)
+      };
+    });
   },
 
   async addPayment(payment: { tenantId: string; tenantName: string; unitNumber: string; amount: number; month?: number; year?: number; paymentMethod: string; status?: string; contractId?: string; paymentDate?: string; referenceNo?: string; notes?: string; attachmentMediaId?: string | null; attachmentFileName?: string | null; attachmentMimeType?: string | null }): Promise<PaymentRecord> {
