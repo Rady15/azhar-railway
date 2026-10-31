@@ -432,9 +432,15 @@ export const DashboardDues: React.FC<DashboardDuesProps> = ({
 
                     {/* Remaining Amount Column -> Pink badge #ff3b7a matching screenshot Image 2 */}
                     <td className="py-3.5 px-3 border-r border-slate-100">
-                      <span className="inline-block px-2.5 py-1 bg-[#ff3b7a] text-white font-bold text-xs rounded shadow-xs">
-                        {row.remainingAmount.toLocaleString()}
-                      </span>
+                      {Number(row.remainingAmount || 0) > 0 ? (
+                        <span className="inline-block px-2.5 py-1 bg-[#ff3b7a] text-white font-bold text-xs rounded shadow-xs">
+                          {row.remainingAmount.toLocaleString()}
+                        </span>
+                      ) : (
+                        <span className="inline-block px-2.5 py-1 bg-emerald-100 text-emerald-700 font-bold text-xs rounded border border-emerald-200 whitespace-nowrap">
+                          {language === 'ar' ? 'مسدد بالكامل' : 'Paid in full'}
+                        </span>
+                      )}
                     </td>
 
                     {/* Contract Expir Date Column */}

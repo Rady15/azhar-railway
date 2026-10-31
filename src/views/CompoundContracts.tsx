@@ -63,6 +63,23 @@ const getNextPaymentInfo = (c: Contract) => {
   return { date, days };
 };
 
+const daysUntilDate = (rawDate: string): number | undefined => {
+  if (!rawDate) return undefined;
+  const m = rawDate.match(/(\d{4})-(\d{2})-(\d{2})/);
+  const date = m ? `${m[1]}-${m[2]}-${m[3]}` : (() => { const t = Date.parse(rawDate); return Number.isFinite(t) ? new Date(t).toISOString().slice(0,10) : ''; })();
+  if (!date) return undefined;
+  const today = new Date();
+  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const parts = date.split('-').map(Number);
+  const dueUtc = parts.length === 3 && parts.every(Number.isFinite) ? Date.UTC(parts[0], parts[1] - 1, parts[2]) : NaN;
+  return Number.isFinite(dueUtc) ? Math.round((dueUtc - todayUtc) / 86400000) : undefined;
+};
+
+const getContractEndInfo = (c: Contract) => {
+  const rawDate = c.leaseEndDate ? String(c.leaseEndDate).slice(0, 10) : '';
+  return { date: rawDate, days: daysUntilDate(rawDate) };
+};
+
 const formatNextPaymentDays = (days: number | undefined, language: string) => {
   if (days === undefined) return language === 'ar' ? 'غير محدد' : 'Not set';
   if (days < 0) {
@@ -98,7 +115,7 @@ export const CompoundContracts: React.FC<CompoundContractsProps> = ({
   const { language, t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
-  const [dropdownPosition, setDropdownPosition] = useState<{ top:number; left:number } | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{ top:number; left:number; maxHeight:number } | null>(null);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<{ field: string; direction: 'asc' | 'desc' } | null>(null);
 
@@ -908,6 +925,13 @@ try {
                   </div>
                 </th>
 
+                <th className="py-3 px-3 border-r border-blue-600/40 text-center" onClick={() => handleSort('leaseEndDate')}>
+                  <div className="flex items-center justify-center gap-1 cursor-pointer select-none hover:text-cyan-200">
+                    <span>{language === 'ar' ? 'أيام متبقية على انتهاء العقد' : 'Days to Contract End'}</span>
+                    <ArrowUpDown className="w-3 h-3 text-white/70" />
+                  </div>
+                </th>
+
                 <th className="py-3 px-3 border-r border-blue-600/40 text-center" onClick={() => handleSort('leaseDurationMonths')}>
                   <div className="flex items-center justify-center gap-1 cursor-pointer select-none hover:text-cyan-200">
                     <span>{language === 'ar' ? 'المدة (شهر)' : 'Duration'}</span>
@@ -1038,6 +1062,19 @@ try {
                           {c.leaseEndDate || '-'}
                         </td>
 
+                        {/* Days Until Contract End */}
+                        {(() => {
+                          const end = getContractEndInfo(c);
+                          const isEndingSoon = end.days !== undefined && end.days <= 65;
+                          return (
+                            <td className={`py-2.5 px-3 text-center font-bold border-l border-slate-100 whitespace-nowrap ${
+                              isEndingSoon ? 'text-rose-700' : 'text-slate-700'
+                            }`}>
+                              {end.days === undefined ? '-' : formatNextPaymentDays(end.days, language)}
+                            </td>
+                          );
+                        })()}
+
                         {/* Duration */}
                         <td className="py-2.5 px-3 text-center font-bold text-slate-800 border-l border-slate-100">
                           {c.leaseDurationMonths || 12}
@@ -1061,7 +1098,15 @@ try {
                                 if (nextOpen) {
                                   const rect = e.currentTarget.getBoundingClientRect();
                                   const width = 176;
-                                  setDropdownPosition({ top: rect.bottom + 6, left: Math.max(8, Math.min(window.innerWidth - width - 8, rect.right - width)) });
+                                  const spaceBelow = window.innerHeight - rect.bottom - 12;
+                                  const spaceAbove = rect.top - 12;
+                                  const openUp = spaceBelow < 240 && spaceAbove > spaceBelow;
+                                  const maxHeight = Math.max(160, Math.min(320, openUp ? spaceAbove : spaceBelow));
+                                  setDropdownPosition({
+                                    top: openUp ? Math.max(8, rect.top - maxHeight - 6) : rect.bottom + 6,
+                                    left: Math.max(8, Math.min(window.innerWidth - width - 8, rect.right - width)),
+                                    maxHeight
+                                  });
                                   setOpenDropdownId(c.id);
                                 } else { setOpenDropdownId(null); setDropdownPosition(null); }
                               }}
@@ -1075,8 +1120,8 @@ try {
                           {/* EXACT OPERATIONS DROPDOWN FROM SCREENSHOT (IMAGE 2) */}
                           {openDropdownId === c.id && (
                             <div 
-                              className="fixed w-44 bg-white border border-slate-200 rounded-lg shadow-2xl py-1 z-[9999] text-right text-xs font-medium text-slate-700"
-                              style={{ top: dropdownPosition?.top ?? 0, left: dropdownPosition?.left ?? 0 }}
+                              className="fixed w-44 max-h-[min(70vh,320px)] overflow-y-auto overscroll-contain bg-white border border-slate-200 rounded-lg shadow-2xl py-1 z-[9999] text-right text-xs font-medium text-slate-700"
+                              style={{ top: dropdownPosition?.top ?? 0, left: dropdownPosition?.left ?? 0, maxHeight: dropdownPosition?.maxHeight ?? 320 }}
                               onMouseLeave={() => setOpenDropdownId(null)}
                             >
                               <button
@@ -1265,7 +1310,7 @@ try {
                       </tr>
                       {isExpanded && (
                         <tr className="bg-slate-50/90 border-b border-slate-200">
-                          <td colSpan={18} className="p-4">
+                          <td colSpan={19} className="p-4">
                             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
                               <div><span className="text-slate-500 block">Contract</span><b>{c.contractNo}</b></div>
                               <div><span className="text-slate-500 block">Frequency</span><b>{c.paymentFrequency}</b></div>
@@ -2127,7 +2172,7 @@ try {
           });
           return (
             <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-              <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-4 border border-slate-200 space-y-2 my-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-4 border border-slate-200 space-y-2 my-4 max-h-[90vh] overflow-y-auto">
 
                 {/* Header like attachment */}
                 <div className="flex items-start justify-between border-b border-slate-100 pb-3">
@@ -2186,7 +2231,7 @@ try {
                 </div>
 
                 {/* Due Payments Table like attachment */}
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <div className="border border-slate-200 rounded-xl overflow-x-auto">
                   <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2 text-xs">
                       <span className="text-slate-500 font-semibold">Show</span>
@@ -2211,7 +2256,7 @@ try {
                       />
                     </div>
                   </div>
-                  <table className="w-full text-xs">
+                  <table className="w-full min-w-[640px] text-xs">
                     <thead>
                       <tr className="bg-slate-100 text-slate-600 uppercase">
                         <th className="py-1.5 px-2 text-start font-bold">#</th>
@@ -2280,11 +2325,11 @@ try {
                 </div>
 
                 {/* Other Payments Table like attachment */}
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <div className="border border-slate-200 rounded-xl overflow-x-auto">
                   <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200">
                     <h4 className="font-bold text-slate-800 text-xs">Other Payments</h4>
                   </div>
-                  <table className="w-full text-xs">
+                  <table className="w-full min-w-[720px] text-xs">
                     <thead>
                       <tr className="bg-slate-100 text-slate-600 uppercase">
                         <th className="py-1.5 px-2 text-start font-bold">#</th>
@@ -2308,11 +2353,11 @@ try {
                 </div>
 
                 {/* Invoices Table like attachment */}
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <div className="border border-slate-200 rounded-xl overflow-x-auto">
                   <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200">
                     <h4 className="font-bold text-slate-800 text-xs">Invoices</h4>
                   </div>
-                  <table className="w-full text-xs">
+                  <table className="w-full min-w-[560px] text-xs">
                     <thead>
                       <tr className="bg-slate-100 text-slate-600 uppercase">
                         <th className="py-1.5 px-2 text-start font-bold">#</th>
@@ -2344,6 +2389,15 @@ try {
                       )}
                     </tbody>
                   </table>
+                </div>
+
+                <div className="flex justify-end pt-2 border-t border-slate-100">
+                  <button
+                    onClick={() => setActiveModal({ type: null, contract: null })}
+                    className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
+                  >
+                    {language === 'ar' ? 'إغلاق' : 'Close'}
+                  </button>
                 </div>
 
               </div>

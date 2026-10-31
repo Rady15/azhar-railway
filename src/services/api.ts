@@ -177,6 +177,53 @@ const dateOnly = (d: any): string => {
   return Number.isFinite(parsed) ? new Date(parsed).toISOString().slice(0, 10) : '';
 };
 
+const ARCHIVED_CONTRACT_STATUSES = new Set(['archived', 'terminated', 'cancelled', 'canceled', 'expired', 'inactive', 'void']);
+
+const isTrueFlag = (value: any): boolean =>
+  value === true || value === 1 || String(value ?? '').trim().toLowerCase() === 'true';
+
+const unitKey = (value: any): string => String(value ?? '').trim().toLowerCase().replace(/\s+/g, '');
+
+const unitDigits = (value: any): string => String(value ?? '').replace(/\D/g, '').replace(/^0+/, '');
+
+const unitNumbersMatch = (a: any, b: any): boolean => {
+  const ak = unitKey(a), bk = unitKey(b);
+  if (!ak || !bk) return false;
+  if (ak === bk) return true;
+  const ad = unitDigits(ak), bd = unitDigits(bk);
+  if (!ad || !bd) return false;
+  if (ad === bd) return true;
+  // Tolerate legacy formats such as "1-101" versus unit "101".
+  return Math.abs(ad.length - bd.length) <= 3 && (ad.endsWith(bd) || bd.endsWith(ad));
+};
+
+const buildingsMatch = (a: any, b: any): boolean => {
+  const ak = unitKey(a), bk = unitKey(b);
+  if (!ak || !bk) return true;
+  if (ak === bk) return true;
+  const ad = unitDigits(ak), bd = unitDigits(bk);
+  return Boolean(ad && bd && ad === bd);
+};
+
+const contractCoversDate = (c: any, today: string): boolean => {
+  const status = String(c?.status || '').trim().toLowerCase();
+  if (isTrueFlag(c?.isArchived) || ARCHIVED_CONTRACT_STATUSES.has(status)) return false;
+  const starts = dateOnly(c?.leaseStartDate || c?.contractStartDate);
+  const ends = dateOnly(c?.leaseEndDate || c?.contractEndDate);
+  return (!starts || starts <= today) && (!ends || ends >= today);
+};
+
+const contractMatchesHouse = (c: any, h: any): boolean => {
+  if (c?.houseId && h?.id && String(c.houseId) === String(h.id)) return true;
+  const houseTenantId = h?.tenantId || h?.currentTenantId || '';
+  if (c?.tenantId && houseTenantId && String(c.tenantId) === String(houseTenantId)) return true;
+  const contractUnit = c?.unitNumber ?? c?.houseNumber ?? c?.unitNo ?? '';
+  const houseUnit = h?.houseNumber ?? h?.unitNumber ?? h?.unitNo ?? '';
+  const contractBuilding = c?.buildingNumber ?? c?.buildingNo ?? '';
+  const houseBuilding = h?.buildingNumber ?? h?.buildingNo ?? '';
+  return buildingsMatch(contractBuilding, houseBuilding) && unitNumbersMatch(contractUnit, houseUnit);
+};
+
 const STAFF_STATUSES: StaffStatus[] = ['Active', 'On Leave', 'Suspended'];
 
 const staffStatus = (s: any): StaffStatus => {
@@ -536,19 +583,12 @@ export const apiService = {
     const meters = meterRes.ok ? asList(await meterRes.json()) : [];
     const meterByUnit = new Map(meters.map((m:any) => [String(m.unitId || m.houseId || ''), m.meterNumber || '']));
     const today = new Date().toISOString().slice(0,10);
-    const activeContracts = contracts.filter((c:any) => {
-      const statusActive = String(c.status || 'Active').toLowerCase() === 'active' && !c.isArchived;
-      const starts = dateOnly(c.leaseStartDate || c.contractStartDate);
-      const ends = dateOnly(c.leaseEndDate || c.contractEndDate);
-      return statusActive && (!starts || starts <= today) && (!ends || ends >= today);
-    });
+    const activeContracts = contracts.filter((c:any) => contractCoversDate(c, today));
 
     return houses.map((h: any) => {
-      const current = activeContracts.find((c:any) =>
-        (c.houseId && String(c.houseId) === String(h.id)) ||
-        (String(c.unitNumber || c.houseNumber || '') === String(h.houseNumber || h.unitNumber || '') &&
-         (!c.buildingNumber || !h.buildingNumber || String(c.buildingNumber) === String(h.buildingNumber)))
-      );
+      const current = activeContracts.find((c:any) => contractMatchesHouse(c, h));
+      const storedStatus = String(h.status || '').trim().toLowerCase();
+      const storedOccupied = ['occupied', 'rented', 'مؤجرة', 'مؤجر'].includes(storedStatus);
       return {
         id: h.id,
         compoundId: h.compoundId || '1',
@@ -565,7 +605,7 @@ export const apiService = {
         electricityMeterNumber: h.electricityMeterNumber || meterByUnit.get(String(h.id)) || '',
         isFurnished: Boolean(h.isFurnished),
         notes: h.notes || '',
-        status: current ? 'Occupied' : 'Vacant',
+        status: current || (!contractRes.ok && storedOccupied) ? 'Occupied' : 'Vacant',
         annualRent: Number(h.annualRent || 0),
         currentTenantId: current?.tenantId || '',
         currentTenantName: current?.tenantName || '',
