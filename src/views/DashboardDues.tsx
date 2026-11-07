@@ -105,8 +105,12 @@ export const DashboardDues: React.FC<DashboardDuesProps> = ({
   const collectionsData = useMemo(() => {
     // Production: show only real contracts returned by the backend.
     if (contracts.length > 0) {
+      const today = new Date().toISOString().slice(0, 10);
       return contracts.map((c, i) => {
         const next = getNextPaymentInfo(c);
+        const leaseEndDate = String(c.leaseEndDate || '').slice(0, 10);
+        const contractEnded = Boolean(leaseEndDate && leaseEndDate < today);
+        const paidInFull = Number(c.remainingAmount || 0) <= 0;
 
         return {
           id: c.id,
@@ -116,10 +120,15 @@ export const DashboardDues: React.FC<DashboardDuesProps> = ({
           tenantMobile: c.tenantMobile,
           annualRent: Number(c.annualRent || 0) + Number(c.waterYearlyBill || 0),
           remainingAmount: c.remainingAmount,
-          leaseEndDate: c.leaseEndDate,
+          leaseEndDate,
           daysLeft: next.days,
           nextPaymentDate: next.date,
-          paymentDaysText: formatPaymentDays(next.days, language),
+          paymentState: contractEnded ? 'ended' : paidInFull ? 'paid' : 'due',
+          paymentDaysText: contractEnded
+            ? (language === 'ar' ? 'العقد منتهي' : 'Contract ended')
+            : paidInFull
+              ? (language === 'ar' ? 'مسدد بالكامل' : 'Paid in full')
+              : formatPaymentDays(next.days, language),
           notesText: c.arabicNotes || c.englishNotes || (c.notes && c.notes[0]?.text) || '',
           rawContract: c
         };
@@ -127,7 +136,7 @@ export const DashboardDues: React.FC<DashboardDuesProps> = ({
     }
 
     return [];
-  }, [contracts]);
+  }, [contracts, language]);
 
   // Search & Filter
   const filteredRows = useMemo(() => {
@@ -185,7 +194,7 @@ export const DashboardDues: React.FC<DashboardDuesProps> = ({
   const handleExportExcel = () => {
     const rows = sortedRows.map((row, idx) => [
       idx + 1, row.unitNumber, row.unitType, row.tenantName, row.tenantMobile,
-      row.annualRent || 0, row.remainingAmount || 0, row.nextPaymentDate || '-',
+      row.annualRent || 0, row.remainingAmount || 0, row.leaseEndDate || '-',
       row.paymentDaysText, row.notesText || '-'
     ]);
     const annual = sortedRows.reduce((s,r)=>s+Number(r.annualRent||0),0);
@@ -214,7 +223,7 @@ export const DashboardDues: React.FC<DashboardDuesProps> = ({
       idx + 1, row.unitNumber, row.unitType, row.tenantName, row.tenantMobile,
       `${Number(row.annualRent||0).toLocaleString()} SAR`,
       `${Number(row.remainingAmount||0).toLocaleString()} SAR`,
-      row.nextPaymentDate || '-', row.paymentDaysText
+      row.leaseEndDate || '-', row.paymentDaysText
     ]);
     const annual = sortedRows.reduce((s,r)=>s+Number(r.annualRent||0),0);
     const remaining = sortedRows.reduce((s,r)=>s+Number(r.remainingAmount||0),0);
@@ -445,7 +454,7 @@ export const DashboardDues: React.FC<DashboardDuesProps> = ({
 
                     {/* Contract Expir Date Column */}
                     <td className="py-3.5 px-3 font-mono text-slate-700 border-r border-slate-100">
-                      {row.nextPaymentDate || '-'}
+                      {row.leaseEndDate || '-'}
                     </td>
 
                     {/* Notes Column */}
@@ -453,10 +462,16 @@ export const DashboardDues: React.FC<DashboardDuesProps> = ({
                       {row.notesText || ''}
                     </td>
 
-                    {/* Next Payment After Column -> Black badge #000000 matching screenshot Image 2 */}
+                    {/* Next Payment After Column */}
                     <td className="py-3.5 px-3 text-center border-r border-slate-100">
-                      <span className="inline-block px-3 py-1 bg-black text-white font-mono font-bold text-xs rounded">
-                        {formatPaymentDays(row.daysLeft, language)}
+                      <span className={`inline-block px-3 py-1 text-white font-mono font-bold text-xs rounded whitespace-nowrap ${
+                        row.paymentState === 'ended'
+                          ? 'bg-rose-600'
+                          : row.paymentState === 'paid'
+                            ? 'bg-emerald-600'
+                            : 'bg-black'
+                      }`}>
+                        {row.paymentDaysText}
                       </span>
                     </td>
 
@@ -544,15 +559,18 @@ export const DashboardDues: React.FC<DashboardDuesProps> = ({
 
       {paymentRow && (
         <div className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-4" onClick={() => !paymentBusy && setPaymentRow(null)}>
-          <form className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-5 space-y-4" onClick={e=>e.stopPropagation()} onSubmit={async e=>{e.preventDefault();if(!onRecordPayment)return;const contract=paymentRow.rawContract as Contract;const amount=Math.round(Number(paymentAmount)*100)/100;const outstanding=Number(paymentRow.remainingAmount||0);if(!amount||amount<=0){setPaymentError(language==='ar'?'أدخل مبلغ صحيح':'Enter a valid amount');return;}if(amount>outstanding+0.005){setPaymentError(language==='ar'?`المبلغ لا يمكن أن يتجاوز المتبقي (${outstanding.toLocaleString()} SAR)`:`Amount cannot exceed the remaining balance (${outstanding.toLocaleString()} SAR)`);return;}setPaymentBusy(true);setPaymentError('');try{await onRecordPayment({contractId:contract.id,tenantId:contract.tenantId,tenantName:contract.tenantName,unitNumber:contract.unitNumber,amount,paymentMethod,referenceNo:paymentReference,notes:paymentNotes});setPaymentRow(null);}catch(err){setPaymentError(language==='ar'?'تعذر تسجيل الدفعة. راجع الاتصال والبيانات.':'Could not record payment.');}finally{setPaymentBusy(false);}}}>
+          <form className="w-full max-w-md max-h-[92vh] overflow-y-auto bg-white rounded-2xl shadow-2xl p-4 sm:p-5 space-y-4" onClick={e=>e.stopPropagation()} onSubmit={async e=>{e.preventDefault();if(!onRecordPayment)return;const contract=paymentRow.rawContract as Contract;const amount=Math.round(Number(paymentAmount)*100)/100;const outstanding=Number(paymentRow.remainingAmount||0);if(!amount||amount<=0){setPaymentError(language==='ar'?'أدخل مبلغ صحيح':'Enter a valid amount');return;}if(amount>outstanding+0.005){setPaymentError(language==='ar'?`المبلغ لا يمكن أن يتجاوز المتبقي (${outstanding.toLocaleString()} SAR)`:`Amount cannot exceed the remaining balance (${outstanding.toLocaleString()} SAR)`);return;}setPaymentBusy(true);setPaymentError('');try{await onRecordPayment({contractId:contract.id,tenantId:contract.tenantId,tenantName:contract.tenantName,unitNumber:contract.unitNumber,amount,paymentMethod,referenceNo:paymentReference,notes:paymentNotes});setPaymentRow(null);}catch(err){setPaymentError(language==='ar'?'تعذر تسجيل الدفعة. راجع الاتصال والبيانات.':'Could not record payment.');}finally{setPaymentBusy(false);}}}>
             <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center"><CreditCard className="w-5 h-5 text-emerald-700"/></div><div><h3 className="font-bold text-slate-900">{language==='ar'?'تسجيل دفعة إيجار':'Record Rent Payment'}</h3><p className="text-xs text-slate-500">{paymentRow.tenantName} • {paymentRow.unitNumber}</p></div></div>
-            <div className="grid grid-cols-2 gap-3 text-xs"><div className="bg-slate-50 rounded-xl p-3"><span className="text-slate-500">{language==='ar'?'المتبقي':'Remaining'}</span><div className="font-bold text-base">{Number(paymentRow.remainingAmount||0).toLocaleString()} SR</div></div><div className="bg-slate-50 rounded-xl p-3"><span className="text-slate-500">{language==='ar'?'العقد':'Contract'}</span><div className="font-bold text-sm truncate">{paymentRow.rawContract?.contractNo||paymentRow.rawContract?.contractNumber||paymentRow.id}</div></div></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs"><div className="bg-slate-50 rounded-xl p-3"><span className="text-slate-500">{language==='ar'?'المتبقي':'Remaining'}</span><div className="font-bold text-base">{Number(paymentRow.remainingAmount||0).toLocaleString()} SR</div></div><div className="bg-slate-50 rounded-xl p-3"><span className="text-slate-500">{language==='ar'?'العقد':'Contract'}</span><div className="font-bold text-sm truncate">{paymentRow.rawContract?.contractNo||paymentRow.rawContract?.contractNumber||paymentRow.id}</div></div></div>
             <label className="block text-sm font-semibold">{language==='ar'?'المبلغ':'Amount'}<input type="number" min="0.01" step="0.01" max={Number(paymentRow.remainingAmount||0)} value={paymentAmount || ''} onChange={e=>setPaymentAmount(Number(e.target.value))} className="mt-1 w-full border rounded-xl px-3 py-2" required /></label>
             <label className="block text-sm font-semibold">{language==='ar'?'طريقة الدفع':'Payment Method'}<select value={paymentMethod} onChange={e=>setPaymentMethod(e.target.value)} className="mt-1 w-full border rounded-xl px-3 py-2"><option>Cash</option><option>Bank Transfer</option><option>Cheque</option><option>Card</option></select></label>
             <label className="block text-sm font-semibold">{language==='ar'?'رقم المرجع':'Reference No.'}<input value={paymentReference} onChange={e=>setPaymentReference(e.target.value)} className="mt-1 w-full border rounded-xl px-3 py-2" /></label>
             <label className="block text-sm font-semibold">{language==='ar'?'ملاحظات':'Notes'}<textarea value={paymentNotes} onChange={e=>setPaymentNotes(e.target.value)} className="mt-1 w-full border rounded-xl px-3 py-2" rows={2}/></label>
             {paymentError && <div className="text-sm text-rose-600 bg-rose-50 rounded-lg p-2">{paymentError}</div>}
-            <div className="flex gap-2 justify-end"><button type="button" onClick={()=>setPaymentRow(null)} disabled={paymentBusy} className="px-4 py-2 border rounded-xl">{language==='ar'?'إلغاء':'Cancel'}</button><button type="submit" disabled={paymentBusy} className="px-4 py-2 bg-emerald-600 text-white rounded-xl disabled:opacity-60">{paymentBusy?(language==='ar'?'جارٍ الحفظ...':'Saving...'):(language==='ar'?'تأكيد الدفعة':'Post Payment')}</button></div>
+            <div className="space-y-2 pt-2 border-t border-slate-100">
+              <div className="flex gap-2 justify-end"><button type="button" onClick={()=>setPaymentRow(null)} disabled={paymentBusy} className="px-4 py-2 border rounded-xl">{language==='ar'?'إلغاء':'Cancel'}</button><button type="submit" disabled={paymentBusy} className="px-4 py-2 bg-emerald-600 text-white rounded-xl disabled:opacity-60">{paymentBusy?(language==='ar'?'جارٍ الحفظ...':'Saving...'):(language==='ar'?'تأكيد الدفعة':'Post Payment')}</button></div>
+              <button type="button" onClick={()=>setPaymentRow(null)} disabled={paymentBusy} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-600 font-semibold disabled:opacity-60">{language==='ar'?'إغلاق':'Close'}</button>
+            </div>
           </form>
         </div>
       )}

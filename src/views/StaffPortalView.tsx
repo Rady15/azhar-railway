@@ -217,9 +217,9 @@ export const StaffPortalView: React.FC<StaffPortalViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5">
-          <button onClick={toggleLanguage} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg text-xs font-bold text-slate-200 transition-colors shadow-sm">
+          <button onClick={toggleLanguage} className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg text-xs font-bold text-slate-200 transition-colors shadow-sm">
             <Globe className="w-3.5 h-3.5 text-[#29b4c4]" />
-            <span>{language === 'ar' ? 'English' : 'العربية'}</span>
+            <span className="hidden sm:inline">{language === 'ar' ? 'English' : 'العربية'}</span>
           </button>
 
           <div className="hidden sm:flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-emerald-400">
@@ -238,7 +238,7 @@ export const StaffPortalView: React.FC<StaffPortalViewProps> = ({
               )}
             </button>
             {isDropdownOpen && (
-              <div className={`absolute mt-2 w-80 max-h-[70vh] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 text-xs text-slate-200 flex flex-col ${isRtl ? 'left-0' : 'right-0'}`}>
+              <div className={`absolute mt-2 w-[calc(100vw-1.5rem)] max-w-80 sm:w-80 max-h-[70vh] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 text-xs text-slate-200 flex flex-col ${isRtl ? 'left-0' : 'right-0'}`}>
                 <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
                   <h3 className="font-bold text-sm text-white">{t('الإشعارات', 'Notifications')}</h3>
                   <div className="flex items-center gap-2">

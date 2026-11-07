@@ -132,9 +132,14 @@ export const TenantsList: React.FC<TenantsListProps> = ({
 
   const sortedTenants = useMemo(() => {
     if (!sortConfig) return filteredTenants;
+    const familyCountOf = (tenant: any) => typeof tenant.familyMemberCount === 'number'
+      ? tenant.familyMemberCount
+      : Array.isArray(tenant.familyMembers)
+        ? tenant.familyMembers.filter((m: any) => m?.isActive !== false).length
+        : 0;
     return [...filteredTenants].sort((a: any, b: any) => {
-      let aVal = a[sortConfig.field];
-      let bVal = b[sortConfig.field];
+      let aVal = sortConfig.field === 'familyCount' ? familyCountOf(a) : a[sortConfig.field];
+      let bVal = sortConfig.field === 'familyCount' ? familyCountOf(b) : b[sortConfig.field];
       if (aVal === undefined || aVal === null) aVal = '';
       if (bVal === undefined || bVal === null) bVal = '';
       if (typeof aVal === 'string') {
@@ -417,47 +422,29 @@ export const TenantsList: React.FC<TenantsListProps> = ({
                     </td>
                     <td className="py-3 px-3 text-center border-l border-slate-100">
                       {(() => {
-                        // The server sends familyMemberCount (active member rows,
-                        // the same set the family-members screen lists) plus
-                        // familyCountVerified. Counting that is what makes this
-                        // column agree with what is actually inside. The tenant
-                        // form's familyCount is a typed-in number nobody keeps in
-                        // sync, so it is only shown - flagged with * - while no
-                        // member row has ever been recorded.
+                        // Use the registered family-member rows as the source of
+                        // truth. The typed-in familyCount on the tenant form is
+                        // not kept in sync and must not show members that do not
+                        // exist in the family-members screen.
                         const t = tenantItem as any;
-                        const declared = Number(t.familyCount);
-                        const verified = t.familyCountVerified !== false && Array.isArray(t.familyMembers);
-                        const live = typeof t.familyMemberCount === 'number'
+                        const n = typeof t.familyMemberCount === 'number'
                           ? t.familyMemberCount
                           : Array.isArray(t.familyMembers)
                             ? t.familyMembers.filter((m: any) => m?.isActive !== false).length
-                            : null;
-                        const n = verified
-                          ? (live ?? 0)
-                          : (Number.isFinite(declared) ? declared : null);
-                        const flagged = !verified && n != null && n > 0;
+                            : 0;
                         return (
                           <span
                             className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md border text-[11px] font-bold ${
-                              n && n > 0
-                                ? flagged
-                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              n > 0
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                 : 'bg-slate-50 text-slate-400 border-slate-200'
                             }`}
-                            title={
-                              flagged
-                                ? (language === 'ar'
-                                    ? 'لم يتم تسجيل أي فرد في جدول أفراد الأسرة — الرقم من البيانات الأساسية فقط'
-                                    : 'No family members registered yet — this number comes from the tenant record')
-                                : (language === 'ar'
-                                    ? 'عدد أفراد الأسرة المسجلين فعلياً'
-                                    : 'Actual number of registered family members')
-                            }
+                            title={language === 'ar'
+                              ? 'عدد أفراد الأسرة المسجلين فعلياً'
+                              : 'Actual number of registered family members'}
                           >
                             <Users className="w-3.5 h-3.5" />
-                            <span>{n != null && Number.isFinite(n) ? n : '—'}</span>
-                            {flagged && <span className="font-normal opacity-70">*</span>}
+                            <span>{n}</span>
                           </span>
                         );
                       })()}
@@ -527,8 +514,8 @@ export const TenantsList: React.FC<TenantsListProps> = ({
 
       {/* Tenant Unit & Rental History Modal */}
       {viewingTenant && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4" onClick={() => setViewingTenant(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-3 sm:p-4" onClick={() => setViewingTenant(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden max-h-[92vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="bg-[#2b3038] px-6 py-4 flex items-center justify-between text-white">
               <div className="flex items-center gap-2">
                 <History className="w-5 h-5 text-[#29b4c4]" />
@@ -556,15 +543,12 @@ export const TenantsList: React.FC<TenantsListProps> = ({
                           ['واتساب','WhatsApp',viewingTenant.whatsapp || '-'], ['الجنسية','Nationality',viewingTenant.nationality || '-'],
                           ['عدد أفراد الأسرة','Family Count',(() => {
                             const vt = viewingTenant as any;
-                            const declared = Number(vt.familyCount);
-                            const verified = vt.familyCountVerified !== false && Array.isArray(vt.familyMembers);
                             const live = typeof vt.familyMemberCount === 'number'
                               ? vt.familyMemberCount
                               : Array.isArray(vt.familyMembers)
                                 ? vt.familyMembers.filter((m: any) => m?.isActive !== false).length
-                                : null;
-                            if (verified) return String(live ?? 0);
-                            return Number.isFinite(declared) && declared > 0 ? `${declared}*` : '0';
+                                : 0;
+                            return String(live);
                           })()], ['الحالة','Status',viewingTenant.archived ? 'Archived' : (viewingTenant.isActive === false ? 'Inactive' : 'Active')],
                           ['الشركة','Company',viewingTenant.companyName || viewingTenant.company || '-'], ['ملاحظات','Notes',viewingTenant.tenantRemarks || viewingTenant.workNotes || '-']
                         ].map(([ar,en,val])=><div key={en} className="bg-white rounded-xl border border-slate-200 p-2.5"><div className="text-slate-400 mb-1">{language === 'ar' ? ar : en}</div><div className="font-bold text-slate-900 break-words">{val}</div></div>)}
@@ -635,8 +619,8 @@ export const TenantsList: React.FC<TenantsListProps> = ({
 
       {/* Add / Edit Tenant Modal */}
       {(showAddModal || editingTenant) && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 border border-slate-200 space-y-4 my-8">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[92vh] overflow-y-auto p-4 sm:p-5 border border-slate-200 space-y-3 my-0 sm:my-8">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <Users className="w-5 h-5 text-[#29b4c4]" />
@@ -833,20 +817,29 @@ export const TenantsList: React.FC<TenantsListProps> = ({
                 </label>
               </div>
 
-              <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
+              <div className="space-y-2 pt-3 border-t border-slate-100">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => { setShowAddModal(false); setEditingTenant(null); }}
+                    className="flex-1 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit" disabled={isSaving}
+                    className="flex-1 py-2.5 bg-[#29b4c4] hover:bg-[#229ca9] text-white font-semibold rounded-xl shadow-md flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    {editingTenant ? 'Save Changes' : 'Save Tenant'}
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => { setShowAddModal(false); setEditingTenant(null); }}
-                  className="flex-1 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl"
+                  className="w-full py-2.5 bg-white hover:bg-slate-50 text-slate-600 font-semibold rounded-xl border border-slate-200"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit" disabled={isSaving}
-                  className="flex-1 py-2.5 bg-[#29b4c4] hover:bg-[#229ca9] text-white font-semibold rounded-xl shadow-md flex items-center justify-center gap-2"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  {editingTenant ? 'Save Changes' : 'Save Tenant'}
+                  Close
                 </button>
               </div>
             </form>

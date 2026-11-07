@@ -131,8 +131,8 @@ export const MetersView: React.FC<MetersViewProps> = ({
       </table>
     </div>
 
-    {showModal && <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+    {showModal && <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-3 sm:p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[92vh] overflow-y-auto p-4 sm:p-5">
         <div className="flex justify-between items-center border-b pb-3 mb-4"><h3 className="font-bold">{editingId?(ar?'تعديل بيانات العداد':'Edit Meter'):(ar?'تسجيل عداد جديد':'Register Meter')}</h3><button onClick={()=>{setShowModal(false);resetForm();}} className="text-xl text-slate-400">×</button></div>
         <form onSubmit={submit} className="space-y-4 text-xs">
           <div><label className="block font-semibold mb-1">{ar?'الوحدة المرتبط بها العداد':'Linked Unit'}</label><select required value={unitId} onChange={e=>setUnitId(e.target.value)} className="w-full px-3 py-2.5 bg-slate-50 border rounded-xl"><option value="">{ar?'اختر الوحدة...':'Select unit...'}</option>{sortedUnits.map(u=><option key={u.id} value={u.id}>{ar?'مبنى':'Building'} {u.buildingNumber} — {ar?'وحدة':'Unit'} {u.unitNumber}</option>)}</select></div>
@@ -141,7 +141,10 @@ export const MetersView: React.FC<MetersViewProps> = ({
           {type==='electricity' && <div><label className="block font-semibold mb-1">{ar?'رقم حساب السداد':'Payment Account Number'}</label><input value={paymentNo} onChange={e=>setPaymentNo(e.target.value)} className="w-full px-3 py-2.5 bg-slate-50 border rounded-xl font-mono"/></div>}
           {type==='water' && <><div><label className="block font-semibold mb-1">{ar?'آخر قراءة':'Last Reading'}</label><input type="number" step="0.001" value={lastReading} onChange={e=>setLastReading(e.target.value)} className="w-full px-3 py-2.5 bg-slate-50 border rounded-xl"/></div><div><label className="block font-semibold mb-1">{ar?'تاريخ القراءة':'Reading Date'}</label><input type="date" value={readingDate} onChange={e=>setReadingDate(e.target.value)} className="w-full px-3 py-2.5 bg-slate-50 border rounded-xl"/></div></>}
           <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-blue-800">{ar?'العداد مرتبط بالوحدة نفسها وليس بالمستأجر. عند تغيير المستأجر يظل العداد كما هو على نفس الوحدة.':'The meter belongs to the unit record, not the tenant. Changing tenants does not change the meter link.'}</div>
-          <div className="flex gap-3 pt-2"><button type="button" onClick={()=>{setShowModal(false);resetForm();}} className="flex-1 py-2.5 bg-slate-100 rounded-xl font-semibold">{ar?'إلغاء':'Cancel'}</button><button type="submit" className="flex-1 py-2.5 bg-[#29b4c4] text-white rounded-xl font-semibold">{ar?'حفظ بيانات العداد':'Save Meter'}</button></div>
+          <div className="space-y-2 pt-2 border-t border-slate-100">
+            <div className="flex gap-3"><button type="button" onClick={()=>{setShowModal(false);resetForm();}} className="flex-1 py-2.5 bg-slate-100 rounded-xl font-semibold">{ar?'إلغاء':'Cancel'}</button><button type="submit" className="flex-1 py-2.5 bg-[#29b4c4] text-white rounded-xl font-semibold">{ar?'حفظ بيانات العداد':'Save Meter'}</button></div>
+            <button type="button" onClick={()=>{setShowModal(false);resetForm();}} className="w-full py-2.5 bg-white hover:bg-slate-50 text-slate-600 rounded-xl font-semibold border border-slate-200">{ar?'إغلاق':'Close'}</button>
+          </div>
         </form>
       </div>
     </div>}

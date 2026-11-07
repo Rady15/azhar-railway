@@ -55,9 +55,9 @@ export const EditTenantModal: React.FC<EditTenantModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full overflow-hidden border border-slate-300 my-auto">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-300 my-auto">
         {/* Top Header Banner matching Image 1 */}
-        <div className="bg-[#2b62af] px-6 py-3.5 flex items-center justify-between text-white relative">
+        <div className="bg-[#2b62af] px-4 sm:px-6 py-3.5 flex items-center justify-between text-white relative shrink-0">
           <div className="flex items-center gap-2">
             <User className="w-5 h-5 text-cyan-300" />
             <h2 className="text-base font-bold tracking-wide">
@@ -78,7 +78,7 @@ export const EditTenantModal: React.FC<EditTenantModalProps> = ({
         </div>
 
         {/* Modal Body Form */}
-        <form onSubmit={handleSubmit} className="p-6 bg-[#f8fafc] text-xs text-slate-800 space-y-5">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 bg-[#f8fafc] text-xs text-slate-800 space-y-5 overflow-y-auto flex-1">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
             
             {/* LEFT COLUMN */}
@@ -412,19 +412,28 @@ export const EditTenantModal: React.FC<EditTenantModalProps> = ({
           </div>
 
           {/* Form Actions */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+          <div className="space-y-2 pt-4 border-t border-slate-200">
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg text-xs transition-colors"
+              >
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </button>
+              <button
+                type="submit"
+                className="px-6 py-2 bg-[#2b62af] hover:bg-[#224f8d] text-white font-bold rounded-lg text-xs shadow-md transition-colors"
+              >
+                {language === 'ar' ? 'حفظ التغييرات' : 'Save Changes'}
+              </button>
+            </div>
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg text-xs transition-colors"
+              className="w-full py-2 bg-white hover:bg-slate-50 text-slate-600 font-semibold rounded-lg text-xs border border-slate-300"
             >
-              {language === 'ar' ? 'إلغاء' : 'Cancel'}
-            </button>
-            <button
-              type="submit"
-              className="px-6 py-2 bg-[#2b62af] hover:bg-[#224f8d] text-white font-bold rounded-lg text-xs shadow-md transition-colors"
-            >
-              {language === 'ar' ? 'حفظ التغييرات' : 'Save Changes'}
+              {language === 'ar' ? 'إغلاق' : 'Close'}
             </button>
           </div>
         </form>

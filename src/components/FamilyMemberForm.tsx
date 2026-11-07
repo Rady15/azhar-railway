@@ -193,8 +193,8 @@ export const FamilyMemberForm: React.FC<Props> = ({ tenantId, member, existingDo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-4" role="dialog" aria-modal="true">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[92vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between rounded-t-2xl">
           <h3 className="font-bold text-slate-900">{member ? (ar ? 'تعديل فرد الأسرة' : 'Edit Family Member') : (ar ? 'إضافة فرد من أفراد الأسرة' : 'Add Family Member')}</h3>
           <button type="button" onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600" aria-label={ar ? 'إغلاق' : 'Close'}><X className="w-5 h-5" /></button>

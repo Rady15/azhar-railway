@@ -186,15 +186,29 @@ const unitKey = (value: any): string => String(value ?? '').trim().toLowerCase()
 
 const unitDigits = (value: any): string => String(value ?? '').replace(/\D/g, '').replace(/^0+/, '');
 
+const unitParts = (value: any): string[] => unitKey(value).split(/[-_/]+/).filter(Boolean);
+
 const unitNumbersMatch = (a: any, b: any): boolean => {
   const ak = unitKey(a), bk = unitKey(b);
   if (!ak || !bk) return false;
   if (ak === bk) return true;
   const ad = unitDigits(ak), bd = unitDigits(bk);
-  if (!ad || !bd) return false;
-  if (ad === bd) return true;
-  // Tolerate legacy formats such as "1-101" versus unit "101".
-  return Math.abs(ad.length - bd.length) <= 3 && (ad.endsWith(bd) || bd.endsWith(ad));
+  const plainNumber = (key: string) => /^\d+$/.test(key);
+  // Compare full numbers only when both sides are plain numbers (handles "03" vs "3"),
+  // so "3" never matches "13" or "23".
+  if (plainNumber(ak) && plainNumber(bk)) return Boolean(ad && bd && ad === bd);
+  const ap = unitParts(ak), bp = unitParts(bk);
+  const lastDigits = (parts: string[]) => unitDigits(parts[parts.length - 1]);
+  const aLast = ap.length > 1 ? lastDigits(ap) : ad;
+  const bLast = bp.length > 1 ? lastDigits(bp) : bd;
+  if (!aLast || !bLast || aLast !== bLast) return false;
+  // Tolerate legacy "building-unit" formats such as "1-101" versus unit "101",
+  // but reject them when both prefixes are present and different.
+  const aPrefix = ap.length > 1 ? unitKey(ap.slice(0, -1).join('')) : '';
+  const bPrefix = bp.length > 1 ? unitKey(bp.slice(0, -1).join('')) : '';
+  if (!aPrefix || !bPrefix || aPrefix === bPrefix) return true;
+  const aPrefixDigits = unitDigits(aPrefix), bPrefixDigits = unitDigits(bPrefix);
+  return Boolean(aPrefixDigits && bPrefixDigits && aPrefixDigits === bPrefixDigits);
 };
 
 const buildingsMatch = (a: any, b: any): boolean => {
@@ -381,6 +395,9 @@ export const apiService = {
         whatsapp: t.whatsappNumber || t.whatsapp || t.phoneNumber || '',
         nationality: t.nationality || '',
         familyCount: t.familyCount || '1',
+        familyMembers: Array.isArray(t.familyMembers) ? t.familyMembers : [],
+        familyMemberCount: typeof t.familyMemberCount === 'number' ? t.familyMemberCount : undefined,
+        familyCountVerified: t.familyCountVerified === true,
         workNotes: t.workNotes || '',
         isMarried: t.isMarried !== undefined ? t.isMarried : true,
         companyName: t.companyName || t.company || '',

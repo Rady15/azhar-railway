@@ -126,15 +126,15 @@ export const FamilyMembersView: React.FC<Props> = ({ tenant }) => {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h4 className="font-bold text-slate-800 flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="font-bold text-slate-800 flex items-center gap-2 text-sm sm:text-base">
           <Users className="w-4 h-4 text-[#29b4c4]" />
           {ar ? `أفراد الأسرة (${members.length})` : `Family Members (${members.length})`}
           {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />}
         </h4>
         <button type="button" onClick={() => { setEditing(null); setFormOpen(true); }}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#29b4c4] text-white text-xs font-bold hover:bg-[#1f9aa8]">
-          <Plus className="w-3.5 h-3.5" />{ar ? 'إضافة فرد من أفراد الأسرة' : 'Add Family Member'}
+          className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-[#29b4c4] text-white text-[10px] sm:text-xs font-bold hover:bg-[#1f9aa8] whitespace-nowrap">
+          <Plus className="w-3 h-4 sm:w-3.5 sm:h-3.5" />{ar ? 'إضافة فرد' : 'Add Family Member'}
         </button>
       </div>
 

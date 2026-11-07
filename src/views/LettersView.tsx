@@ -371,8 +371,8 @@ export const LettersView: React.FC<LettersViewProps> = ({
 
       {/* Add / Edit Letter Modal */}
       {showFormModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[92vh] overflow-y-auto p-4 sm:p-5 shadow-2xl border border-slate-200 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <Mail className="w-5 h-5 text-[#29b4c4]" />
@@ -499,22 +499,31 @@ export const LettersView: React.FC<LettersViewProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 pt-2">
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowFormModal(false)}
+                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl"
+                  >
+                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 bg-[#29b4c4] hover:bg-[#1f9bad] text-white font-semibold rounded-xl flex items-center justify-center gap-2"
+                  >
+                    <Send className="w-4 h-4" />
+                    {editingLetter
+                      ? (language === 'ar' ? 'حفظ التعديلات' : 'Save Changes')
+                      : (language === 'ar' ? 'إرسال الخطاب' : 'Send Letter')}
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowFormModal(false)}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl"
+                  className="w-full py-2.5 bg-white hover:bg-slate-50 text-slate-600 font-semibold rounded-xl border border-slate-200"
                 >
-                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 bg-[#29b4c4] hover:bg-[#1f9bad] text-white font-semibold rounded-xl flex items-center justify-center gap-2"
-                >
-                  <Send className="w-4 h-4" />
-                  {editingLetter
-                    ? (language === 'ar' ? 'حفظ التعديلات' : 'Save Changes')
-                    : (language === 'ar' ? 'إرسال الخطاب' : 'Send Letter')}
+                  {language === 'ar' ? 'إغلاق' : 'Close'}
                 </button>
               </div>
             </form>
@@ -524,9 +533,9 @@ export const LettersView: React.FC<LettersViewProps> = ({
 
       {/* View Letter Modal */}
       {viewingLetter && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="bg-[#2b3038] px-6 py-4 flex items-center justify-between text-white">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200">
+            <div className="bg-[#2b3038] px-4 sm:px-6 py-4 flex items-center justify-between text-white">
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-[#29b4c4]" />
                 <h3 className="text-base font-bold truncate">{viewingLetter.title}</h3>
@@ -536,7 +545,7 @@ export const LettersView: React.FC<LettersViewProps> = ({
               </button>
             </div>
 
-            <div className="p-6 space-y-4 text-xs text-slate-800">
+            <div className="p-4 sm:p-6 space-y-4 text-xs text-slate-800">
               <div className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-xl p-3">
                 <div className="flex items-center gap-2">
                   <Send className="w-4 h-4 text-[#29b4c4]" />
@@ -560,9 +569,9 @@ export const LettersView: React.FC<LettersViewProps> = ({
               )}
 
               {viewingLetter.attachmentMediaId && (
-                <div className="flex items-center justify-between gap-3 p-3 bg-cyan-50 border border-cyan-200 rounded-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-cyan-50 border border-cyan-200 rounded-xl">
                   <div className="flex items-center gap-2 min-w-0"><FileText className="w-4 h-4 text-cyan-600 shrink-0" /><span className="text-xs font-semibold text-slate-700 truncate">{viewingLetter.attachmentFileName || 'Attachment'}</span></div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
                     <button type="button" onClick={() => apiService.openMedia(`/api/letters/${viewingLetter.id}/attachment`)} className="px-3 py-1.5 rounded-lg bg-white border border-cyan-200 text-cyan-700 text-xs font-bold flex items-center gap-1"><Eye className="w-3.5 h-3.5" />{language === 'ar' ? 'فتح' : 'Open'}</button>
                     <button type="button" onClick={() => apiService.downloadMedia(`/api/letters/${viewingLetter.id}/attachment?download=1`, viewingLetter.attachmentFileName || 'letter-attachment')} className="px-3 py-1.5 rounded-lg bg-cyan-600 text-white text-xs font-bold flex items-center gap-1"><Download className="w-3.5 h-3.5" />{language === 'ar' ? 'تحميل' : 'Download'}</button>
                   </div>

@@ -2,8 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { apiService, mediaSrc } from '../services/api';
 import {
   FileText, Download, Eye, Search, Loader2,
-  AlertCircle, Paperclip, RefreshCw,
+  AlertCircle, Paperclip, RefreshCw, Trash2,
 } from 'lucide-react';
+import { confirmUi } from '../utils/uiDialog';
+import { notifyUser } from '../utils/userFeedback';
 
 type MediaRow = {
   id: string; entityType?: string; entityId?: string;
@@ -63,6 +65,26 @@ export function MediaLibraryView() {
     try { await (apiService as any).downloadMedia(row.url, row.fileName); }
     catch (e: any) { setError(`تعذر تحميل "${row.fileName}": ${e?.message || 'خطأ'}`); }
     finally { setBusy(''); }
+  };
+
+  const remove = async (row: MediaRow) => {
+    const confirmed = await confirmUi({
+      title: 'حذف ملف',
+      message: `هل تريد حذف "${row.fileName}" نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`,
+      confirmText: 'حذف',
+      cancelText: 'إلغاء',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+    setBusy(row.id);
+    setError('');
+    try {
+      await apiService.deleteMedia(row.id);
+      setRows(prev => prev.filter(r => r.id !== row.id));
+      notifyUser({ kind: 'success', ar: 'تم حذف الملف', en: 'File deleted' });
+    } catch (e: any) {
+      setError(`تعذر حذف "${row.fileName}": ${e?.message || 'خطأ'}`);
+    } finally { setBusy(''); }
   };
 
   const cats = Array.from(new Set(rows.map(r => r.category))).sort();
@@ -140,7 +162,7 @@ export function MediaLibraryView() {
                 <p className="text-[11px] text-slate-500 mb-2">
                   {CATEGORY_AR[r.category] || r.category} · {fmtSize(r.fileSize)}
                 </p>
-                <Actions row={r} busy={busy === r.id} onView={view} onDownload={download} />
+                <Actions row={r} busy={busy === r.id} onView={view} onDownload={download} onDelete={remove} />
               </div>
             </div>
           ))}
@@ -154,7 +176,7 @@ export function MediaLibraryView() {
                 <p className="text-xs text-slate-500">
                   {CATEGORY_AR[r.category] || r.category} · {fmtSize(r.fileSize)}
                 </p>
-                <Actions row={r} busy={busy === r.id} onView={view} onDownload={download} />
+                <Actions row={r} busy={busy === r.id} onView={view} onDownload={download} onDelete={remove} />
               </div>
             </div>
           ))}
@@ -166,7 +188,7 @@ export function MediaLibraryView() {
   );
 }
 
-function Actions({ row, busy, onView, onDownload }: any) {
+function Actions({ row, busy, onView, onDownload, onDelete }: any) {
   return (
     <div className="flex gap-2">
       <button onClick={() => onView(row)} disabled={busy}
@@ -176,6 +198,10 @@ function Actions({ row, busy, onView, onDownload }: any) {
       <button onClick={() => onDownload(row)} disabled={busy}
         className="flex items-center justify-center gap-1.5 text-xs font-semibold border rounded-lg px-3 py-2 hover:bg-slate-50 disabled:opacity-60">
         <Download className="w-3.5 h-3.5" />
+      </button>
+      <button onClick={() => onDelete(row)} disabled={busy} title="حذف الملف"
+        className="flex items-center justify-center gap-1.5 text-xs font-semibold border border-rose-200 text-rose-700 rounded-lg px-3 py-2 hover:bg-rose-50 disabled:opacity-60">
+        <Trash2 className="w-3.5 h-3.5" />
       </button>
     </div>
   );

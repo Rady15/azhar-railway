@@ -5,18 +5,18 @@ export const PatchNotesView: React.FC = () => {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-[#29b4c4] uppercase tracking-wider mb-1">
             <Info className="w-4 h-4" />
             <span>System Telemetry & Changelog</span>
           </div>
-          <h1 className="text-xl font-bold text-slate-900">AZ System - Intel & Build Notes</h1>
+          <h1 className="text-sm sm:text-xl font-bold text-slate-900 leading-tight">AZ System - Intel & Build Notes</h1>
           <p className="text-xs text-slate-500 mt-1">
             Build telemetry logs, release notes, ASP.NET Core Kestrel backend environment info, and patch documentation.
           </p>
         </div>
-        <span className="px-3 py-1.5 bg-[#29b4c4]/10 text-[#1a7f8b] font-mono text-xs font-bold rounded-xl border border-[#29b4c4]/30">
+        <span className="px-3 py-1.5 bg-[#29b4c4]/10 text-[#1a7f8b] font-mono text-xs font-bold rounded-xl border border-[#29b4c4]/30 shrink-0">
           Build v2.4.108
         </span>
       </div>
@@ -58,7 +58,7 @@ export const PatchNotesView: React.FC = () => {
       </div>
 
       {/* Changelog Timeline */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
         <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3">
           Recent Release & Patch History
         </h2>
@@ -66,7 +66,7 @@ export const PatchNotesView: React.FC = () => {
         <div className="space-y-6 text-xs text-slate-700">
           <div className="relative pl-6 border-l-2 border-[#29b4c4] space-y-1">
             <div className="absolute -left-1.5 top-0 w-3 h-3 rounded-full bg-[#29b4c4] ring-4 ring-white" />
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-1">
               <span className="font-bold text-slate-900 text-sm">Release v2.4.1 - Full Compound Management Engine</span>
               <span className="font-mono text-slate-400">August 2026</span>
             </div>
@@ -77,7 +77,7 @@ export const PatchNotesView: React.FC = () => {
 
           <div className="relative pl-6 border-l-2 border-slate-300 space-y-1">
             <div className="absolute -left-1.5 top-0 w-3 h-3 rounded-full bg-slate-300 ring-4 ring-white" />
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-1">
               <span className="font-bold text-slate-800">Release v2.3.0 - Lease Contracts & Tenants Directory</span>
               <span className="font-mono text-slate-400">June 2026</span>
             </div>
@@ -88,7 +88,7 @@ export const PatchNotesView: React.FC = () => {
 
           <div className="relative pl-6 border-l-2 border-slate-300 space-y-1">
             <div className="absolute -left-1.5 top-0 w-3 h-3 rounded-full bg-slate-300 ring-4 ring-white" />
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-1">
               <span className="font-bold text-slate-800">Release v2.0.0 - AZ System Initial Deployment</span>
               <span className="font-mono text-slate-400">January 2026</span>
             </div>

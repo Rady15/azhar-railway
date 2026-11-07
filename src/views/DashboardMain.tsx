@@ -85,7 +85,7 @@ export const DashboardMain: React.FC<DashboardMainProps> = ({
     <div className="space-y-6">
       {/* Header Banner */}
       <div
-        className="bg-cover bg-center rounded-2xl p-6 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-slate-700"
+        className="bg-cover bg-center rounded-2xl p-4 sm:p-6 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 border border-slate-700"
         style={{
           backgroundImage: 'linear-gradient(rgba(15, 23, 42, 0.78), rgba(15, 23, 42, 0.88)), url("https://manage.isleblue.co/uploads/villas/images/2924/antigua-villa-nicobar-2016-004.jpg")'
         }}

@@ -594,8 +594,8 @@ export const StaffView: React.FC<StaffViewProps> = ({
 
       {/* Full Staff Details Modal */}
       {viewingStaff && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[75] flex items-center justify-center p-4" onClick={() => setViewingStaff(null)}>
-          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto" onClick={e=>e.stopPropagation()}>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[75] flex items-center justify-center p-3 sm:p-4" onClick={() => setViewingStaff(null)}>
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto" onClick={e=>e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-5">
               <div><h3 className="text-base font-bold text-slate-900">{language === 'ar' ? 'بيانات الموظف كاملة' : 'Full Staff Details'}</h3><p className="text-xs text-slate-500 mt-1">{viewingStaff.name}</p></div>
               <button onClick={()=>setViewingStaff(null)} className="text-slate-400 hover:text-slate-700 text-xl">×</button>
@@ -737,8 +737,8 @@ export const StaffView: React.FC<StaffViewProps> = ({
 
       {/* Staff Tasks View Modal */}
       {selectedStaffTasks && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full max-h-[92vh] overflow-y-auto p-4 sm:p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <ListTodo className="w-5 h-5 text-blue-600" />
@@ -790,8 +790,8 @@ export const StaffView: React.FC<StaffViewProps> = ({
 
       {/* Add / Edit Staff Modal */}
       {(showAddModal || editingStaff) && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[92vh] overflow-y-auto p-4 sm:p-5 shadow-xl border border-slate-200 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <UserCheck className="w-5 h-5 text-emerald-600" />
@@ -807,7 +807,7 @@ export const StaffView: React.FC<StaffViewProps> = ({
 
             <form autoComplete="off" onSubmit={editingStaff ? handleEditSubmit : handleCreateSubmit} className="space-y-4 text-xs">
               <FormError message={formError} />
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'الرقم الوظيفي' : 'Emp Code'}</label>
                   <input
@@ -843,7 +843,7 @@ export const StaffView: React.FC<StaffViewProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'المسمى الوظيفي' : 'Job Title / Role'}</label>
                   <input
@@ -867,7 +867,7 @@ export const StaffView: React.FC<StaffViewProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'البريد الإلكتروني' : 'Email'}</label>
                   <input
@@ -960,20 +960,29 @@ export const StaffView: React.FC<StaffViewProps> = ({
                 />
               </div>
 
-              <div className="flex items-center gap-3 pt-2">
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl"
+                  >
+                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button
+                    type="submit" disabled={isSaving}
+                    className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    {language === 'ar' ? (editingStaff ? 'حفظ التعديلات' : 'إضافة الموظف') : (editingStaff ? 'Save Changes' : 'Save Staff')}
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl"
+                  className="w-full py-2.5 bg-white hover:bg-slate-50 text-slate-600 font-semibold rounded-xl border border-slate-200"
                 >
-                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                </button>
-                <button
-                  type="submit" disabled={isSaving}
-                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl flex items-center justify-center gap-2"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  {language === 'ar' ? (editingStaff ? 'حفظ التعديلات' : 'إضافة الموظف') : (editingStaff ? 'Save Changes' : 'Save Staff')}
+                  {language === 'ar' ? 'إغلاق' : 'Close'}
                 </button>
               </div>
             </form>

@@ -158,7 +158,7 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           />
           {searchOpen && searchQuery.trim().length >= 2 && (
-            <div className={`absolute top-full mt-2 w-full min-w-[320px] max-h-80 overflow-auto bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 ${language === 'ar' ? 'right-0' : 'left-0'}`}>
+            <div className={`absolute top-full mt-2 w-full sm:min-w-[320px] max-h-80 overflow-auto bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 ${language === 'ar' ? 'right-0' : 'left-0'}`}>
               <div className="px-3 py-2 text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-800">
                 {searchLoading ? (language === 'ar' ? 'جاري البحث...' : 'Searching...') : (language === 'ar' ? 'نتائج البحث' : 'Search results')}
               </div>
@@ -189,11 +189,11 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Language Switcher Button */}
         <button
           onClick={toggleLanguage}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg text-xs font-bold text-slate-200 transition-colors shadow-sm"
+          className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg text-xs font-bold text-slate-200 transition-colors shadow-sm"
           title={language === 'ar' ? 'Switch to English' : 'التحويل للعربية'}
         >
           <Globe className="w-3.5 h-3.5 text-[#29b4c4]" />
-          <span>{language === 'ar' ? 'English' : 'العربية'}</span>
+          <span className="hidden sm:inline">{language === 'ar' ? 'English' : 'العربية'}</span>
         </button>
 
         {/* Compound Status Badge */}
@@ -219,7 +219,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           {isDropdownOpen && (
             <div 
-              className={`absolute mt-2 w-80 max-h-[70vh] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 text-xs text-slate-200 flex flex-col ${
+              className={`absolute mt-2 w-[calc(100vw-1.5rem)] max-w-80 sm:w-80 max-h-[70vh] bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 text-xs text-slate-200 flex flex-col ${
                 language === 'ar' ? 'left-0' : 'right-0'
               }`}
               onMouseLeave={closeDropdown}
@@ -335,10 +335,10 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Avatar Preview Lightbox */}
           {showAvatarPreview && (
             <div
-              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-3 sm:p-4"
               onClick={() => setShowAvatarPreview(false)}
             >
-              <div className="relative max-w-sm w-full">
+              <div className="relative max-w-[85vw] sm:max-w-sm w-full">
                 <img
                   src={user.profileImageUrl || user.avatar || avatarUrl(user.name || user.username)}
                   alt={user.name}

@@ -342,8 +342,8 @@ export const FacilityBookingsView: React.FC<FacilityBookingsViewProps> = ({
 
       {/* New Booking Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[92vh] overflow-y-auto p-4 sm:p-5 shadow-2xl border border-slate-200 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-[#29b4c4]" />
@@ -352,7 +352,7 @@ export const FacilityBookingsView: React.FC<FacilityBookingsViewProps> = ({
               <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'المرفق' : 'Facility'}</label>
                   <select required value={bkFacility} onChange={e => setBkFacility(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-medium">
@@ -372,7 +372,7 @@ export const FacilityBookingsView: React.FC<FacilityBookingsViewProps> = ({
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'التاريخ' : 'Date'}</label>
                   <input type="date" required value={bkDate} onChange={e => setBkDate(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono" />
@@ -386,7 +386,7 @@ export const FacilityBookingsView: React.FC<FacilityBookingsViewProps> = ({
                   <input type="time" value={bkEnd} onChange={e => setBkEnd(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono" />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'عدد الضيوف' : 'Guests Count'}</label>
                   <input type="number" min={1} value={bkGuests} onChange={e => setBkGuests(Number(e.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono" />
@@ -396,9 +396,12 @@ export const FacilityBookingsView: React.FC<FacilityBookingsViewProps> = ({
                   <input required value={bkPurpose} onChange={e => setBkPurpose(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" />
                 </div>
               </div>
-              <div className="flex items-center gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl">{language === 'ar' ? 'إلغاء' : 'Cancel'}</button>
-                <button type="submit" className="flex-1 py-2.5 bg-[#29b4c4] hover:bg-[#229ca9] text-white font-semibold rounded-xl">{language === 'ar' ? 'إرسال الحجز' : 'Submit Booking'}</button>
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <div className="flex items-center gap-3">
+                  <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl">{language === 'ar' ? 'إلغاء' : 'Cancel'}</button>
+                  <button type="submit" className="flex-1 py-2.5 bg-[#29b4c4] hover:bg-[#229ca9] text-white font-semibold rounded-xl">{language === 'ar' ? 'إرسال الحجز' : 'Submit Booking'}</button>
+                </div>
+                <button type="button" onClick={() => setShowModal(false)} className="w-full py-2.5 bg-white hover:bg-slate-50 text-slate-600 font-semibold rounded-xl border border-slate-200">{language === 'ar' ? 'إغلاق' : 'Close'}</button>
               </div>
             </form>
           </div>
@@ -407,8 +410,8 @@ export const FacilityBookingsView: React.FC<FacilityBookingsViewProps> = ({
 
       {/* Reject Modal */}
       {rejectBooking && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full max-h-[92vh] overflow-y-auto p-4 sm:p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <XCircle className="w-5 h-5 text-rose-500" />

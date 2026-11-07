@@ -36,7 +36,7 @@ export const ContractDetailsModal: React.FC<ContractDetailsModalProps> = ({
     <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
       <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full overflow-hidden border border-slate-200 my-auto">
         {/* Modal Header */}
-        <div className="bg-[#2b62af] px-6 py-4 flex items-center justify-between text-white">
+        <div className="bg-[#2b62af] px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3 text-white">
           <div className="flex items-center gap-3">
             <FileText className="w-6 h-6 text-cyan-300" />
             <div>
@@ -55,7 +55,7 @@ export const ContractDetailsModal: React.FC<ContractDetailsModalProps> = ({
               className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
             >
               <Printer className="w-4 h-4" />
-              {language === 'ar' ? 'طباعة العقد' : 'Print Contract'}
+              <span className="hidden sm:inline">{language === 'ar' ? 'طباعة العقد' : 'Print Contract'}</span>
             </button>
             <button
               onClick={onClose}
@@ -67,7 +67,7 @@ export const ContractDetailsModal: React.FC<ContractDetailsModalProps> = ({
         </div>
 
         {/* Modal Content */}
-        <div className="p-6 space-y-6 text-xs text-slate-800 bg-slate-50/50 max-h-[80vh] overflow-y-auto">
+        <div className="p-4 sm:p-6 space-y-6 text-xs text-slate-800 bg-slate-50/50 max-h-[75vh] overflow-y-auto">
           
           {/* Key Metric Highlights */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

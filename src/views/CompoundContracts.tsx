@@ -494,7 +494,7 @@ try {
       fileName: `Azhar_Residence_Contracts_${new Date().toISOString().split('T')[0]}.xlsx`,
       title: 'AZHAR RESIDENCE — Contracts Register',
       subtitle: `Contracts & financial summary • Generated ${new Date().toLocaleString('en-GB')}`,
-      columns: ['#','Contract No','Unit #','Type','Tenant Name','Mobile','Unit Rent','Water','Gross Rent','Discount','Net Due','Paid','Remaining','Next Payment Date','Days Left','Start Date','End Date','Duration (Months)','Status'],
+      columns: ['#','Contract No','Unit #','Type','Tenant Name','Mobile','Unit Rent','Water','Gross Rent','Discount','Net Due','Paid','Remaining','Next Payment Date','Days to Next Payment','Start Date','End Date','Duration (Months)','Status'],
       rows,
       kpis: [
         { label: 'Contracts', value: filteredContracts.length },
@@ -524,7 +524,7 @@ try {
     exportStyledPdf({
       title: 'Contracts & Financial Register',
       subtitle: `Generated ${new Date().toLocaleString('en-GB')}`,
-      headers: ['#','Contract No','Unit #','Type','Tenant Name','Mobile','Unit Rent','Water','Gross Rent','Paid','Remaining','Next Payment Date','Days Left','End Date'],
+      headers: ['#','Contract No','Unit #','Type','Tenant Name','Mobile','Unit Rent','Water','Gross Rent','Paid','Remaining','Next Payment Date','Days to Next Payment','End Date'],
       body,
       kpis: [
         { label: 'Contracts', value: String(filteredContracts.length) },
@@ -883,7 +883,7 @@ try {
                 </th>
                 <th className="py-3 px-3 border-r border-blue-600/40 text-center" onClick={() => handleSort('nextPaymentDays')}>
                   <div className="flex items-center justify-center gap-1 cursor-pointer select-none hover:text-cyan-200">
-                    <span>{language === 'ar' ? 'الأيام المتبقية' : 'Days Left'}</span>
+                    <span>{language === 'ar' ? 'الأيام المتبقية على الدفعة القادمة' : 'Days to Next Payment'}</span>
                     <ArrowUpDown className="w-3 h-3 text-white/70" />
                   </div>
                 </th>
@@ -1332,8 +1332,8 @@ try {
 
       {/* CREATE NEW CONTRACT MODAL */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-4 sm:p-5 border border-slate-200 space-y-3 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <AzharLogo variant="dark" size="sm" />
@@ -1350,7 +1350,7 @@ try {
             </div>
 
             <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">رقم العقد (Contract No)</label>
                   <input
@@ -1386,7 +1386,7 @@ try {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">اختر الوحدة (Unit #)</label>
                   <select
@@ -1429,7 +1429,7 @@ try {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">رقم الجوال (Mobile)</label>
                   <input
@@ -1451,7 +1451,7 @@ try {
                 </div>
               </div>
 
-               <div className="grid grid-cols-4 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
                  <div>
                    <label className="block font-semibold text-slate-700 mb-1">إيجار الوحدة السنوي</label>
                    <input
@@ -1495,7 +1495,7 @@ try {
                  
                </div>
 
-               <div className="grid grid-cols-2 gap-3">
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                  <div>
                    <label className="block font-semibold text-slate-700 mb-1">طريقة الدفع</label>
                    <select
@@ -1534,7 +1534,7 @@ try {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">تاريخ بداية العقد (Start Date)</label>
                   <input
@@ -1574,20 +1574,29 @@ try {
                 onClear={() => { setContractDocumentUrl(''); setContractDocumentName(''); }}
               />
 
-              <div className="flex items-center gap-3 pt-3">
+              <div className="space-y-2 pt-3 border-t border-slate-100">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => { setShowAddModal(false); resetAddContractForm(); }}
+                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 bg-[#29b4c4] hover:bg-[#229ca9] text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    اعتماد وحفظ العقد
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => { setShowAddModal(false); resetAddContractForm(); }}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl"
+                  className="w-full py-2.5 bg-white hover:bg-slate-50 text-slate-600 font-bold rounded-xl border border-slate-200"
                 >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 bg-[#29b4c4] hover:bg-[#229ca9] text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  اعتماد وحفظ العقد
+                  إغلاق
                 </button>
               </div>
             </form>
@@ -1597,8 +1606,8 @@ try {
 
       {/* EDIT CONTRACT MODAL */}
       {activeModal.type === 'edit' && activeModal.contract && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-4 sm:p-5 border border-slate-200 space-y-3 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <Edit3 className="w-5 h-5 text-[#29b4c4]" />
@@ -1615,7 +1624,7 @@ try {
             </div>
 
               <form onSubmit={handleSaveEdit} className="space-y-4 text-xs">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">Contract No</label>
                     <input
@@ -1637,7 +1646,7 @@ try {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">Unit #</label>
                     <input
@@ -1663,7 +1672,7 @@ try {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">Mobile</label>
                     <input
@@ -1695,7 +1704,7 @@ try {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">Monthly Rent</label>
                     <input
@@ -1730,7 +1739,7 @@ try {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">Water Meter Cost (Yearly)</label>
                     <input
@@ -1757,7 +1766,7 @@ try {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">Payment Number</label>
                     <input
@@ -1779,7 +1788,7 @@ try {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">Start Date</label>
                     <input
@@ -1801,7 +1810,7 @@ try {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="col-span-2">
                     <label className="block font-semibold text-slate-700 mb-1">مرفق العقد / Contract Attachment</label>
                     <MediaUploadField
@@ -1818,7 +1827,7 @@ try {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">Duration (Months)</label>
                     <input
@@ -1853,7 +1862,7 @@ try {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   
 
                   <div>
@@ -1871,7 +1880,7 @@ try {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">English Notes</label>
                     <textarea
@@ -1894,7 +1903,7 @@ try {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="bg-[#29b4c4]/10 border border-[#29b4c4]/30 rounded-xl p-3 flex items-center justify-between">
                     <span className="font-semibold text-slate-700">إجمالي الإيجار (الوحدة + المياه)</span>
                     <span className="font-mono font-bold text-[#0e7a87] text-lg">
@@ -1909,7 +1918,7 @@ try {
                   </div>
                 </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Start Date</label>
                   <input
@@ -1932,20 +1941,29 @@ try {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 pt-3">
+              <div className="space-y-2 pt-3 border-t border-slate-100">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal({ type: null, contract: null })}
+                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 bg-[#29b4c4] hover:bg-[#229ca9] text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    حفظ التعديلات
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => setActiveModal({ type: null, contract: null })}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl"
+                  className="w-full py-2.5 bg-white hover:bg-slate-50 text-slate-600 font-bold rounded-xl border border-slate-200"
                 >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 bg-[#29b4c4] hover:bg-[#229ca9] text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  حفظ التعديلات
+                  إغلاق
                 </button>
               </div>
             </form>
@@ -1955,8 +1973,8 @@ try {
 
       {/* DETAILS MODAL */}
       {activeModal.type === 'details' && activeModal.contract && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6 border border-slate-200 space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[92vh] overflow-y-auto p-4 sm:p-6 border border-slate-200 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <Eye className="w-5 h-5 text-[#29b4c4]" />
@@ -2056,9 +2074,9 @@ try {
 
       {/* RENT LEDGER MODAL */}
       {activeModal.type === 'ledger' && activeModal.contract && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full p-6 border border-slate-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full p-4 sm:p-6 border border-slate-200 max-h-[92vh] overflow-y-auto">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
               <div className="flex items-center gap-2">
                 <History className="w-5 h-5 text-[#29b4c4]" />
                 <h3 className="font-bold text-lg">{language==='ar'?'كشف حساب العقد':'Contract Rent Ledger'} - {activeModal.contract.contractNo}</h3>
@@ -2171,8 +2189,8 @@ try {
             };
           });
           return (
-            <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-              <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-4 border border-slate-200 space-y-2 my-4 max-h-[90vh] overflow-y-auto">
+            <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-4 sm:p-5 border border-slate-200 space-y-2 my-0 sm:my-4 max-h-[92vh] overflow-y-auto">
 
                 {/* Header like attachment */}
                 <div className="flex items-start justify-between border-b border-slate-100 pb-3">
@@ -2408,8 +2426,8 @@ try {
 
       {/* NOTES MODAL */}
       {activeModal.type === 'notes' && activeModal.contract && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[92vh] overflow-y-auto p-4 sm:p-6 border border-slate-200 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-indigo-600" />
@@ -2426,7 +2444,7 @@ try {
             </div>
 
             <div className="space-y-3 text-xs">
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="text"
                   placeholder="أضف ملاحظة إدارية جديدة للعقد..."
@@ -2464,8 +2482,8 @@ try {
 
       {/* UNIT HISTORY MODAL */}
       {activeModal.type === 'unit_history' && activeModal.contract && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[92vh] overflow-y-auto p-4 sm:p-6 border border-slate-200 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <History className="w-5 h-5 text-blue-600" />
@@ -2505,8 +2523,8 @@ try {
 
       {/* TENANT HISTORY MODAL */}
       {activeModal.type === 'tenant_history' && activeModal.contract && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[92vh] overflow-y-auto p-4 sm:p-6 border border-slate-200 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <User className="w-5 h-5 text-violet-600" />
@@ -2540,8 +2558,8 @@ try {
 
       {/* PRINT FORMAL CONTRACT MODAL */}
       {activeModal.type === 'print' && activeModal.contract && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-8 border border-slate-300 space-y-6 text-slate-900 my-8">
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-4 sm:p-8 border border-slate-300 space-y-6 text-slate-900 my-4 sm:my-8">
             <div className="flex items-center justify-between border-b-2 border-slate-900 pb-4">
               <AzharLogo variant="dark" size="lg" />
               <div className="text-left dir-ltr">

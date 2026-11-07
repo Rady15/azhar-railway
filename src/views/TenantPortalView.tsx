@@ -621,7 +621,7 @@ const ContractTab: React.FC<any> = ({ currentContract, ledger, installments, pay
       {installments.length > 0 && (
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-x-auto">
           <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2"><CalendarDays className="w-4 h-4 text-purple-500" />{t('جدول الدفعات', 'Installment Schedule')}</h3>
-          <table className="w-full text-xs"><thead><tr className="text-slate-500 border-b border-slate-200"><th className="py-2 text-start font-semibold">#</th><th className="py-2 text-start font-semibold">{t('تاريخ الاستحقاق', 'Due Date')}</th><th className="py-2 text-start font-semibold">{t('المبلغ', 'Amount')}</th><th className="py-2 text-start font-semibold">{t('المدفوع', 'Paid')}</th><th className="py-2 text-start font-semibold">{t('الحالة', 'Status')}</th></tr></thead>
+          <table className="w-full text-xs min-w-[640px]"><thead><tr className="text-slate-500 border-b border-slate-200"><th className="py-2 text-start font-semibold">#</th><th className="py-2 text-start font-semibold">{t('تاريخ الاستحقاق', 'Due Date')}</th><th className="py-2 text-start font-semibold">{t('المبلغ', 'Amount')}</th><th className="py-2 text-start font-semibold">{t('المدفوع', 'Paid')}</th><th className="py-2 text-start font-semibold">{t('الحالة', 'Status')}</th></tr></thead>
             <tbody>{installments.map((inst: any, i: number) => (
               <tr key={inst.id || i} className="border-b border-slate-100 hover:bg-slate-50">
                 <td className="py-2 text-slate-400 font-mono">{inst.installmentNo || i + 1}</td>
@@ -638,7 +638,7 @@ const ContractTab: React.FC<any> = ({ currentContract, ledger, installments, pay
       {payments.length > 0 && (
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm overflow-x-auto">
           <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2"><CreditCard className="w-4 h-4 text-cyan-500" />{t('سجل المدفوعات', 'Payment History')}</h3>
-          <table className="w-full text-xs"><thead><tr className="text-slate-500 border-b border-slate-200"><th className="py-2 text-start font-semibold">{t('رقم الإيصال', 'Receipt')}</th><th className="py-2 text-start font-semibold">{t('التاريخ', 'Date')}</th><th className="py-2 text-start font-semibold">{t('المبلغ', 'Amount')}</th><th className="py-2 text-start font-semibold">{t('الطريقة', 'Method')}</th><th className="py-2 text-start font-semibold">{t('الحالة', 'Status')}</th></tr></thead>
+          <table className="w-full text-xs min-w-[640px]"><thead><tr className="text-slate-500 border-b border-slate-200"><th className="py-2 text-start font-semibold">{t('رقم الإيصال', 'Receipt')}</th><th className="py-2 text-start font-semibold">{t('التاريخ', 'Date')}</th><th className="py-2 text-start font-semibold">{t('المبلغ', 'Amount')}</th><th className="py-2 text-start font-semibold">{t('الطريقة', 'Method')}</th><th className="py-2 text-start font-semibold">{t('الحالة', 'Status')}</th></tr></thead>
             <tbody>{payments.map((p: any) => (
               <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50">
                 <td className="py-2 font-mono text-cyan-500">{p.receiptNo}</td>
@@ -719,13 +719,13 @@ const MaintenanceTab: React.FC<any> = ({ myMaintenance, currentTenant, currentCo
       )}
 
       {showModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full max-h-[92vh] overflow-y-auto shadow-2xl">
             <div className="bg-gradient-to-r from-slate-900 to-cyan-800 p-4 border-b border-slate-200 flex items-center justify-between text-white">
               <div className="flex items-center gap-2"><Wrench className="w-5 h-5 text-cyan-300" /><h3 className="font-bold text-sm">{t('طلب صيانة جديد', 'New Maintenance Request')}</h3></div>
               <button onClick={() => setShowModal(false)} className="text-slate-300 hover:text-white"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs text-slate-700">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 text-xs text-slate-700">
               <div><label className="block text-slate-600 font-semibold mb-1">{t('التصنيف', 'Category')}</label>
                 <select value={category} onChange={e => setCategory(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#29b4c4]">
                   {['سباكة ومياه', 'كهرباء وتكييف', 'أجهزة ومطبخ', 'أبواب وأقفال', 'دهانات وديكور'].map(c => <option key={c} value={c}>{c}</option>)}
@@ -813,13 +813,13 @@ const ComplaintsTab: React.FC<any> = ({ myComplaints, currentTenant, currentCont
       )}
 
       {showModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full max-h-[92vh] overflow-y-auto shadow-2xl">
             <div className="bg-gradient-to-r from-slate-900 to-amber-700 p-4 flex items-center justify-between text-white">
               <div className="flex items-center gap-2"><MessageSquareWarning className="w-5 h-5 text-amber-300" /><h3 className="font-bold text-sm">{t('بلاغ جديد', 'New Complaint')}</h3></div>
               <button onClick={() => setShowModal(false)} className="text-slate-300 hover:text-white"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs text-slate-700">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 text-xs text-slate-700">
               <div><label className="block text-slate-600 font-semibold mb-1">{t('نوع البلاغ', 'Category')}</label>
                 <select value={category} onChange={e => setCategory(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500">
                   {['إزعاج وضوضاء', 'مواقف السيارات', 'نظافة الممرات', 'أمن المجمع', 'خدمات المسبح'].map(c => <option key={c} value={c}>{c}</option>)}
@@ -877,8 +877,8 @@ const LettersTab: React.FC<any> = ({ letters, language, t }) => {
         </div>
       )}
       {viewLetter && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full max-h-[92vh] overflow-y-auto shadow-2xl">
             <div className="bg-gradient-to-r from-slate-900 to-purple-800 p-4 flex items-center justify-between text-white">
               <div className="flex items-center gap-2"><FileText className="w-5 h-5 text-purple-300" /><h3 className="font-bold text-sm">{viewLetter.title}</h3></div>
               <button onClick={() => setViewLetter(null)} className="text-slate-300 hover:text-white"><X className="w-5 h-5" /></button>
@@ -968,15 +968,15 @@ const FacilitiesTab: React.FC<any> = ({ facilities, currentTenant, myBookings, l
       )}
 
       {selectedFacility && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full max-h-[92vh] overflow-y-auto shadow-2xl">
             <div className="bg-gradient-to-r from-slate-900 to-purple-800 p-4 flex items-center justify-between text-white">
               <div className="flex items-center gap-2"><CalendarDays className="w-5 h-5 text-purple-300" /><div><h3 className="font-bold text-sm">{t('حجز مرفق', 'Book Facility')}</h3><p className="text-[11px] text-slate-300">{selectedFacility.name || selectedFacility.title}</p></div></div>
               <button onClick={() => setSelectedFacility(null)} className="text-slate-300 hover:text-white"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleBook} className="p-5 space-y-4 text-xs text-slate-700">
+            <form onSubmit={handleBook} className="p-4 sm:p-5 space-y-4 text-xs text-slate-700">
               <div><label className="block text-slate-600 font-semibold mb-1">{t('التاريخ', 'Date')}</label><input type="date" required value={bookingDate} onChange={e => setBookingDate(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500" /></div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><label className="block text-slate-600 font-semibold mb-1">{t('من', 'Start')}</label><input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500" /></div>
                 <div><label className="block text-slate-600 font-semibold mb-1">{t('إلى', 'End')}</label><input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500" /></div>
               </div>

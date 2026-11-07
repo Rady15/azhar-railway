@@ -63,8 +63,8 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
+    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[92vh] overflow-y-auto border border-slate-200">
         {/* Modal Header */}
         <div className="bg-[#2b3038] px-6 py-4 flex items-center justify-between text-white">
           <div className="flex items-center gap-2">
@@ -216,20 +216,29 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-3 pt-2">
+          <div className="space-y-2 pt-2 border-t border-slate-100">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl"
+              >
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </button>
+              <button
+                type="submit"
+                className="flex-1 py-2.5 bg-[#29b4c4] hover:bg-[#1f9bad] text-white font-semibold rounded-xl flex items-center justify-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                {language === 'ar' ? 'حفظ التغييرات' : 'Save Changes'}
+              </button>
+            </div>
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl"
+              className="w-full py-2.5 bg-white hover:bg-slate-50 text-slate-600 font-semibold rounded-xl border border-slate-200"
             >
-              {language === 'ar' ? 'إلغاء' : 'Cancel'}
-            </button>
-            <button
-              type="submit"
-              className="flex-1 py-2.5 bg-[#29b4c4] hover:bg-[#1f9bad] text-white font-semibold rounded-xl flex items-center justify-center gap-2"
-            >
-              <Save className="w-4 h-4" />
-              {language === 'ar' ? 'حفظ التغييرات' : 'Save Changes'}
+              {language === 'ar' ? 'إغلاق' : 'Close'}
             </button>
           </div>
         </form>

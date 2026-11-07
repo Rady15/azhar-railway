@@ -402,8 +402,8 @@ export const ComplaintsView: React.FC<ComplaintsViewProps> = ({
 
       {/* Reply & Edit Status Modal */}
       {replyComplaint && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[92vh] overflow-y-auto p-4 sm:p-5 shadow-2xl border border-slate-200 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-blue-600" />
@@ -453,20 +453,29 @@ export const ComplaintsView: React.FC<ComplaintsViewProps> = ({
                 />
               </div>
 
-              <div className="flex items-center gap-3 pt-2">
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setReplyComplaint(null)}
+                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl"
+                  >
+                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    {language === 'ar' ? 'حفظ وإرسال الرد' : 'Save & Send Reply'}
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => setReplyComplaint(null)}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl"
+                  className="w-full py-2.5 bg-white hover:bg-slate-50 text-slate-600 font-semibold rounded-xl border border-slate-200"
                 >
-                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl flex items-center justify-center gap-2"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  {language === 'ar' ? 'حفظ وإرسال الرد' : 'Save & Send Reply'}
+                  {language === 'ar' ? 'إغلاق' : 'Close'}
                 </button>
               </div>
             </form>
@@ -476,8 +485,8 @@ export const ComplaintsView: React.FC<ComplaintsViewProps> = ({
 
       {/* Add Complaint Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[92vh] overflow-y-auto p-4 sm:p-5 shadow-xl border border-slate-200 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <MessageSquareWarning className="w-5 h-5 text-rose-600" />
@@ -506,7 +515,7 @@ export const ComplaintsView: React.FC<ComplaintsViewProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'المبنى' : 'Building'}</label>
                   <input
@@ -539,7 +548,7 @@ export const ComplaintsView: React.FC<ComplaintsViewProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'التصنيف' : 'Category'}</label>
                   <select
@@ -587,20 +596,29 @@ export const ComplaintsView: React.FC<ComplaintsViewProps> = ({
                 onClear={()=>{setNewAttachmentUrl('');setNewAttachmentName('');}}
               />
 
-              <div className="flex items-center gap-3 pt-2">
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(false)}
+                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl"
+                  >
+                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    {language === 'ar' ? 'حفظ البلاغ' : 'Save Ticket'}
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl"
+                  className="w-full py-2.5 bg-white hover:bg-slate-50 text-slate-600 font-semibold rounded-xl border border-slate-200"
                 >
-                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl flex items-center justify-center gap-2"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  {language === 'ar' ? 'حفظ البلاغ' : 'Save Ticket'}
+                  {language === 'ar' ? 'إغلاق' : 'Close'}
                 </button>
               </div>
             </form>

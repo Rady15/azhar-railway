@@ -386,8 +386,8 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
 
       {/* Add Expense Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[92vh] overflow-y-auto p-4 sm:p-5 shadow-xl border border-slate-200 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <Receipt className="w-5 h-5 text-amber-600" />
@@ -414,7 +414,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'الفئة' : 'Category'}</label>
                   <select
@@ -448,7 +448,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                   <span className="text-[10px] text-slate-500">{language === 'ar' ? '(اختياري)' : '(optional)'}</span>
                 </label>
                 {newIsTaxable && (
-                  <div className="grid grid-cols-2 gap-2 items-end">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-end">
                     <div>
                       <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'نسبة الضريبة (%)' : 'Tax Rate (%)'}</label>
                       <input type="number" min="0" max="100" step="0.01" required value={newTaxRate} onChange={(e) => setNewTaxRate(Number(e.target.value))} className="w-full px-3 py-2 bg-white border border-amber-300 rounded-xl" />
@@ -466,7 +466,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                 <span className="text-lg font-extrabold text-slate-900 font-mono">{calculatedTotal.toLocaleString()} {language === 'ar' ? 'ر.س' : 'SAR'}</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'المستفيد / المورد' : 'Recipient'}</label>
                   <input
@@ -509,21 +509,30 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                 />
               </div>
 
-              <div className="flex items-center gap-3 pt-2">
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(false)}
+                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl"
+                  >
+                    {language === 'ar' ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-xl flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    {isSaving ? (language === 'ar' ? 'جارٍ الحفظ...' : 'Saving...') : editingExpense ? (language === 'ar' ? 'حفظ التعديلات' : 'Save Changes') : (language === 'ar' ? 'حفظ وإصدار السند' : 'Issue Voucher')}
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl"
+                  className="w-full py-2.5 bg-white hover:bg-slate-50 text-slate-600 font-semibold rounded-xl border border-slate-200"
                 >
-                  {language === 'ar' ? 'إلغاء' : 'Cancel'}
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-xl flex items-center justify-center gap-2"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  {isSaving ? (language === 'ar' ? 'جارٍ الحفظ...' : 'Saving...') : editingExpense ? (language === 'ar' ? 'حفظ التعديلات' : 'Save Changes') : (language === 'ar' ? 'حفظ وإصدار السند' : 'Issue Voucher')}
+                  {language === 'ar' ? 'إغلاق' : 'Close'}
                 </button>
               </div>
             </form>

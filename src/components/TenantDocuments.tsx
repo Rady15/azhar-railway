@@ -109,9 +109,9 @@ export const TenantDocumentsModal: React.FC<{
   const ar = language === 'ar';
   if (!tenant) return null;
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[80] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="bg-[#2b3038] px-6 py-4 flex items-center justify-between text-white">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[80] flex items-center justify-center p-3 sm:p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden max-h-[92vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-[#2b3038] px-4 sm:px-6 py-4 flex items-center justify-between gap-2 text-white">
           <div className="flex items-center gap-2">
             <FolderOpen className="w-5 h-5 text-[#29b4c4]" />
             <div>
@@ -123,7 +123,7 @@ export const TenantDocumentsModal: React.FC<{
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
           </button>
         </div>
-        <div className="p-6 overflow-y-auto">
+        <div className="p-4 sm:p-6 overflow-y-auto">
           <TenantDocuments tenant={tenant} contracts={contracts} />
         </div>
       </div>

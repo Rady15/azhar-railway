@@ -46,10 +46,10 @@ export const ContractNotesModal: React.FC<ContractNotesModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 my-auto">
+    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[92vh] overflow-hidden border border-slate-200 my-auto flex flex-col">
         {/* Header */}
-        <div className="bg-[#2b62af] px-6 py-3.5 flex items-center justify-between text-white">
+        <div className="bg-[#2b62af] px-4 sm:px-6 py-3.5 flex items-center justify-between gap-2 text-white">
           <div className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-cyan-300" />
             <h3 className="text-sm font-bold">
@@ -62,8 +62,8 @@ export const ContractNotesModal: React.FC<ContractNotesModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-5 space-y-4 text-xs text-slate-800">
-          <form onSubmit={handleAddNote} className="flex gap-2">
+        <div className="p-4 sm:p-5 space-y-4 text-xs text-slate-800 overflow-y-auto">
+          <form onSubmit={handleAddNote} className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"
               placeholder={language === 'ar' ? 'أدخل ملاحظة جديدة...' : 'Type a new note...'}
@@ -73,7 +73,7 @@ export const ContractNotesModal: React.FC<ContractNotesModalProps> = ({
             />
             <button
               type="submit"
-              className="px-4 py-2 bg-[#2b62af] hover:bg-[#224f8d] text-white font-bold rounded-xl text-xs flex items-center gap-1 shadow-sm"
+              className="px-4 py-2 bg-[#2b62af] hover:bg-[#224f8d] text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1 shadow-sm"
             >
               <Plus className="w-4 h-4" />
               {language === 'ar' ? 'إضافة' : 'Add'}

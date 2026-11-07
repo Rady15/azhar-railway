@@ -326,7 +326,8 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
       {/* Content Rendering: Buildings vs Units */}
       {mode === 'buildings' ? (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <table className="w-full text-right text-xs text-slate-700 border-collapse">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-right text-xs text-slate-700 border-collapse">
             <thead className="bg-[#2b62af] text-white uppercase text-[11px] font-semibold tracking-wider border-b border-blue-900 select-none">
               <tr>
                 <th className="py-3 px-4 border-r border-blue-600/40 w-12 text-center">#</th>
@@ -406,11 +407,12 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs text-slate-700 border-collapse">
+            <table className="w-full min-w-[900px] text-right text-xs text-slate-700 border-collapse">
               <thead className="bg-[#2b62af] text-white uppercase text-[11px] font-semibold tracking-wider border-b border-blue-900 select-none">
                 <tr>
                   <th className="py-3 px-3 w-10 text-center">#</th>
@@ -460,8 +462,8 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
 
       {/* Add Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[92vh] overflow-y-auto p-4 sm:p-5 border border-slate-200 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <Home className="w-5 h-5 text-[#29b4c4]" />
@@ -529,7 +531,7 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
                   <p className="text-slate-500">{language === 'ar' ? 'اسم المجمع (تلقائي)' : 'Compound (Automatic)'}</p>
                   <p className="font-bold text-[#0e7a87] mt-1">{selectedCompound.name}</p>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'نوع الوحدة' : 'Unit Type'}</label>
                     <select required value={unitType} onChange={(e) => setUnitType(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl">
@@ -542,11 +544,11 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
                     <input required value={unitNumber} onChange={(e) => setUnitNumber(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'عدد الغرف' : 'Rooms'}</label><input type="number" min="0" value={rooms || ''} onChange={(e) => setRooms(Number(e.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" /></div>
                   <div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'عدد الحمامات' : 'Bathrooms'}</label><input type="number" min="0" value={baths || ''} onChange={(e) => setBaths(Number(e.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" /></div>
                 </div>
-                <div className="grid grid-cols-2 gap-3 items-end">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
                   <label className="flex items-center gap-2 font-semibold text-slate-700"><input type="checkbox" checked={isFurnished} onChange={(e) => setIsFurnished(e.target.checked)} className="w-4 h-4" />{language === 'ar' ? 'مفروشة' : 'Furnished'}</label>
                   <div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'الإيجار' : 'Rent'} (SAR)</label><input type="number" required min="0" value={annualRent || ''} onChange={(e) => setAnnualRent(Number(e.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold" /></div>
                 </div>
@@ -555,15 +557,22 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
                 <div className="flex items-center gap-3 pt-3"><button type="button" onClick={() => { setShowAddModal(false); resetAddUnitForm(); }} className="flex-1 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl">{language === 'ar' ? 'إلغاء' : 'Cancel'}</button><button type="submit" className="flex-1 py-2.5 bg-[#29b4c4] text-white font-semibold rounded-xl shadow-md">{language === 'ar' ? 'حفظ الوحدة' : 'Save Unit'}</button></div>
               </form>
             )}
+            <button
+              type="button"
+              onClick={() => { setShowAddModal(false); if (mode !== 'buildings') resetAddUnitForm(); }}
+              className="w-full py-2.5 bg-white hover:bg-slate-50 text-slate-600 font-semibold rounded-xl border border-slate-200 text-xs"
+            >
+              {language === 'ar' ? 'إغلاق' : 'Close'}
+            </button>
           </div>
         </div>
       )}
 
       {/* Details Modal */}
       {viewingUnit && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setViewingUnit(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="bg-[#2b3038] px-6 py-4 flex items-center justify-between text-white">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4" onClick={() => setViewingUnit(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden max-h-[92vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-[#2b3038] px-4 sm:px-6 py-4 flex items-center justify-between text-white">
               <div className="flex items-center gap-2">
                 <Eye className="w-5 h-5 text-[#29b4c4]" />
                 <h3 className="text-base font-bold">
@@ -574,11 +583,11 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-6 space-y-5 text-xs overflow-y-auto">
+            <div className="p-4 sm:p-6 space-y-5 text-xs overflow-y-auto">
               {(viewingUnit as any).imageUrl && (
-                <img src={mediaSrc((viewingUnit as any).imageUrl)} alt={viewingUnit.unitNumber} className="w-full h-56 md:h-72 object-cover rounded-2xl border border-slate-200" />
+                <img src={mediaSrc((viewingUnit as any).imageUrl)} alt={viewingUnit.unitNumber} className="w-full h-40 sm:h-56 md:h-72 object-cover rounded-2xl border border-slate-200" />
               )}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
                   <p className="text-slate-500 mb-1">{language === 'ar' ? 'المجمع' : 'Compound'}</p>
                   <p className="font-bold text-slate-900">{viewingUnit.compoundName}</p>
@@ -684,8 +693,8 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
 
       {/* Edit Modal */}
       {editingUnit && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[92vh] overflow-y-auto p-4 sm:p-5 border border-slate-200 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <Pencil className="w-5 h-5 text-[#29b4c4]" />
@@ -703,15 +712,18 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
                 onUploaded={({url}) => setEditUnitImage(url)}
                 onClear={() => setEditUnitImage('')}
               />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'نوع الوحدة' : 'Unit Type'}</label><select required value={editUnitType} onChange={(e) => setEditUnitType(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"><option value="Villa Duplex">Villa Duplex</option><option value="Apartment">Apartment</option><option value="Warehouse">Warehouse</option></select></div>
                 <div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'رقم الوحدة' : 'Unit Number'}</label><input required value={editUnitNumber} onChange={(e) => setEditUnitNumber(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" /></div>
               </div>
-              <div className="grid grid-cols-2 gap-3"><div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'عدد الغرف' : 'Rooms'}</label><input type="number" min="0" value={editRooms} onChange={(e) => setEditRooms(Number(e.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" /></div><div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'عدد الحمامات' : 'Bathrooms'}</label><input type="number" min="0" value={editBaths} onChange={(e) => setEditBaths(Number(e.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" /></div></div>
-              <div className="grid grid-cols-2 gap-3 items-end"><label className="flex items-center gap-2 font-semibold text-slate-700"><input type="checkbox" checked={editIsFurnished} onChange={(e) => setEditIsFurnished(e.target.checked)} className="w-4 h-4" />{language === 'ar' ? 'مفروشة' : 'Furnished'}</label><div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'الإيجار' : 'Rent'} (SAR)</label><input type="number" min="0" value={editAnnualRent} onChange={(e) => setEditAnnualRent(Number(e.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold" /></div></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'عدد الغرف' : 'Rooms'}</label><input type="number" min="0" value={editRooms} onChange={(e) => setEditRooms(Number(e.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" /></div><div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'عدد الحمامات' : 'Bathrooms'}</label><input type="number" min="0" value={editBaths} onChange={(e) => setEditBaths(Number(e.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" /></div></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end"><label className="flex items-center gap-2 font-semibold text-slate-700"><input type="checkbox" checked={editIsFurnished} onChange={(e) => setEditIsFurnished(e.target.checked)} className="w-4 h-4" />{language === 'ar' ? 'مفروشة' : 'Furnished'}</label><div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'الإيجار' : 'Rent'} (SAR)</label><input type="number" min="0" value={editAnnualRent} onChange={(e) => setEditAnnualRent(Number(e.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold" /></div></div>
               <div><label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'الملاحظات' : 'Notes'}</label><textarea value={editUnitNotes} onChange={(e) => setEditUnitNotes(e.target.value)} rows={3} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl resize-none" /></div>
               <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-slate-500">{language === 'ar' ? `عداد الكهرباء المرتبط: ${editingUnit?.electricityMeterNumber || 'غير مربوط'}` : `Linked electricity meter: ${editingUnit?.electricityMeterNumber || 'Not linked'}`}</div>
-              <div className="flex items-center gap-3 pt-3"><button type="button" onClick={() => setEditingUnit(null)} className="flex-1 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl">{language === 'ar' ? 'إلغاء' : 'Cancel'}</button><button type="submit" className="flex-1 py-2.5 bg-[#29b4c4] text-white font-semibold rounded-xl shadow-md">{language === 'ar' ? 'حفظ التغييرات' : 'Save Changes'}</button></div>
+              <div className="space-y-2 pt-3 border-t border-slate-100">
+                <div className="flex items-center gap-3"><button type="button" onClick={() => setEditingUnit(null)} className="flex-1 py-2.5 bg-slate-100 text-slate-700 font-semibold rounded-xl">{language === 'ar' ? 'إلغاء' : 'Cancel'}</button><button type="submit" className="flex-1 py-2.5 bg-[#29b4c4] text-white font-semibold rounded-xl shadow-md">{language === 'ar' ? 'حفظ التغييرات' : 'Save Changes'}</button></div>
+                <button type="button" onClick={() => setEditingUnit(null)} className="w-full py-2.5 bg-white hover:bg-slate-50 text-slate-600 font-semibold rounded-xl border border-slate-200">{language === 'ar' ? 'إغلاق' : 'Close'}</button>
+              </div>
             </form>
           </div>
         </div>
@@ -720,7 +732,7 @@ export const CompoundUnits: React.FC<CompoundUnitsProps> = ({
       {/* Delete Confirmation Modal */}
       {deletingUnit && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDeletingUnit(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 border border-slate-200 text-center" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-4 sm:p-6 border border-slate-200 text-center" onClick={(e) => e.stopPropagation()}>
             <div className="w-12 h-12 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-3">
               <Trash2 className="w-6 h-6 text-rose-600" />
             </div>

@@ -328,8 +328,8 @@ export const FacilitiesView: React.FC<FacilitiesViewProps> = ({
 
       {/* Add/Edit Facility Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[92vh] overflow-y-auto p-4 sm:p-5 shadow-2xl border border-slate-200 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-[#29b4c4]" />
@@ -340,7 +340,7 @@ export const FacilitiesView: React.FC<FacilitiesViewProps> = ({
               <button onClick={() => { setShowModal(false); setEditing(null); }} className="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'الاسم (عربي)' : 'Name (AR)'}</label>
                   <input required value={fName} onChange={e => setFName(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" />
@@ -350,7 +350,7 @@ export const FacilitiesView: React.FC<FacilitiesViewProps> = ({
                   <input value={fNameEn} onChange={e => setFNameEn(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'الفئة' : 'Category'}</label>
                   <select value={fCategory} onChange={e => setFCategory(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-medium">
@@ -369,7 +369,7 @@ export const FacilitiesView: React.FC<FacilitiesViewProps> = ({
                 onUploaded={({url,id}) => { setFImage(url); setFImageMediaId(id); }}
                 onClear={() => { setFImage(''); setFImageMediaId(''); }}
               />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">{language === 'ar' ? 'ساعات العمل' : 'Operating Hours'}</label>
                   <input value={fHours} onChange={e => setFHours(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl" />
@@ -387,9 +387,12 @@ export const FacilitiesView: React.FC<FacilitiesViewProps> = ({
                 <input type="checkbox" checked={fAvailable} onChange={e => setFAvailable(e.target.checked)} className="w-4 h-4 accent-[#29b4c4]" />
                 <span className="font-semibold text-slate-700">{language === 'ar' ? 'متاح للحجز' : 'Available for booking'}</span>
               </label>
-              <div className="flex items-center gap-3 pt-2">
-                <button type="button" onClick={() => { setShowModal(false); setEditing(null); }} className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl">{language === 'ar' ? 'إلغاء' : 'Cancel'}</button>
-                <button type="submit" className="flex-1 py-2.5 bg-[#29b4c4] hover:bg-[#229ca9] text-white font-semibold rounded-xl">{language === 'ar' ? 'حفظ' : 'Save'}</button>
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <div className="flex items-center gap-3">
+                  <button type="button" onClick={() => { setShowModal(false); setEditing(null); }} className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl">{language === 'ar' ? 'إلغاء' : 'Cancel'}</button>
+                  <button type="submit" className="flex-1 py-2.5 bg-[#29b4c4] hover:bg-[#229ca9] text-white font-semibold rounded-xl">{language === 'ar' ? 'حفظ' : 'Save'}</button>
+                </div>
+                <button type="button" onClick={() => { setShowModal(false); setEditing(null); }} className="w-full py-2.5 bg-white hover:bg-slate-50 text-slate-600 font-semibold rounded-xl border border-slate-200">{language === 'ar' ? 'إغلاق' : 'Close'}</button>
               </div>
             </form>
           </div>

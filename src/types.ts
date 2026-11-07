@@ -66,6 +66,9 @@ export interface Tenant {
   password?: string;
   nationality?: string;
   familyCount?: string | number;
+  familyMembers?: Array<{ isActive?: boolean; [key: string]: any }>;
+  familyMemberCount?: number;
+  familyCountVerified?: boolean;
   workNotes?: string;
   isMarried?: boolean;
   companyName?: string;
